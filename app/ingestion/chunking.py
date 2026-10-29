@@ -1,0 +1,54 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Optional
+
+from ..core import Unit
+
+
+@dataclass
+class Chunk:
+    text: str
+    loc: dict
+    loc_end: Optional[dict] = None
+
+
+def _windows(text: str, size: int, overlap: int) -> list[str]:
+    out, i, n = [], 0, len(text)
+    while i < n:
+        end = min(i + size, n)
+        if end < n:  # prefer breaking on whitespace
+            cut = text.rfind(" ", i + size // 2, end)
+            end = cut if cut > i else end
+        out.append(text[i:end].strip())
+        if end >= n:
+            break
+        i = max(end - overlap, i + 1)
+    return [w for w in out if w]
+
+
+def chunk_units(units: list[Unit], size: int = 1000, overlap: int = 150) -> list[Chunk]:
+    """Merge small adjacent units (e.g. table rows) up to `size`; split oversized units with overlap.
+    A chunk always starts/ends on unit boundaries, so its location range is exact."""
+    chunks: list[Chunk] = []
+    buf: list[Unit] = []
+    blen = 0
+
+    def flush():
+        nonlocal buf, blen
+        if buf:
+            chunks.append(Chunk("\n".join(u.text for u in buf), buf[0].loc, buf[-1].loc if len(buf) > 1 else None))
+        buf, blen = [], 0
+
+    for u in units:
+        if len(u.text) > size:
+            flush()
+            chunks.extend(Chunk(w, u.loc) for w in _windows(u.text, size, overlap))
+            continue
+        # never merge across pages: a citation must point at exactly one page
+        if blen + len(u.text) + 1 > size or (buf and buf[-1].loc.get("page") != u.loc.get("page")):
+            flush()
+        buf.append(u)
+        blen += len(u.text) + 1
+    flush()
+    return chunks
