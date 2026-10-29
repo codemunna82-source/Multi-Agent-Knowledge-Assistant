@@ -82,3 +82,8 @@ def test_chroma_backend(tmp_path):
     assert "24 months" in ask(c, "How long is the warranty?")["answer"]
     c.delete(f"/sources/{sid}", headers={"X-Session-ID": "s1"})
     assert ask(c, "How long is the warranty?")["verified"] is False
+
+
+def test_ui_served(client):
+    r = client.get("/")
+    assert r.status_code == 200 and "Knowledge Assistant" in r.text and "frame-ancestors" in r.headers["content-security-policy"]

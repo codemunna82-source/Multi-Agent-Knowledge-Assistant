@@ -13,7 +13,7 @@ from typing import Optional
 
 import httpx
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from .agent import Assistant
 from .config import Settings, get_settings
@@ -78,6 +78,10 @@ def create_app(settings: Optional[Settings] = None, knowledge: Optional[Knowledg
         d = {**meta, "tables": meta.get("tables")}
         d["needs_reindex"] = meta.get("embedding") != k.embedder.name
         return SourceInfo(**{f: d.get(f) for f in SourceInfo.model_fields if f in d})
+
+    @app.get("/", include_in_schema=False)
+    def ui():
+        return FileResponse(Path(__file__).parent / "static" / "index.html", headers={"Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; frame-ancestors 'none'"})
 
     @app.get("/health", tags=["system"])
     def health():

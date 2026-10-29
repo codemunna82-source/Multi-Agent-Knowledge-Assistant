@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Knowledge Assistant</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --fg:#1d2330; --muted:#6b7385; --line:#e2e5ec; --accent:#3b5bdb; --ok:#2b8a3e; --warn:#e8590c; --bad:#c92a2a; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#14171f; --card:#1d222d; --fg:#e6e9f0; --muted:#98a1b5; --line:#2c3342; --accent:#7c93ff; --ok:#51cf66; --warn:#ffa94d; --bad:#ff8787; } }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--fg); }
+  .app { display:grid; grid-template-columns:320px 1fr; height:100vh; }
+  @media (max-width:760px) { .app { grid-template-columns:1fr; height:auto; } }
+  aside { background:var(--card); border-right:1px solid var(--line); padding:16px; overflow:auto; }
+  main { display:flex; flex-direction:column; min-height:0; height:100vh; }
+  @media (max-width:760px) { main { height:80vh; } }
+  h1 { font-size:17px; margin:0 0 12px; } h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:18px 0 8px; }
+  .drop { border:2px dashed var(--line); border-radius:10px; padding:16px; text-align:center; color:var(--muted); cursor:pointer; }
+  .drop.over { border-color:var(--accent); color:var(--accent); }
+  input[type=text], textarea { width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--fg); font:inherit; }
+  button { padding:8px 12px; border:0; border-radius:8px; background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--muted); padding:2px 6px; border:1px solid var(--line); font-size:12px; }
+  button:disabled { opacity:.5; cursor:default; }
+  .row { display:flex; gap:8px; }
+  .src { border:1px solid var(--line); border-radius:8px; padding:8px 10px; margin-bottom:8px; font-size:13px; }
+  .src .n { font-weight:600; word-break:break-all; } .src .m { color:var(--muted); font-size:12px; }
+  .src label { display:flex; gap:6px; align-items:flex-start; }
+  .status { font-size:12px; margin-top:6px; min-height:1em; } .status.err { color:var(--bad); }
+  #log { flex:1; overflow:auto; padding:20px; display:flex; flex-direction:column; gap:14px; }
+  .msg { max-width:820px; padding:12px 14px; border-radius:12px; background:var(--card); border:1px solid var(--line); white-space:pre-wrap; word-wrap:break-word; }
+  .msg.user { align-self:flex-end; background:var(--accent); color:#fff; border-color:var(--accent); }
+  .tag { display:inline-block; font-size:11px; padding:1px 8px; border-radius:99px; border:1px solid var(--line); margin-right:6px; color:var(--muted); }
+  .tag.high { color:var(--ok); } .tag.medium,.tag.low { color:var(--warn); } .tag.none { color:var(--bad); }
+  details { margin-top:8px; font-size:13px; } summary { cursor:pointer; color:var(--muted); }
+  .cite { border-left:3px solid var(--accent); padding:4px 10px; margin:6px 0; background:var(--bg); border-radius:0 6px 6px 0; }
+  .cite b { font-size:12px; } .cite div { color:var(--muted); font-size:13px; }
+  .lim { color:var(--muted); font-size:12px; margin-top:6px; }
+  form { display:flex; gap:8px; padding:14px 20px; border-top:1px solid var(--line); background:var(--card); }
+  .empty { color:var(--muted); text-align:center; margin:auto; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <h1>📚 Knowledge Assistant</h1>
+    <div class="drop" id="drop">Drop files here or click to choose<br><small>PDF, CSV, XLSX, DOCX, TXT, MD, JSON</small>
+      <input type="file" id="file" multiple hidden></div>
+    <h2>Web page</h2>
+    <div class="row"><input type="text" id="url" placeholder="https://…"><button id="addUrl">Add</button></div>
+    <div class="status" id="status"></div>
+    <h2>Sources <small id="count"></small></h2>
+    <div id="sources"></div>
+    <h2>Session</h2>
+    <div class="m" style="font-size:12px;color:var(--muted)">Your files are private to this session ID:<br><code id="sid"></code></div>
+    <div class="row" style="margin-top:8px"><button class="ghost" id="newSession">New session</button><button class="ghost" id="wipe">Delete everything</button></div>
+  </aside>
+  <main>
+    <div id="log"><div class="empty" id="hint">Add a document or URL, then ask a question.<br>Try: “Which employee has the highest sales?” or “Does John Smith appear?”</div></div>
+    <form id="form">
+      <textarea id="q" rows="1" placeholder="Ask about your sources…" required></textarea>
+      <button id="send">Ask</button>
+    </form>
+  </main>
+</div>
+<script>
+// All server/document text is inserted with textContent (never innerHTML): documents are untrusted.
+const $ = id => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+let sid = localStorage.getItem('mka_session') || ('s' + Math.random().toString(36).slice(2, 12));
+localStorage.setItem('mka_session', sid);
+const headers = (extra = {}) => ({ 'X-Session-ID': sid, ...extra });
+
+function setSession(id) { sid = id; localStorage.setItem('mka_session', id); $('sid').textContent = id; $('log').replaceChildren(hint); refresh(); }
+function status(msg, err) { const s = $('status'); s.textContent = msg; s.className = 'status' + (err ? ' err' : ''); }
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { ...opts, headers: headers(opts.headers) });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail || r.statusText));
+  return body;
+}
+
+const hint = $('hint');
+const selected = new Set();
+async function refresh() {
+  try {
+    const list = await api('/sources');
+    const box = $('sources'); box.replaceChildren();
+    $('count').textContent = list.length ? `(${list.length})` : '';
+    [...selected].forEach(id => { if (!list.some(s => s.id === id)) selected.delete(id); });
+    if (!list.length) box.append(el('div', 'm', 'Nothing indexed yet.'));
+    for (const s of list) {
+      const d = el('div', 'src'), lab = el('label'), cb = el('input'); cb.type = 'checkbox'; cb.checked = selected.has(s.id);
+      cb.onchange = () => { cb.checked ? selected.add(s.id) : selected.delete(s.id); };
+      const info = el('div'); info.append(el('div', 'n', s.name));
+      const bits = [s.kind.toUpperCase(), s.pages ? s.pages + ' pages' : null, s.chunks + ' chunks', s.needs_reindex ? 'needs reindex' : null].filter(Boolean);
+      info.append(el('div', 'm', bits.join(' · ')));
+      (s.warnings || []).forEach(w => info.append(el('div', 'm', '⚠ ' + w)));
+      lab.append(cb, info); d.append(lab);
+      const act = el('div', 'row'); act.style.marginTop = '6px';
+      const re = el('button', 'ghost', 'Re-index'), del = el('button', 'ghost', 'Delete');
+      re.onclick = async () => { re.disabled = true; try { const r = await api(`/sources/${s.id}/reindex`, { method: 'POST' }); status(r.status === 'ready' ? 'Re-indexed ' + s.name : r.error, r.status !== 'ready'); } catch (e) { status(e.message, true); } refresh(); };
+      del.onclick = async () => { if (!confirm('Delete ' + s.name + '?')) return; try { await api('/sources/' + s.id, { method: 'DELETE' }); } catch (e) { status(e.message, true); } refresh(); };
+      act.append(re, del); d.append(act); box.append(d);
+    }
+  } catch (e) { status(e.message, true); }
+}
+
+async function upload(files) {
+  if (!files.length) return;
+  const fd = new FormData(); [...files].forEach(f => fd.append('files', f));
+  status('Uploading and indexing…');
+  try {
+    const res = await api('/sources/upload', { method: 'POST', body: fd });
+    const bad = res.filter(r => r.status !== 'ready');
+    status(bad.length ? bad.map(b => `${b.name}: ${b.error}`).join(' | ') : `Indexed ${res.length} file(s).`, bad.length > 0);
+  } catch (e) { status(e.message, true); }
+  refresh();
+}
+const drop = $('drop');
+drop.onclick = () => $('file').click();
+$('file').onchange = e => { upload(e.target.files); e.target.value = ''; };
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); upload(e.dataTransfer.files); };
+
+$('addUrl').onclick = async () => {
+  const url = $('url').value.trim(); if (!url) return;
+  status('Fetching…');
+  try { const r = await api('/sources/url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+    status(r.status === 'ready' ? 'Indexed ' + url : r.error, r.status !== 'ready'); if (r.status === 'ready') $('url').value = '';
+  } catch (e) { status(e.message, true); }
+  refresh();
+};
+
+function addMsg(node) { hint.remove(); $('log').append(node); node.scrollIntoView({ block: 'end' }); return node; }
+
+function renderAnswer(r) {
+  const m = el('div', 'msg');
+  const head = el('div'); head.append(el('span', 'tag ' + r.confidence, 'confidence: ' + r.confidence), el('span', 'tag', r.route));
+  if (!r.verified) head.append(el('span', 'tag none', 'not verified'));
+  m.append(head, el('div', '', r.answer));
+  if (r.citations.length) {
+    const d = el('details'); d.open = r.citations.length <= 4; d.append(el('summary', '', `${r.citations.length} citation(s)`));
+    r.citations.forEach(c => { const x = el('div', 'cite'); x.append(el('b', '', `${c.source} — ${c.location}`), el('div', '', c.excerpt)); d.append(x); });
+    m.append(d);
+  }
+  if (r.limitations.length) m.append(el('div', 'lim', 'ℹ ' + r.limitations.join(' • ')));
+  return m;
+}
+
+$('form').onsubmit = async e => {
+  e.preventDefault();
+  const question = $('q').value.trim(); if (!question) return;
+  $('q').value = ''; $('send').disabled = true;
+  addMsg(el('div', 'msg user', question));
+  const wait = addMsg(el('div', 'msg', 'Thinking…'));
+  try {
+    const body = { question }; if (selected.size) body.source_ids = [...selected];
+    const r = await api('/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    wait.replaceWith(renderAnswer(r));
+  } catch (err) { wait.textContent = 'Error: ' + err.message; }
+  $('send').disabled = false; $('q').focus(); $('log').lastElementChild.scrollIntoView({ block: 'end' });
+};
+$('q').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('form').requestSubmit(); } };
+$('newSession').onclick = () => setSession('s' + Math.random().toString(36).slice(2, 12));
+$('wipe').onclick = async () => { if (!confirm('Delete ALL sources and history in this session?')) return; try { await api('/session', { method: 'DELETE' }); } catch (e) { status(e.message, true); } selected.clear(); setSession(sid); };
+$('sid').textContent = sid; refresh();
+</script>
+</body>
+</html>

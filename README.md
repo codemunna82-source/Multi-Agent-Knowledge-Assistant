@@ -9,7 +9,7 @@ Upload documents or give a public URL, ask questions in plain language, and get 
 ```bash
 pip install -r requirements.txt
 cp .env.example .env            # optional; works offline with defaults
-uvicorn app.main:app --reload   # docs at http://localhost:8000/docs
+uvicorn app.main:app --reload   # web UI: http://localhost:8000/   API docs: /docs
 pytest
 ```
 
