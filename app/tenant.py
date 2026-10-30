@@ -26,3 +26,9 @@ def web_policy(db: Database, tenant_id: str) -> WebPolicy:
     with db.session() as s:
         row = s.get(TenantSettings, tenant_id)
         return WebPolicy(bool(row.web_allowed), [d.lower() for d in (row.web_allowed_domains or [])]) if row else WebPolicy()
+
+
+def redact_stored_messages(db: Database, tenant_id: str) -> bool:
+    with db.session() as s:
+        row = s.get(TenantSettings, tenant_id)
+        return bool(row and row.redact_stored_messages)

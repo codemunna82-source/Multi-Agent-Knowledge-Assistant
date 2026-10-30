@@ -35,6 +35,7 @@ class RunCtx:
     opts: Any  # rag.Resolved
     history: list[dict] = field(default_factory=list)  # [{"question","answer","route","term"}] oldest->newest (bounded window)
     summary: Optional[str] = None  # rolling summary of older turns
+    notes: list = field(default_factory=list)  # user-saved memory notes relevant to this question (opt-in long-term memory)
     usage: Any = None
     t0: float = field(default_factory=time.perf_counter)
     _metas: Optional[list] = None

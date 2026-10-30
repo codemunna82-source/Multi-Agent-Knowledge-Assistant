@@ -113,13 +113,18 @@ class Agents:
         c, s = self.ctx(state), self.k.settings
         metas = c.sources(self.k)
         plan = None
-        if s.supervisor_mode == "llm" and self.k.llm.available:
+        if c.req.force_route:  # the caller chose the agent (API groups: web research, ...)
+            from .routing import extract_term
+
+            term, quoted = extract_term(state["question"]) if c.req.force_route in ("exact", "document_search") else (None, False)
+            plan = {"route": c.req.force_route, "why": "requested by client", "term": term, "quoted": quoted}
+        elif s.supervisor_mode == "llm" and self.k.llm.available:
             plan = llm_route(self.k.llm, state["question"], metas, s.web_enabled)
         method = "llm" if plan else "rules"
         plan = plan or rules_route(state["question"], metas, c.last, s.web_enabled)
         flags = scan_text(state["question"])
         why = plan.get("why", "")
-        parts = split_intents(state["question"]) if s.parallel_agents and plan["route"] != "web" else []
+        parts = split_intents(state["question"]) if s.parallel_agents and plan["route"] != "web" and not c.req.force_route else []
         if parts:
             subs = [rules_route(p, metas, c.last, s.web_enabled) for p in parts]
             if not any(sp["route"] == "exact" and not sp.get("term") for sp in subs):  # an unanswerable part would need a clarifying question: keep the single-agent path
@@ -153,6 +158,8 @@ class Agents:
             lang = language_name(detect_language(query))
             ev = "\n".join(f"[{e['i']}] " + wrap_untrusted(excerpt(e["context"], 1200), f"{e['source']}, {e['location']}") for e in evidence)
             hist = "".join(f"Earlier question: {t['question'][:200]}\n" for t in c.history[-2:])
+            if c.notes:  # user-saved notes: context only, never evidence and never cited
+                hist += "Notes the user asked to remember (preferences/context, NOT evidence; do not cite them): " + " | ".join(c.notes) + "\n"
             system = f"{ANSWER_SYSTEM} {SYSTEM_GUARD} Answer in {lang}."
             try:
                 return llm.complete(system, f"{hist}Question: {query}\n\n{ev}"), True, lim

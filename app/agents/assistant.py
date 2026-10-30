@@ -100,10 +100,10 @@ class Assistant:
         return out
 
     # ------------------------------------------------------------------ run
-    def _prepare(self, scope, req, principal, conversation_id, history, summary):
+    def _prepare(self, scope, req, principal, conversation_id, history, summary, notes=None):
         rid = uuid.uuid4().hex
         s = self.k.settings
-        ctx = RunCtx(scope=scope, principal=principal, req=req, opts=resolve(s, req.retrieval), history=(history or [])[-s.memory_turns:], summary=summary)
+        ctx = RunCtx(scope=scope, principal=principal, req=req, opts=resolve(s, req.retrieval), history=(history or [])[-s.memory_turns:], summary=summary, notes=list(notes or []))
         with self._lock:
             self._ctx[rid] = ctx
             tid = self.thread_id(scope, getattr(principal, "user_id", "anon"), conversation_id)
@@ -119,9 +119,9 @@ class Assistant:
         return resp
 
     def ask(self, scope: Scope, req: AskRequest, principal=None, conversation_id: str = "default", history: Optional[list[dict]] = None,
-            summary: Optional[str] = None) -> AskResponse:
+            summary: Optional[str] = None, notes: Optional[list[str]] = None) -> AskResponse:
         self.k.stats.questions += 1
-        rid, ctx, init, cfg = self._prepare(scope, req, principal, conversation_id, history, summary)
+        rid, ctx, init, cfg = self._prepare(scope, req, principal, conversation_id, history, summary, notes)
         ctx.usage = Usage()
         try:
             state = self.graph.invoke(init, cfg)
@@ -131,11 +131,11 @@ class Assistant:
                 self._ctx.pop(rid, None)
 
     def ask_stream(self, scope: Scope, req: AskRequest, principal=None, conversation_id: str = "default", history: Optional[list[dict]] = None,
-                   summary: Optional[str] = None) -> Iterator[dict]:
+                   summary: Optional[str] = None, notes: Optional[list[str]] = None) -> Iterator[dict]:
         """Yields {"type": "step"|"token"|"final"|"error", ...}. Steps are real graph progress; the answer text is then streamed in
         small pieces (provider-side token streaming is not implemented)."""
         self.k.stats.questions += 1
-        rid, ctx, init, cfg = self._prepare(scope, req, principal, conversation_id, history, summary)
+        rid, ctx, init, cfg = self._prepare(scope, req, principal, conversation_id, history, summary, notes)
         final: Optional[dict] = None
         ctx.usage = Usage()
         try:

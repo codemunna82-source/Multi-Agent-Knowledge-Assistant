@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -26,6 +26,8 @@ class AskRequest(BaseModel):
     whole_word: bool = True
     conversation_id: Optional[str] = Field(default=None, max_length=32, description="Continue this conversation (default: the user's latest one in the workspace)")
     retrieval: Optional["RetrievalOptions"] = Field(default=None, description="Per-request RAG strategy overrides (mode, rewrite, multi_query, hyde, rerank, filters, ...)")
+    incognito: bool = Field(default=False, description="Private question: no history is read, nothing is stored (no conversation, no messages, no memory notes used)")
+    force_route: Optional[Literal["exact", "data", "semantic", "document_search", "summarize", "compare", "web"]] = Field(default=None, description="Skip routing and use this agent")
 
 
 class AskResponse(BaseModel):
@@ -167,6 +169,12 @@ class ConversationOut(BaseModel):
     workspace: str
     title: str
     updated_at: str
+    memory_enabled: bool = True
+
+
+class ConversationPatch(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    memory_enabled: Optional[bool] = Field(default=None, description="False = private conversation: nothing is read from or stored in it from now on")
 
 
 class AuditOut(BaseModel):

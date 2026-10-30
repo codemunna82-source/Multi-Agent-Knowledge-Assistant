@@ -118,6 +118,9 @@ class Settings(BaseSettings):
     scheduler_interval_s: int = Field(default=3600, ge=10)  # python -m app.scheduler: how often maintenance tasks run
     finished_jobs_retention_days: int = Field(default=30, ge=1)
 
+    report_font: str = ""  # TTF path used for PDF reports ("" = bundled DejaVu Sans; Hindi/Arabic PDFs are not shaped by reportlab - use DOCX/XLSX)
+    report_max_mb: int = Field(default=25, ge=1)
+
     # --- security
     allow_private_urls: bool = False
     url_timeout: float = 15.0

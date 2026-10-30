@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import delete, func, select
 
-from ...db import AuditEvent, Conversation, EvalRun, Job, TenantSettings, User
+from ...db import AuditEvent, Conversation, EvalRun, Job, MemoryFact, RefreshToken, Report, TenantSettings, User
 from ... import maintenance
 from ...schemas import AuditOut, PurgeRequest, UserCreate, UserOut, UserUpdate
 from ...security.auth import hash_password
@@ -83,8 +83,16 @@ def delete_user(user_id: str, ctx: Ctx = Depends(require("manage_users"))):
             raise HTTPException(409, "Cannot remove the last active admin")
         for c in s.scalars(select(Conversation).where(Conversation.user_id == user_id)):
             s.delete(c)
+        s.execute(delete(MemoryFact).where(MemoryFact.user_id == user_id))
+        s.execute(delete(RefreshToken).where(RefreshToken.user_id == user_id))
+        reports = s.scalars(select(Report).where(Report.user_id == user_id)).all()
+        paths = [r.path for r in reports if r.path]
+        for r in reports:
+            s.delete(r)
         s.delete(u)
-    ctx.audit("delete_user", user_id)
+    for p in paths:
+        Path(p).unlink(missing_ok=True)
+    ctx.audit("delete_user", user_id, detail={"reports_deleted": len(paths)})
     return {"deleted": user_id}
 
 
@@ -134,6 +142,8 @@ def purge_tenant(body: PurgeRequest, ctx: Ctx = Depends(require("purge"))):
             s.delete(c)
         s.execute(delete(Job).where(Job.tenant_id == tid))
         s.execute(delete(EvalRun).where(EvalRun.tenant_id == tid))
+        s.execute(delete(Report).where(Report.tenant_id == tid))
+        s.execute(delete(MemoryFact).where(MemoryFact.tenant_id == tid))
     ctx.audit("purge_tenant_data", tid, detail={"sources_removed": removed})
     return {"purged": True, "sources_removed": removed}
 

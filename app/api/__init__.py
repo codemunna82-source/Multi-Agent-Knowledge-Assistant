@@ -20,7 +20,7 @@ from ..security.audit import Auditor
 from ..security.ratelimit import RateLimiter
 from ..service import Knowledge
 from .deps import Ctx, Services, get_principal, require
-from .routers import admin, analytics, auth, chat, evaluation, intel, jobs, sources
+from .routers import admin, analytics, auth, chat, features, memory, reports, evaluation, intel, jobs, sources
 
 log = logging.getLogger("mka")
 STATIC = Path(__file__).resolve().parent.parent / "static"
@@ -96,7 +96,7 @@ def create_app(settings: Optional[Settings] = None, knowledge: Optional[Knowledg
         log.info("request", extra={"request_id": rid, "path": request.url.path, "status": resp.status_code, "ms": round((time.perf_counter() - t0) * 1000, 1)})
         return resp
 
-    for r in (auth.router, analytics.router, sources.router, jobs.router, chat.router, intel.router, evaluation.router, admin.router):
+    for r in (auth.router, features.router, memory.router, reports.router, analytics.router, sources.router, jobs.router, chat.router, intel.router, evaluation.router, admin.router):
         app.include_router(r)
 
     @app.get("/metrics", tags=["system"], include_in_schema=False)
