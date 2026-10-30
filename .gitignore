@@ -5,3 +5,9 @@ data/
 .pytest_cache/
 .venv/
 chroma/
+
+frontend/node_modules/
+frontend/dist/
+_uploads/
+*.zip
+eval_report.*

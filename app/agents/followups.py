@@ -27,9 +27,11 @@ def _heuristic(state, draft) -> list[str]:
         out += ["Are there duplicate rows?"]
     elif cites:
         src = cites[0]["source"]
-        words = [w for w, _ in sorted(((w, len(w)) for w in {t for c in cites[:3] for t in re.findall(r"[A-Z][a-z]{3,}", c["excerpt"])}), key=lambda x: -x[1])][:2]
+        from ..intel.entities import entities_in
+
+        names = list(dict.fromkeys(v for c in cites[:3] for _, v in entities_in(c["excerpt"], ["NAME", "ORG"])))[:2]  # real people/organisations, not capitalised sentence starts
         out += [f"Summarize {src}"]
-        out += [f"Tell me more about {w}" for w in words]
+        out += [f"Tell me more about {n}" for n in names]
         if len({c["source"] for c in cites}) > 1:
             out += ["Compare what these documents say about this"]
     return out[:3]

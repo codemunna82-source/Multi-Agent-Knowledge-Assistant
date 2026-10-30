@@ -85,5 +85,7 @@ def test_chroma_backend(tmp_path):
 
 
 def test_ui_served(client):
-    r = client.get("/")
-    assert r.status_code == 200 and "Knowledge Assistant" in r.text and "frame-ancestors" in r.headers["content-security-policy"]
+    r = client.get("/")  # React dashboard when frontend/dist is built, otherwise the classic page
+    assert r.status_code == 200 and "<html" in r.text and "frame-ancestors" in r.headers["content-security-policy"]
+    r = client.get("/classic")
+    assert r.status_code == 200 and "Knowledge Assistant" in r.text
