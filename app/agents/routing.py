@@ -26,14 +26,29 @@ DOC_LIST = re.compile(r"\b(list|show|what|which)\b.{0,25}\b(documents?|files?|so
 TABLE_NOUNS = re.compile(r"\b(rows?|values?|spreadsheets?|sheets?|csv|excel|xlsx|tables?|columns?|records?|data)\b", re.I)
 URL = re.compile(r"https?://[^\s<>\"')]+", re.I)
 WEB_INTENT = re.compile(r"\b(search the web|search online|google|look (?:it )?up online|on the internet|latest news|current news|web search)\b", re.I)
+CHANGES = re.compile(r"\b(what(?:'s| has| have)? changed|changes? (?:between|in|to|made)|new version|latest version|previous version|version history|differences? between (?:the )?versions?)\b", re.I)
+CROSS_DOC = re.compile(r"\b(across|all (?:the )?(?:documents|files|sources)|each (?:document|file|source)|every (?:document|file|source)|in (?:both|all of) (?:the )?(?:documents|files|sources)|between (?:the )?(?:documents|files|sources))\b|सभी दस्तावेज", re.I)
 FOLLOWUP = re.compile(r"^(and|also|what about|how about|then|so|which|where|those|that|it|they)\b", re.I)
+
+def _hi(*words: str) -> str:
+    """Hindi alternatives with Devanagari-aware boundaries (\\b fails next to combining vowel signs)."""
+    return r"(?<![\w\u0900-\u097F])(?:" + "|".join(words) + r")(?![\w\u0900-\u097F])"
+
+
+HI_SUMMARY, HI_COMPARE = _hi("सारांश", "संक्षेप", "सार"), _hi("तुलना", "अंतर", "विरोधाभास", "भिन्नता", "बदलाव")
+HI_EXACT, HI_TABULAR = _hi("कितनी बार", "कितने बार", "खोजें", "ढूंढें", "ढूँढें", "उल्लेख"), _hi("कुल", "औसत", "सबसे अधिक", "सबसे ज्यादा", "सबसे ज़्यादा", "सबसे कम", "अधिकतम", "न्यूनतम", "गिनती", "कितने", "कितनी")
+SUMMARY = re.compile(SUMMARY.pattern + "|" + HI_SUMMARY, re.I)
+COMPARE = re.compile(COMPARE.pattern + "|" + HI_COMPARE, re.I)
+EXACT_INTENT = re.compile(EXACT_INTENT.pattern + "|" + HI_EXACT, re.I)
+TABULAR_KW = re.compile(TABULAR_KW.pattern + "|" + HI_TABULAR, re.I)
 
 ROUTES = {
     "exact": "Literal name/ID/phrase search over the complete extracted text with counts and page/row locations",
     "semantic": "Conceptual questions answered from retrieved passages (hybrid RAG)",
     "document_search": "Find which documents/clauses mention something; list documents; exact + semantic combined",
     "data": "Calculations over CSV/Excel tables: filter, sort, group, sum, average, min/max, duplicates, comparisons",
-    "summarize": "Summaries, comparisons across documents, entity extraction, table extraction, question generation, knowledge-graph questions",
+    "summarize": "Summaries, entity extraction, table extraction, question generation, knowledge-graph questions",
+    "compare": "Compare documents or versions, find differences/changes, detect contradictions between documents",
     "web": "Fetch a URL given in the question or search the public web (only when enabled)",
 }
 
@@ -67,8 +82,10 @@ def rules_route(question: str, metas: list[dict], last: Optional[dict], web_enab
         return {"route": "summarize", "sub": "summary", "why": "summary keywords"}
     if COMPARE.search(q) and len([m for m in metas if m.get("tabular")]) >= 2 and TABLE_NOUNS.search(q):
         return {"route": "data", "why": "compare tables"}
+    if CHANGES.search(q) and any(m.get("version", 1) > 1 for m in metas):
+        return {"route": "compare", "why": "version change detection"}
     if COMPARE.search(q) and len(metas) >= 2:
-        return {"route": "summarize", "sub": "compare", "why": "comparison keywords"}
+        return {"route": "compare", "why": "comparison keywords"}
     if ENTITIES.search(q):
         return {"route": "summarize", "sub": "entities", "why": "entity extraction"}
     if QUESTIONS.search(q):

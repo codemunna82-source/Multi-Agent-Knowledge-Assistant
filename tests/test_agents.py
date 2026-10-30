@@ -42,7 +42,7 @@ def corpus(client):
     ("Are there duplicate rows in the sales sheet?", "data"),
     ("How much annual leave do employees get?", "semantic"),
     ("Summarize notes.txt", "summarize"),
-    ("Compare the policy with the notes on approvals", "summarize"),
+    ("Compare the policy with the notes on approvals", "compare"),
     ("Where does clause 8 appear?", "document_search"),
     ("What documents do I have uploaded?", "document_search"),
     ("Which documents mention expense reports?", "document_search"),
@@ -94,9 +94,11 @@ def test_verification_retries_then_passes_with_verbatim_answer(tmp_path):
     upload(c, "p.txt", b"Employees accrue 25 days of annual leave per year.")
     r = ask(c, "How many days of annual leave do employees get?")
     assert "25 days" in r["answer"] and "40" not in r["answer"]
-    assert r["details"]["verification"]["status"] == "pass" and len(seq) == 1  # one bad draft, then strict extractive retry (no 2nd LLM call)
+    # bad draft -> retry 1: widened retrieval + regeneration (still invented) -> retry 2: strict extractive answer (no further LLM call)
+    assert r["details"]["verification"]["status"] == "pass" and len(seq) == 2
+    assert r["details"]["retrieval"]["widened_to"] >= 1
     trace = " | ".join(r["details"]["trace"])
-    assert "verify: retry" in trace and "verify: pass" in trace
+    assert trace.count("verify: retry") == 2 and "verify: pass" in trace
 
 
 def test_verification_exhausted_falls_back_to_evidence(tmp_path):

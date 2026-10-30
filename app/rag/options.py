@@ -36,6 +36,7 @@ class RetrievalOptions(BaseModel):
     corrective: Optional[bool] = None
     graph: Optional[bool] = None
     cross_lingual: Optional[bool] = None
+    self_rag: Optional[bool] = Field(default=None, description="Self-RAG loop: retrieve-or-not, passage relevance grading, sentence-level support critique with bounded regeneration")
     max_retries: Optional[int] = Field(default=None, ge=0, le=4)
     filters: Optional[MetadataFilter] = None
 
@@ -54,6 +55,8 @@ class Resolved:
     corrective: bool = True
     graph: bool = False
     cross_lingual: bool = True
+    self_rag: bool = False
+    self_rag_rounds: int = 1
     max_retries: int = 2
     filters: MetadataFilter = field(default_factory=MetadataFilter)
     min_score: float = 0.12
@@ -73,7 +76,7 @@ def resolve(s: Settings, o: Optional[RetrievalOptions] = None, **force) -> Resol
         multi_query=pick("multi_query", s.multi_query), multi_query_n=s.multi_query_n, hyde=pick("hyde", s.hyde),
         parent_child=pick("parent_child", s.parent_child), compression=pick("compression", s.compression),
         reranker=pick("reranker", s.reranker), corrective=pick("corrective", s.corrective), graph=pick("graph", s.graph_rag),
-        cross_lingual=pick("cross_lingual", s.cross_lingual), max_retries=pick("max_retries", s.max_retries),
+        cross_lingual=pick("cross_lingual", s.cross_lingual), self_rag=pick("self_rag", s.self_rag), self_rag_rounds=s.self_rag_rounds, max_retries=pick("max_retries", s.max_retries),
         filters=o.filters or MetadataFilter(), min_score=s.effective_min_score, parent_max_chars=s.parent_max_chars,
         injection_policy=s.injection_policy,
     )

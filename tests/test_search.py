@@ -69,7 +69,7 @@ def test_summary_and_compare(client):
     s = ask(client, "Summarise policy.pdf")
     assert s["route"] == "summarize" and "Remote work" in s["answer"] and len(s["citations"]) == 1
     c = ask(client, "Compare the policy with the tracker on remote work")
-    assert c["route"] == "summarize" and {x["source"] for x in c["citations"]} == {"policy.pdf", "tracker.docx"}
+    assert c["route"] == "compare" and {x["source"] for x in c["citations"]} == {"policy.pdf", "tracker.docx"}
 
 
 def test_injected_instructions_are_treated_as_data(client):

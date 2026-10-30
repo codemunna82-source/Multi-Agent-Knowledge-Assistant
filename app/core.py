@@ -67,6 +67,7 @@ def format_loc(loc: dict, loc_end: Optional[dict] = None) -> str:
 
 STOPWORDS = frozenset(
     """a an and are as at be but by for from has have how i if in into is it its of on or that the their there these this to was were what when where which who whom why will with you your my me do does did can could should would about than then so such not no
+    का के की को में से पर और है हैं था थी थे यह वह इस उस एक भी तो ही कि जो कर लिए ने हो गया गई गए रहा रही रहे या इन उन
     """.split()
 )
 

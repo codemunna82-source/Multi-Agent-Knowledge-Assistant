@@ -1,7 +1,7 @@
 """LangGraph StateGraph wiring.
 
     START -> supervisor --(route)--> exact | data ------------------------------------------> final
-                          \\-------> semantic | document_search | web | summarize -> verify --pass/fail--> final
+                          \\-------> semantic | document_search | web | summarize | compare -> verify --pass/fail--> final
                                           ^                                           |
                                           +------------------ retry (bounded) -------+
     semantic --(abstained + web fallback enabled)--> web
@@ -14,7 +14,7 @@ from langgraph.graph import END, StateGraph
 from .nodes import Agents
 from .state import AgentState
 
-GENERATIVE = ("semantic", "document_search", "web", "summarize")
+GENERATIVE = ("semantic", "document_search", "web", "summarize", "compare")
 DETERMINISTIC = ("exact", "data")
 
 
@@ -38,7 +38,7 @@ def build_graph(agents: Agents, checkpointer=None):
         return "web" if d.get("abstained") and can_web else "verify"
 
     g.add_conditional_edges("semantic", after_semantic, {"web": "web", "verify": "verify"})
-    for r in ("document_search", "web", "summarize"):
+    for r in ("document_search", "web", "summarize", "compare"):
         g.add_edge(r, "verify")
 
     def after_verify(st: AgentState) -> str:

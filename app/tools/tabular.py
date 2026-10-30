@@ -50,6 +50,7 @@ class NotTabular(PlanError):
 
 
 AGG_WORDS = set("""highest lowest maximum minimum max min largest smallest biggest total sum average mean median avg count number many much top bottom most least per each group
+    कुल औसत अधिकतम न्यूनतम गिनती कितने कितनी सबसे अधिक ज्यादा कम योग संख्या
     sort sorted order ordered rank ranked ranking duplicate duplicates duplicated unique distinct compare comparison difference differences ascending descending first last
     show list give display row rows column columns table tables sheet sheets csv xlsx excel spreadsheet spreadsheets record records value values data file
     trend trends monthly quarterly yearly annual growth outlier outliers anomaly anomalies anomalous unusual abnormal profile quality missing null statistics describe""".split())
@@ -152,7 +153,16 @@ def _value_filters(t: Table, q: str, qw: set, metric: Optional[str]) -> list:
     return filters
 
 
+HI_OPS = [(r"औसत", "average"), (r"सबसे\s*(?:अधिक|ज्यादा|ज़्यादा)|अधिकतम", "highest"), (r"सबसे\s*कम|न्यूनतम", "lowest"), (r"कुल|योग", "total"), (r"कितने|कितनी|गिनती|संख्या", "how many")]
+
+
+def hindi_ops(question: str) -> str:
+    """English operation keywords for Hindi phrasing, appended to the question so one planner serves both languages."""
+    return " ".join(w for pat, w in HI_OPS if re.search(pat, question))
+
+
 def heuristic_plan(question: str, t: Table) -> Plan:
+    question = (question + " " + hindi_ops(question)).strip()
     q = question.lower()
     qw = _qwords(question)
     # --- operation

@@ -14,8 +14,11 @@ from ..intel.language import detect_language, language_name
 from ..schemas import Citation
 from ..security.injection import SYSTEM_GUARD, guard_output, scan_text, wrap_untrusted
 from ..tools import tabular as tab
+from .citations import validate as validate_citations
 from .common import NOT_VERIFIED, best_sentences, confidence_from, evidence_citations, excerpt, hit_to_evidence, result
-from .routing import URL, llm_route, rules_route
+from ..rag.selfrag import grade_passages, should_retrieve
+from ..rag.selfrag import refine as self_refine
+from .routing import CROSS_DOC, URL, llm_route, rules_route
 from .state import AgentState, RunCtx
 from .tools import ToolError
 
@@ -102,6 +105,24 @@ class Agents:
             lim.append("No LLM configured: passages were extracted, not generated.")
         return "Most relevant passages found in the indexed sources:\n" + body, False, lim
 
+    def _diversify(self, c: RunCtx, query: str, evidence: list[dict], metas: list[dict]) -> tuple[list[dict], list[str]]:
+        """Cross-document questions: make sure every in-scope document that has a relevant passage is represented in the evidence."""
+        from dataclasses import replace
+
+        have = {e["source_id"] for e in evidence}
+        st, added = self.k.store(c.scope), []
+        for m in metas[:8]:
+            if m["id"] in have or m.get("embedding") != self.k.embedder.name:
+                continue
+            topic = " ".join(CROSS_DOC.sub(" ", query).split()) or query  # "across all documents" is scope wording, not topic
+            res = self.a.pipeline.retrieve(st, topic, replace(c.opts, top_k=1, corrective=False), [m["id"]], None, None)
+            if res.hits and not res.abstain:
+                evidence = evidence + [hit_to_evidence(0, res.hits[0])]
+                added.append(m["name"])
+        for n, e in enumerate(evidence, 1):
+            e["i"] = n
+        return evidence, added
+
     def _search(self, c: RunCtx, query: str, state: AgentState):
         return self.tools.call("hybrid_search", c, query=query, top_k=c.opts.top_k)
 
@@ -152,9 +173,23 @@ class Agents:
         if not metas:
             return {"draft": self._no_sources("semantic")}
         attempt = state.get("attempt", 0)
+        if c.opts.self_rag and attempt == 0:
+            need, why = should_retrieve(state["query"], self.k.llm if self.k.llm.available else None)
+            if not need:
+                d = result("semantic", "Hello! Ask me a question about your documents, or ask me to search, summarise or compare them.", confidence="none", verified=True,
+                           limitations=[f"No retrieval was performed ({why})."], details={"retrieval": {"self_rag": {"retrieve": False, "why": why}}})
+                d["skip_verify"] = True
+                return {"draft": d, "evidence": [], "trace": [f"semantic: self-rag skipped retrieval ({why})"]}
         if attempt > 0 and state.get("evidence"):
-            evidence, rd = state["evidence"], state["draft"].get("details", {}).get("retrieval", {})
+            evidence, rd = state["evidence"], dict(state["draft"].get("details", {}).get("retrieval", {}))
             strict, grade, abstained = True, rd.get("grade", "ambiguous"), False
+            if attempt == 1:  # first retry: ask the retriever for more (wider top-k), then regenerate; later retries fall back to verbatim extraction
+                wide = self.tools.call("hybrid_search", c, query=state["query"], top_k=min(c.opts.top_k * 2, 30))
+                seen = {e["chunk_id"] for e in evidence}
+                evidence = evidence + [hit_to_evidence(0, h) for h in wide.hits if h.chunk_id not in seen]
+                for n, e in enumerate(evidence, 1):
+                    e["i"] = n
+                strict, rd["widened_to"] = False, len(evidence)
         else:
             res = self._search(c, state["query"], state)
             evidence = [hit_to_evidence(i, h) for i, h in enumerate(res.hits, 1)]
@@ -164,7 +199,33 @@ class Agents:
             d = result("semantic", NOT_VERIFIED + " No passage was relevant enough to the question.", limitations=self._stale(metas), details={"retrieval": rd})
             d["abstained"] = True
             return {"draft": d, "evidence": [], "trace": [f"semantic: abstain after {rd.get('attempts', 1)} retrieval attempt(s)"]}
+        if attempt == 0 and CROSS_DOC.search(state["question"]) and len(metas) > 1:
+            evidence, added = self._diversify(c, state["query"], evidence, metas)
+            if added:
+                rd["diversified_with"] = added
+        sr: dict = {}
+        if c.opts.self_rag and attempt == 0:
+            evidence, dropped = grade_passages(state["query"], evidence, self.k.llm)
+            sr["irrelevant_dropped"] = dropped
+            for n, e in enumerate(evidence, 1):
+                e["i"] = n
         ans, generated, lim = self._generate(c, state["query"], evidence, strict)
+        if c.opts.self_rag and generated and attempt == 0:
+            def regen(unsupported: list[str]) -> str:
+                extra = "These statements in your previous draft are NOT supported by the evidence; remove or correct them: " + " | ".join(unsupported[:5])
+                return self.k.llm.complete(f"{ANSWER_SYSTEM} {SYSTEM_GUARD} {extra}", f"Question: {state['query']}\n\n" + "\n".join(f"[{e['i']}] " + wrap_untrusted(excerpt(e["context"], 1200), e["source"]) for e in evidence))
+
+            new_ans, rep = self_refine(ans, evidence, regen, self.k.llm, c.opts.self_rag_rounds)
+            sr.update(rep)
+            if new_ans is None:  # nothing the evidence supports: fall back to verbatim passages instead of an empty or unsupported answer
+                ans, generated, l2 = self._generate(c, state["query"], evidence, True)
+                lim = lim + l2 + ["Self-RAG found no statement supported by the evidence; verbatim passages are shown instead."]
+            else:
+                ans = new_ans
+            if rep["dropped"]:
+                lim.append(f"Self-RAG removed {len(rep['dropped'])} statement(s) that the evidence did not support.")
+        if c.opts.self_rag and attempt == 0:
+            rd["self_rag"] = {"retrieve": True, **sr}
         if rd.get("excluded_suspicious"):
             lim.append(f"{rd['excluded_suspicious']} passage(s) that look like prompt-injection were withheld from the model.")
         d = result("semantic", ans, confidence=confidence_from(evidence, grade), citations=evidence_citations(evidence), limitations=lim + self._stale(metas)[:5], details={"retrieval": rd})
@@ -294,6 +355,12 @@ class Agents:
 
         return run_summarize(self, state)
 
+    # ================================================================== Comparison Agent (documents, versions, contradictions)
+    def compare(self, state: AgentState) -> dict:
+        from .comparison import run_compare
+
+        return run_compare(self, state)
+
     # ================================================================== Verification Agent
     def verify(self, state: AgentState) -> dict:
         d, ev, attempt = dict(state.get("draft") or {}), state.get("evidence") or [], state.get("attempt", 0)
@@ -325,6 +392,15 @@ class Agents:
                 j = self._judge(answer, ev)
                 if j is False:
                     blocking.append("LLM judge: answer contains unsupported claims")
+        cites = d.get("citations") or []
+        if cites:  # every citation must point at a real location whose text contains the excerpt
+            keep, rep = validate_citations(self.k.store(self.ctx(state).scope), self.ctx(state).principal, cites)
+            d["citations"] = keep
+            d.setdefault("details", {})["citation_check"] = rep
+            if rep["invalid"]:
+                issues.append(f"{len(rep['invalid'])} citation(s) removed because the cited location or text could not be verified")
+                if d.get("generated") and ev and not keep:
+                    blocking.append("no valid citation remains")
         status = "pass"
         if blocking:
             status = "retry" if attempt < max_retries else "fail"
@@ -362,6 +438,10 @@ class Agents:
         abstained = d.pop("abstained", False)
         ver = state.get("verification") or {}
         det = d.setdefault("details", {})
+        if d.get("citations") and "citation_check" not in det:  # deterministic routes (exact, data) skip the verify node
+            d["citations"], det["citation_check"] = validate_citations(self.k.store(c.scope), c.principal, d["citations"])
+            if det["citation_check"]["invalid"]:
+                d.setdefault("limitations", []).append(f"{len(det['citation_check']['invalid'])} citation(s) were removed because they could not be verified against the stored text.")
         det["plan"] = state.get("plan", {})
         det["verification"] = ver
         det["trace"] = state.get("trace", [])
