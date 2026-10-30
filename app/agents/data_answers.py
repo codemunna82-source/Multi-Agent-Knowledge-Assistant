@@ -1,6 +1,7 @@
 """Turn a pandas plan result into a user-facing answer with row-level citations."""
 from __future__ import annotations
 
+from ..analytics.charts import from_result as chart_for
 from ..schemas import Citation
 from .common import fmt, result
 
@@ -67,8 +68,53 @@ def format_data_answer(out: dict) -> dict:
                + (f" Columns only in second: {', '.join(d['cols_only_right'])}." if d["cols_only_right"] else ""))
         for ch in d["changed"][:5]:
             ans += f"\n- {ch['key']}: " + "; ".join(f"{c}: {a} → {b}" for c, (a, b) in ch["diff"].items())
+    elif kind == "profile":
+        pr = out["profile"]
+        miss = [f"{c['name']} ({c['missing']} missing, {c['missing_pct']}%)" for c in pr["columns"] if c["missing"]]
+        typed = ", ".join(c["name"] + ": " + c["type"] for c in pr["columns"])
+        ans = (f"{src}: {pr['rows']} rows, {len(pr['columns'])} columns ({typed}). "
+               f"Missing values: {'; '.join(miss) if miss else 'none'}. Duplicate rows: {pr['duplicate_rows']}.")
+        details["result"]["profile"] = pr
+        lim.append("Profile covers every row; no row-level citations because the figures describe the whole table.")
+    elif kind == "anomalies":
+        a = out["anomalies"]
+        if a.get("note"):
+            ans = f"{a['note']} for {a['column']} in {src}."
+        elif not a["count"]:
+            ans = f"No outliers in {a['column']} in {src} by the {a['method'].upper()} rule (bounds {fmt(a['bounds']['low'])} to {fmt(a['bounds']['high'])})."
+        else:
+            ex = "; ".join(f"row {r['row']} = {fmt(r['value'])}" for r in a["rows"][:8])
+            ans = (f"{a['count']} outlier(s) in {a['column']} in {src} by the {a['method'].upper()} rule (normal range {fmt(a['bounds']['low'])} to {fmt(a['bounds']['high'])}): {ex}"
+                   + (" …" if a["count"] > 8 else "") + ".")
+        details["result"]["anomalies"] = a
+        lim.append("Outliers are statistical flags, not proven errors; check the cited rows.")
+    elif kind == "trend":
+        tr = out["trend"]
+        pr = tr["periods"]
+        vc = tr["value_column"] or "rows"
+        ans = (f"{tr['agg'].capitalize()} of {vc} by {tr['freq_name']} in {src}: {pr[0]['period']} {fmt(pr[0]['value'])} → {pr[-1]['period']} {fmt(pr[-1]['value'])} "
+               f"({'+' if (tr['total_change_pct'] or 0) >= 0 else ''}{tr['total_change_pct']}%), trend {tr['direction']}. Peak {tr['best']['period']} ({fmt(tr['best']['value'])}), "
+               f"low {tr['worst']['period']} ({fmt(tr['worst']['value'])}).")
+        if tr["yoy"]:
+            y = tr["yoy"][-1]
+            ans += f" Latest vs same period a year earlier ({y['vs']}): {'+' if y['change'] >= 0 else ''}{fmt(y['change'])}" + (f" ({y['change_pct']}%)" if y["change_pct"] is not None else "") + "."
+        if tr["undated_rows"]:
+            lim.append(f"{tr['undated_rows']} row(s) without a usable date were ignored.")
+        lim.append("Dates are read month-first when ambiguous; citations show rows from the peak and low periods.")
+        details["result"]["trend"] = tr
+    elif kind == "sql":
+        s = out["sql"]
+        shown = s["rows"][:10]
+        body = "\n".join(" | ".join("" if v is None else fmt(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else str(v) for v in r) for r in shown)
+        ans = f"Query returned {s['row_count']}{'+' if s['truncated'] else ''} row(s) [{', '.join(s['columns'])}]:\n{body}" + (f"\n… ({s['row_count'] - 10} more)" if s["row_count"] > 10 else "")
+        details["sql"] = {k: s[k] for k in ("sql", "columns", "row_count", "truncated")}
+        lim.append("Answer computed by a model-written, validated read-only SQL query executed in a sandbox; the query is shown in the details.")
+        lim.append("Per-row citations appear only when the query selects the `_row` column.")
+        conf = "medium"
     else:
         ans, conf = "Done.", "medium"
+    if (ch := chart_for(out)) is not None:
+        details["chart"] = ch
     if out.get("matching_rows", 0) > len(cites) and cites:
         lim.append(f"Showing {len(cites)} of {out['matching_rows']} contributing rows as citations.")
     return result("data", ans, confidence=conf, citations=cites, limitations=lim, details=details)

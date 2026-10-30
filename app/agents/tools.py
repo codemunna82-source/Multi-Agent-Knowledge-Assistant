@@ -102,7 +102,17 @@ class ToolRegistry:
         metas = [m for m in ctx.sources(k) if m.get("tabular")]
         if not metas:
             raise ToolError("no CSV/Excel sources")
-        return tab.analyse(tab.load_tables(k.store(ctx.scope), metas), a.question, k.llm)
+        tables = tab.load_tables(k.store(ctx.scope), metas)
+        try:
+            return tab.analyse(tables, a.question, k.llm)
+        except tab.NotTabular:
+            raise
+        except tab.PlanError:
+            if not k.llm.available:
+                raise
+            from ..analytics.nlsql import answer_with_sql
+
+            return answer_with_sql(tables, a.question, k.llm)  # validated read-only SQL in the sandbox
 
     def _summarize(self, ctx, a: SummarizeArgs):
         k, st = self.a.k, self.a.k.store(ctx.scope)

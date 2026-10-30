@@ -51,7 +51,8 @@ class NotTabular(PlanError):
 
 AGG_WORDS = set("""highest lowest maximum minimum max min largest smallest biggest total sum average mean median avg count number many much top bottom most least per each group
     sort sorted order ordered rank ranked ranking duplicate duplicates duplicated unique distinct compare comparison difference differences ascending descending first last
-    show list give display row rows column columns table tables sheet sheets csv xlsx excel spreadsheet spreadsheets record records value values data file""".split())
+    show list give display row rows column columns table tables sheet sheets csv xlsx excel spreadsheet spreadsheets record records value values data file
+    trend trends monthly quarterly yearly annual growth outlier outliers anomaly anomalies anomalous unusual abnormal profile quality missing null statistics describe""".split())
 
 
 def explained_ratio(tables: list["Table"], question: str) -> float:
@@ -407,6 +408,11 @@ def analyse(tables: list[Table], question: str, llm=None) -> dict:
         a, b = scored[0], next(x for x in scored[1:] if x is not scored[0])
         return compare_tables(a, b, _best_key(a, b, _qwords(question)))
     t = pick_table(tables, question)
+    from ..analytics.insights import detect_intent, run_intent
+
+    intent = detect_intent(question)
+    if intent and (out := run_intent(intent, question, t)) is not None:
+        return out
     plan = None
     if llm is not None and getattr(llm, "available", False):
         try:
