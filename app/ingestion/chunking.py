@@ -6,6 +6,9 @@ from typing import Optional
 from ..core import Unit
 
 
+_BOUNDARY = ("page", "sheet", "table", "section")
+
+
 @dataclass
 class Chunk:
     text: str
@@ -48,8 +51,8 @@ def chunk_units(units: list[Unit], size: int = 1000, overlap: int = 150) -> list
             flush()
             chunks.extend(Chunk(w, u.loc, None, i, i) for w in _windows(u.text, size, overlap))
             continue
-        # never merge across pages: a citation must point at exactly one page
-        if blen + len(u.text) + 1 > size or (buf and buf[-1].loc.get("page") != u.loc.get("page")):
+        # never merge across pages / sheets / tables / sections: the chunk's location (citation + filters) must be exact
+        if blen + len(u.text) + 1 > size or (buf and any(buf[-1].loc.get(k) != u.loc.get(k) for k in _BOUNDARY)):
             flush()
         buf.append(u)
         idx.append(i)

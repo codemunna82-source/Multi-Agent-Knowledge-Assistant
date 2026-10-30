@@ -70,7 +70,8 @@ STOPWORDS = frozenset(
     """.split()
 )
 
-_TOKEN = re.compile(r"[A-Za-z0-9_]+(?:[-'][A-Za-z0-9_]+)*", re.UNICODE)
+_W = r"[\w\u0300-\u036f\u0900-\u0dff\u0e00-\u0eff\u0f00-\u0fff\u1ab0-\u1aff\u20d0-\u20ff]"  # \w + combining marks (Indic, Thai, ...)
+_TOKEN = re.compile(rf"{_W}+(?:[-']{_W}+)*", re.UNICODE)  # unicode-aware: Hindi, Arabic, accented Latin, CJK runs, ...
 
 
 def tokenize(text: str, drop_stop: bool = True) -> list[str]:

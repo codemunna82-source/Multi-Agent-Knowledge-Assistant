@@ -4,6 +4,10 @@ from __future__ import annotations
 import hashlib
 import logging
 import time
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass
+from typing import Iterator, Optional
 
 import httpx
 import numpy as np
@@ -12,6 +16,74 @@ from .config import Settings
 from .core import ProviderError, tokenize
 
 log = logging.getLogger("mka.providers")
+
+
+# ----------------------------------------------------------------------------- usage / cost metering (per request, via contextvar)
+@dataclass
+class Usage:
+    llm_calls: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    embed_tokens: int = 0
+    cost_usd: float = 0.0
+    estimated: bool = False  # True when token counts came from a chars/4 estimate rather than the provider's usage field
+
+    def as_dict(self) -> dict:
+        return {k: (round(v, 6) if isinstance(v, float) else v) for k, v in self.__dict__.items()}
+
+
+_usage: ContextVar[Optional[Usage]] = ContextVar("mka_usage", default=None)
+_PRICES: dict[str, tuple[float, float]] = {}
+
+
+def set_price_table(spec: str) -> None:
+    _PRICES.clear()
+    for part in filter(None, (x.strip() for x in spec.split(","))):
+        name, _, pr = part.partition("=")
+        a, _, b = pr.partition(":")
+        try:
+            _PRICES[name.strip()] = (float(a), float(b or 0))
+        except ValueError:
+            log.warning("bad price entry %r", part)
+
+
+@contextmanager
+def track_usage() -> Iterator[Usage]:
+    u = Usage()
+    tok = _usage.set(u)
+    try:
+        yield u
+    finally:
+        _usage.reset(tok)
+
+
+def est_tokens(text: str) -> int:
+    return max(1, len(text) // 4)
+
+
+def record_llm(model: str, prompt_tokens: Optional[int], completion_tokens: Optional[int], prompt_text: str = "", out_text: str = "") -> None:
+    u = _usage.get()
+    if u is None:
+        return
+    est = prompt_tokens is None or completion_tokens is None
+    pt = prompt_tokens if prompt_tokens is not None else est_tokens(prompt_text)
+    ct = completion_tokens if completion_tokens is not None else est_tokens(out_text)
+    pin, pout = _PRICES.get(model.split(":", 1)[-1], (0.0, 0.0))
+    u.llm_calls += 1
+    u.prompt_tokens += pt
+    u.completion_tokens += ct
+    u.cost_usd += (pt * pin + ct * pout) / 1_000_000
+    u.estimated = u.estimated or est
+
+
+def record_embed(model: str, tokens: int) -> None:
+    u = _usage.get()
+    if u is None:
+        return
+    pin, _ = _PRICES.get(model.split(":", 1)[-1], (0.0, 0.0))
+    u.embed_tokens += tokens
+    u.cost_usd += tokens * pin / 1_000_000
+    u.estimated = True
 
 
 # ----------------------------------------------------------------------------- embeddings
@@ -84,6 +156,7 @@ class OpenAIEmbedder(Embedder):
         self.name = f"openai:{self.model}"
 
     def embed_documents(self, texts: list[str]) -> np.ndarray:
+        record_embed(self.name, sum(est_tokens(t) for t in texts))
         out: list[list[float]] = []
         for i in range(0, len(texts), self.s.embed_batch):
             batch = [t[:8000] or " " for t in texts[i : i + self.s.embed_batch]]
@@ -105,6 +178,7 @@ class GeminiEmbedder(Embedder):
         self.name = f"gemini:{self.model}"
 
     def embed_documents(self, texts: list[str]) -> np.ndarray:
+        record_embed(self.name, sum(est_tokens(t) for t in texts))
         out: list[list[float]] = []
         step = min(self.s.embed_batch, 100)
         for i in range(0, len(texts), step):
@@ -120,6 +194,7 @@ class GeminiEmbedder(Embedder):
 
 
 def make_embedder(s: Settings) -> Embedder:
+    set_price_table(s.price_table)
     p = s.embedding_provider.lower()
     if p == "hash":
         return HashEmbedder()
@@ -142,7 +217,8 @@ class LLM:
     def describe_image(self, data: bytes, mime: str, prompt: str) -> str:
         raise ProviderError("No vision-capable LLM configured")
 
-    usage = None  # set by metered wrapper (see UsageMeter)
+    def _meter(self, system: str, user: str, out: str, ptok: Optional[int] = None, ctok: Optional[int] = None) -> None:
+        record_llm(self.name, ptok, ctok, system + user, out)
 
 
 class OpenAILLM(LLM):
@@ -199,9 +275,12 @@ class GeminiLLM(LLM):
             timeout=self.s.llm_timeout,
         )
         try:
-            return "".join(p["text"] for p in data["candidates"][0]["content"]["parts"]).strip()
+            out = "".join(p["text"] for p in data["candidates"][0]["content"]["parts"]).strip()
         except (KeyError, IndexError) as e:
             raise ProviderError(f"Unexpected Gemini response: {str(data)[:200]}") from e
+        u = data.get("usageMetadata") or {}
+        self._meter(system, user, out, u.get("promptTokenCount"), u.get("candidatesTokenCount"))
+        return out
 
 
 def _gemini_image(self, data: bytes, mime: str, prompt: str) -> str:
