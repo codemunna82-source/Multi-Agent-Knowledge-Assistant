@@ -59,7 +59,7 @@ def test_semantic_with_citations_and_no_evidence(client):
 def test_clause_combined_route(client):
     upload(client, "c.pdf", make_pdf(["Preamble", "Clause 8 Termination. Either party may terminate.", "Clause 80 Misc"]))
     r = ask(client, "Where does contract clause 8 appear?")
-    assert r["route"] == "combined" and r["details"]["count"] == 1
+    assert r["route"] == "document_search" and r["details"]["count"] == 1
     assert r["citations"][0]["location"] == "page 2"
 
 
@@ -67,9 +67,9 @@ def test_summary_and_compare(client):
     upload(client, "policy.pdf", make_pdf(["Remote work is allowed three days per week.", "Managers approve schedules."]))
     upload(client, "tracker.docx", make_docx(["Remote work is allowed two days per week for contractors."]))
     s = ask(client, "Summarise policy.pdf")
-    assert s["route"] == "summarise" and "Remote work" in s["answer"] and len(s["citations"]) == 1
+    assert s["route"] == "summarize" and "Remote work" in s["answer"] and len(s["citations"]) == 1
     c = ask(client, "Compare the policy with the tracker on remote work")
-    assert c["route"] == "compare" and {x["source"] for x in c["citations"]} == {"policy.pdf", "tracker.docx"}
+    assert c["route"] == "summarize" and {x["source"] for x in c["citations"]} == {"policy.pdf", "tracker.docx"}
 
 
 def test_injected_instructions_are_treated_as_data(client):

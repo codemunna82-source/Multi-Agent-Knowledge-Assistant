@@ -10,7 +10,7 @@ def csv_bytes(rows):
 def test_max_matches_manual_with_row_citation(client):
     upload(client, "sales.xlsx", make_xlsx({"Q1": SALES_ROWS}))
     r = ask(client, "Which employee has the highest sales?")
-    assert r["route"] == "tabular" and r["details"]["result"]["value"] == 3400.5
+    assert r["route"] == "data" and r["details"]["result"]["value"] == 3400.5
     assert "Bob" in r["answer"] and "Dave" in r["answer"]  # tie is reported, not hidden
     assert sorted(c["location"] for c in r["citations"]) == ["sheet 'Q1', row 3", "sheet 'Q1', row 5"]
 

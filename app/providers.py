@@ -48,8 +48,10 @@ def set_price_table(spec: str) -> None:
 
 
 @contextmanager
-def track_usage() -> Iterator[Usage]:
-    u = Usage()
+def track_usage(u: Optional[Usage] = None) -> Iterator[Usage]:
+    """Attach `u` (or a fresh Usage) to the current context. set/reset happen inside one call, so it is safe to use per graph node
+    even when nodes run on worker threads or the caller consumes a generator across threads."""
+    u = u or Usage()
     tok = _usage.set(u)
     try:
         yield u

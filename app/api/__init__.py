@@ -12,7 +12,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
-from ..agent import Assistant
+from ..agents import Assistant
 from ..config import Settings, get_settings
 from ..db import Database
 from ..jobs import JobService
@@ -113,6 +113,13 @@ def create_app(settings: Optional[Settings] = None, knowledge: Optional[Knowledg
             n += 1
         st.clear()
         svc.assistant.forget_workspace(ctx.scope)
+        from sqlalchemy import select
+
+        from ..db import Conversation
+
+        with db.session() as ses:
+            for cv in ses.scalars(select(Conversation).where(Conversation.tenant_id == ctx.principal.tenant_id, Conversation.workspace == ctx.scope.workspace)):
+                ses.delete(cv)
         ctx.audit("clear_workspace", ctx.scope.workspace, detail={"sources_removed": n})
         return {"cleared": ctx.scope.workspace, "sources_removed": n}
 

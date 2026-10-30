@@ -81,7 +81,12 @@ class Settings(BaseSettings):
 
     # --- agents
     supervisor_mode: str = "rules"  # rules | llm
-    checkpoint_backend: str = "memory"  # memory | sqlite
+    web_enabled: bool = True  # Web Agent may fetch URLs that appear in a question (SSRF-guarded)
+    web_search_provider: str = "none"  # none | searxng | brave
+    web_search_url: Optional[str] = None  # SearXNG base URL
+    brave_api_key: Optional[SecretStr] = None
+    web_fallback: bool = False  # when indexed sources cannot answer, try web search (needs a provider)
+    checkpoint_backend: str = "memory"  # memory | sqlite | postgres (postgres uses MKA_DATABASE_URL)
     memory_turns: int = 10
 
     # --- security

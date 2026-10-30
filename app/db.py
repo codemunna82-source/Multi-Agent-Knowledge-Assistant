@@ -88,6 +88,7 @@ class Conversation(Base):
     workspace: Mapped[str] = mapped_column(String(64))
     title: Mapped[str] = mapped_column(String(200), default="New conversation")
     summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # rolling memory of older turns
+    summary_upto: Mapped[int] = mapped_column(Integer, default=0)  # number of leading messages already folded into `summary`
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
     messages: Mapped[list["Message"]] = relationship(back_populates="conversation", cascade="all, delete-orphan", order_by="Message.id")

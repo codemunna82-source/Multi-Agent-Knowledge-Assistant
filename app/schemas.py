@@ -4,6 +4,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
+from .rag.options import RetrievalOptions
+
 
 class Citation(BaseModel):
     source_id: str
@@ -20,6 +22,7 @@ class AskRequest(BaseModel):
     case_sensitive: bool = False
     whole_word: bool = True
     conversation_id: Optional[str] = Field(default=None, max_length=32, description="Continue this conversation (default: the user's latest one in the workspace)")
+    retrieval: Optional["RetrievalOptions"] = Field(default=None, description="Per-request RAG strategy overrides (mode, rewrite, multi_query, hyde, rerank, filters, ...)")
 
 
 class AskResponse(BaseModel):
@@ -33,6 +36,10 @@ class AskResponse(BaseModel):
     details: dict[str, Any] = {}
     request_id: Optional[str] = None
     conversation_id: Optional[str] = None
+    followups: list[str] = []
+    language: Optional[str] = None
+    usage: dict[str, Any] = {}
+    latency_ms: Optional[float] = None
 
 
 class UrlRequest(BaseModel):
