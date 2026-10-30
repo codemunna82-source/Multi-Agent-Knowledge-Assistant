@@ -94,3 +94,13 @@ describe("Evaluation report", () => {
     expect(screen.getAllByRole("img", { name: /%/ }).length).toBeGreaterThan(5);
   });
 });
+
+describe("Backend unreachable", () => {
+  it("keeps the interface open with a retry banner instead of blocking it", async () => {
+    mockFetch({ "/health": { status: 500, body: null } });
+    render(<App />);
+    expect(await screen.findByText(/Backend is not reachable/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Library" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry now" })).toBeInTheDocument();
+  });
+});
