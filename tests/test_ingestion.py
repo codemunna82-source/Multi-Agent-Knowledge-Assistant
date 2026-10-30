@@ -27,11 +27,12 @@ def test_all_formats_ingest(client):
 
 def test_errors_are_clear(client):
     assert "Unsupported" in upload(client, "x.exe", b"MZ")["error"]
-    assert "Could not read PDF" in upload(client, "bad.pdf", b"not a pdf")["error"]
+    assert "not a PDF" in upload(client, "bad.pdf", b"not a pdf")["error"]
+    assert "Could not read PDF" in upload(client, "trunc.pdf", b"%PDF-1.4\n1 0 obj\n<< /Broken")["error"]
     assert "empty" in upload(client, "e.txt", b"")["error"].lower()
     assert "Invalid JSON" in upload(client, "bad.json", b"{oops")["error"]
     assert upload(client, "blank.pdf", make_pdf([""]))["status"] == "failed"
-    assert "Could not open workbook" in upload(client, "bad.xlsx", b"junk")["error"]
+    assert "does not match its extension" in upload(client, "bad.xlsx", b"junk")["error"]
     # failed ingestions leave nothing behind
     assert client.get("/sources", headers={"X-Session-ID": "s1"}).json() == []
 

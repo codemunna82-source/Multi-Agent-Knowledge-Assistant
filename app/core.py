@@ -28,6 +28,7 @@ class Extracted:
     title: Optional[str] = None
     warnings: list[str] = field(default_factory=list)
     meta: dict = field(default_factory=dict)
+    tables: list[dict] = field(default_factory=list)  # [{"location": {...}, "header": [...], "rows": [[...]]}] structured, NOT searchable text
 
 
 def format_loc(loc: dict, loc_end: Optional[dict] = None) -> str:
@@ -56,6 +57,8 @@ def format_loc(loc: dict, loc_end: Optional[dict] = None) -> str:
             parts.append(s)
     if "path" in loc:
         parts.append(f"path {loc['path']}")
+    if "image" in loc:
+        parts.append("image caption" if loc.get("caption") else "image (OCR)")
     out = ", ".join(parts) or "document"
     if loc.get("section"):
         out += f" (section: {loc['section']})"

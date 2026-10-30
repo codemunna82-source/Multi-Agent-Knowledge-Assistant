@@ -8,11 +8,13 @@ import re
 from pathlib import Path
 from typing import Iterator, Optional
 
+from ..config import Settings
 from ..core import Extracted, IngestError, Unit
 
 log = logging.getLogger("mka.loaders")
 
-SUPPORTED = {".pdf": "pdf", ".csv": "csv", ".xlsx": "xlsx", ".docx": "docx", ".txt": "txt", ".md": "md", ".markdown": "md", ".json": "json"}
+SUPPORTED = {".pdf": "pdf", ".csv": "csv", ".xlsx": "xlsx", ".docx": "docx", ".txt": "txt", ".md": "md", ".markdown": "md", ".json": "json",
+             ".png": "image", ".jpg": "image", ".jpeg": "image", ".tif": "image", ".tiff": "image", ".webp": "image"}
 TABULAR_KINDS = ("csv", "xlsx")
 
 
@@ -105,17 +107,76 @@ def _load_tabular(path: Path, kind: str) -> Extracted:
 
 
 # ----------------------------------------------------------------------------- PDF
-def _ocr_page(path: Path, index: int) -> str:
+def _ocr_image(img, lang: str) -> str:
     try:
-        import pypdfium2 as pdfium
         import pytesseract
     except ImportError as e:
-        raise IngestError("OCR requested but pytesseract/pypdfium2 are not installed") from e
+        raise IngestError("OCR requires the 'pytesseract' package and the Tesseract binary") from e
+    try:
+        return pytesseract.image_to_string(img, lang=lang)
+    except pytesseract.TesseractNotFoundError as e:
+        raise IngestError("OCR requires the Tesseract binary (apt install tesseract-ocr)") from e
+    except pytesseract.TesseractError as e:
+        raise IngestError(f"OCR failed: {e}") from e
+
+
+def _ocr_page(path: Path, index: int, lang: str) -> str:
+    try:
+        import pypdfium2 as pdfium
+    except ImportError as e:
+        raise IngestError("OCR requires pypdfium2") from e
     pdf = pdfium.PdfDocument(str(path))
-    return pytesseract.image_to_string(pdf[index].render(scale=2).to_pil())
+    try:
+        return _ocr_image(pdf[index].render(scale=2).to_pil(), lang)
+    finally:
+        pdf.close()
 
 
-def _load_pdf(path: Path, ocr: bool) -> Extracted:
+def _outline(reader) -> list[tuple[int, str]]:
+    """Flattened bookmarks -> [(page_index, title)] sorted by page; used as PDF section/heading metadata."""
+    out: list[tuple[int, str]] = []
+
+    def walk(items):
+        for it in items:
+            if isinstance(it, list):
+                walk(it)
+            else:
+                try:
+                    out.append((reader.get_destination_page_number(it), str(it.title).strip()))
+                except Exception:
+                    pass
+
+    try:
+        walk(reader.outline)
+    except Exception:
+        return []
+    return sorted((p, t) for p, t in out if p is not None and p >= 0 and t)
+
+
+def _pdf_tables(path: Path, max_pages: int) -> tuple[list[dict], list[str]]:
+    try:
+        import pdfplumber
+    except ImportError:
+        return [], ["PDF table extraction skipped (pdfplumber not installed)"]
+    tables, warns = [], []
+    try:
+        with pdfplumber.open(str(path)) as pdf:
+            for pi, page in enumerate(pdf.pages[:max_pages], 1):
+                try:
+                    for ti, t in enumerate(page.extract_tables(), 1):
+                        rows = [[(c or "").strip() for c in r] for r in t if any(c for c in r)]
+                        if len(rows) >= 2:
+                            tables.append({"location": {"page": pi, "table": ti}, "header": rows[0], "rows": rows[1:]})
+                except Exception as e:
+                    warns.append(f"page {pi}: table extraction failed ({e})")
+            if len(pdf.pages) > max_pages:
+                warns.append(f"table extraction limited to the first {max_pages} pages")
+    except Exception as e:
+        warns.append(f"table extraction failed ({e})")
+    return tables, warns
+
+
+def _load_pdf(path: Path, st: Settings) -> Extracted:
     from pypdf import PdfReader
     from pypdf.errors import PyPdfError
 
@@ -128,30 +189,48 @@ def _load_pdf(path: Path, ocr: bool) -> Extracted:
         raise
     except (PyPdfError, Exception) as e:
         raise IngestError(f"Could not read PDF (corrupt or unsupported): {e}") from e
-    units, warnings, empty = [], [], []
+    if len(pages) > st.max_pdf_pages:
+        raise IngestError(f"The PDF has {len(pages)} pages; the limit is {st.max_pdf_pages}")
+    outline = _outline(reader)
+    units, warnings, empty, ocr_pages = [], [], [], []
+    oi, section = 0, None
     for i, page in enumerate(pages, 1):
+        while oi < len(outline) and outline[oi][0] <= i - 1:
+            section = outline[oi][1]
+            oi += 1
         try:
             text = (page.extract_text() or "").strip()
         except Exception as e:
             warnings.append(f"page {i}: extraction failed ({e})")
             text = ""
-        if not text and ocr:
+        if not text and st.ocr_enabled:
             try:
-                text = _ocr_page(path, i - 1).strip()
+                text = _ocr_page(path, i - 1, st.ocr_languages).strip()
+                if text:
+                    ocr_pages.append(i)
             except IngestError:
                 raise
             except Exception as e:
                 warnings.append(f"page {i}: OCR failed ({e})")
         if text:
-            units.append(Unit(text, {"page": i}))
+            loc = {"page": i}
+            if section:
+                loc["section"] = section
+            units.append(Unit(text, loc))
         else:
             empty.append(i)
+    if ocr_pages:
+        warnings.append(f"{len(ocr_pages)} page(s) were read with OCR (accuracy depends on scan quality): {_ranges(ocr_pages)}")
     if empty:
         warnings.append(f"{len(empty)} of {len(pages)} page(s) had no extractable text (scanned images?): {_ranges(empty)}")
     if not units:
         raise IngestError("The PDF contains no extractable text (it may be scanned; enable OCR with MKA_OCR_ENABLED=true)")
+    tables = []
+    if st.pdf_tables:
+        tables, tw = _pdf_tables(path, st.pdf_tables_max_pages)
+        warnings.extend(tw)
     title = (reader.metadata.title if reader.metadata else None) or None
-    return Extracted(units, title=title, warnings=warnings, meta={"pages": len(pages)})
+    return Extracted(units, title=title, warnings=warnings, meta={"pages": len(pages), "ocr_pages": ocr_pages}, tables=tables)
 
 
 def _ranges(nums: list[int], limit: int = 20) -> str:
@@ -169,6 +248,7 @@ def _load_docx(path: Path) -> Extracted:
     except Exception as e:
         raise IngestError(f"Could not read DOCX (corrupt or unsupported): {e}") from e
     units: list[Unit] = []
+    tables: list[dict] = []
     section, pn, tn = None, 0, 0
     for child in doc.element.body.iterchildren():
         tag = child.tag.rsplit("}", 1)[-1]
@@ -188,6 +268,8 @@ def _load_docx(path: Path) -> Extracted:
             tn += 1
             t = Table(child, doc)
             header = [c.text.strip() for c in t.rows[0].cells] if t.rows else []
+            if len(t.rows) >= 2:
+                tables.append({"location": {"table": tn}, "header": header, "rows": [[c.text.strip() for c in r.cells] for r in t.rows[1:]]})
             for ri, row in enumerate(t.rows, 1):
                 cells = [c.text.strip() for c in row.cells]
                 if ri > 1 and header and any(header):
@@ -198,7 +280,7 @@ def _load_docx(path: Path) -> Extracted:
                     units.append(Unit(text, {"table": tn, "row": ri}))
     if not units:
         raise IngestError("The DOCX file is empty")
-    return Extracted(units)
+    return Extracted(units, tables=tables)
 
 
 # ----------------------------------------------------------------------------- TXT / MD
@@ -268,11 +350,35 @@ def _load_json(path: Path) -> Extracted:
     return Extracted(units)
 
 
-# ----------------------------------------------------------------------------- dispatcher
-def extract(path: Path, kind: str, ocr: bool = False) -> Extracted:
+# ----------------------------------------------------------------------------- images (multimodal: OCR text; captions are added by the service)
+def _load_image(path: Path, st: Settings) -> Extracted:
     try:
+        from PIL import Image
+
+        img = Image.open(path)
+        img.load()
+    except Exception as e:
+        raise IngestError(f"Could not read image: {e}") from e
+    if img.width * img.height > 100_000_000:
+        raise IngestError("Image is too large")
+    text = _ocr_image(img.convert("RGB"), st.ocr_languages).strip() if not st.vision_captions else ""
+    if st.vision_captions:  # OCR is best-effort alongside captions
+        try:
+            text = _ocr_image(img.convert("RGB"), st.ocr_languages).strip()
+        except IngestError:
+            text = ""
+    units = [Unit(text, {"image": 1})] if text else []
+    return Extracted(units, meta={"image_size": [img.width, img.height]}, warnings=[] if text else ["No text recognised in the image"])
+
+
+# ----------------------------------------------------------------------------- dispatcher
+def extract(path: Path, kind: str, st: Optional[Settings] = None) -> Extracted:
+    st = st or Settings(_env_file=None)
+    try:
+        if kind == "image":
+            return _load_image(path, st)
         if kind == "pdf":
-            return _load_pdf(path, ocr)
+            return _load_pdf(path, st)
         if kind in TABULAR_KINDS:
             return _load_tabular(path, kind)
         if kind == "docx":

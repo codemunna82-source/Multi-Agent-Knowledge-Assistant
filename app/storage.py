@@ -244,9 +244,91 @@ class ChromaVectors(VectorBackend):
         return [(i, 1.0 - d) for i, d in zip(r["ids"][0], r["distances"][0])]
 
 
-def make_backend(kind: str, data_dir: str | Path) -> VectorBackend:
+class QdrantVectors(VectorBackend):
+    """Qdrant: ONE collection per embedding dimension; tenant/workspace/source live in the payload and EVERY query and delete
+    carries a mandatory tenant+workspace filter (isolation cannot be forgotten by a caller). Server mode: MKA_QDRANT_URL;
+    embedded mode (single process, dev/tests): MKA_QDRANT_PATH or ':memory:'."""
+
+    def __init__(self, settings):
+        from qdrant_client import QdrantClient
+
+        key = settings.secret("qdrant_api_key")
+        if settings.qdrant_url:
+            self.client = QdrantClient(url=settings.qdrant_url, api_key=key, timeout=30)
+        else:
+            self.client = QdrantClient(path=settings.qdrant_path) if settings.qdrant_path else QdrantClient(":memory:")
+        self._known: set[str] = set()
+
+    @staticmethod
+    def _name(dim: int) -> str:
+        return f"mka_chunks_{dim}"
+
+    def _ensure(self, dim: int) -> str:
+        from qdrant_client import models as m
+
+        name = self._name(dim)
+        if name in self._known:
+            return name
+        if not self.client.collection_exists(name):
+            self.client.create_collection(name, vectors_config=m.VectorParams(size=dim, distance=m.Distance.COSINE))
+            for field in ("tenant", "workspace", "source_id"):
+                try:
+                    self.client.create_payload_index(name, field, m.PayloadSchemaType.KEYWORD)
+                except Exception:  # embedded mode ignores payload indexes
+                    pass
+        self._known.add(name)
+        return name
+
+    @staticmethod
+    def _filter(store: SessionStore, source_ids: Optional[list[str]] = None):
+        from qdrant_client import models as m
+
+        must = [m.FieldCondition(key="tenant", match=m.MatchValue(value=store.scope.tenant)),
+                m.FieldCondition(key="workspace", match=m.MatchValue(value=store.scope.workspace))]
+        if source_ids is not None:
+            must.append(m.FieldCondition(key="source_id", match=m.MatchAny(any=list(source_ids))))
+        return m.Filter(must=must)
+
+    @staticmethod
+    def _pid(chunk_id: str, store: SessionStore) -> str:
+        import uuid
+
+        return str(uuid.uuid5(uuid.NAMESPACE_URL, f"{store.session}/{chunk_id}"))
+
+    def add(self, store, staging, source_id, chunk_ids, vectors, texts):
+        from qdrant_client import models as m
+
+        name = self._ensure(vectors.shape[1])
+        for i in range(0, len(chunk_ids), 256):
+            self.client.upsert(name, points=[
+                m.PointStruct(id=self._pid(cid, store), vector=vec.tolist(),
+                              payload={"tenant": store.scope.tenant, "workspace": store.scope.workspace, "source_id": source_id, "chunk_id": cid})
+                for cid, vec in zip(chunk_ids[i:i + 256], vectors[i:i + 256])], wait=True)
+
+    def delete(self, store, source_id):
+        from qdrant_client import models as m
+
+        for name in [c.name for c in self.client.get_collections().collections if c.name.startswith("mka_chunks_")]:
+            self.client.delete(name, points_selector=m.FilterSelector(filter=self._filter(store, [source_id])), wait=True)
+
+    def search(self, store, qvec, k, source_ids, embedding):
+        valid = [x["id"] for x in store.list_sources() if x.get("embedding") == embedding]
+        if source_ids is not None:
+            valid = [v for v in valid if v in source_ids]
+        name = self._name(len(qvec))
+        if not valid or not self.client.collection_exists(name):
+            return []
+        r = self.client.query_points(name, query=qvec.tolist(), query_filter=self._filter(store, valid), limit=k, with_payload=True)
+        return [(p.payload["chunk_id"], float(p.score)) for p in r.points]
+
+
+def make_backend(kind: str, data_dir: str | Path, settings=None) -> VectorBackend:
     if kind == "local":
         return LocalVectors()
     if kind == "chroma":
         return ChromaVectors(data_dir)
+    if kind == "qdrant":
+        if settings is None:
+            raise ValueError("qdrant backend needs settings")
+        return QdrantVectors(settings)
     raise ValueError(f"Unknown vector store '{kind}'")

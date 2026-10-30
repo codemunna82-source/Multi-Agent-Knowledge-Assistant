@@ -139,6 +139,11 @@ class LLM:
     def complete(self, system: str, user: str) -> str:
         raise ProviderError("No LLM provider configured")
 
+    def describe_image(self, data: bytes, mime: str, prompt: str) -> str:
+        raise ProviderError("No vision-capable LLM configured")
+
+    usage = None  # set by metered wrapper (see UsageMeter)
+
 
 class OpenAILLM(LLM):
     available = True
@@ -157,6 +162,20 @@ class OpenAILLM(LLM):
             timeout=self.s.llm_timeout,
         )
         return data["choices"][0]["message"]["content"].strip()
+
+
+    def describe_image(self, data: bytes, mime: str, prompt: str) -> str:
+        import base64
+
+        self.calls += 1
+        uri = f"data:{mime};base64,{base64.b64encode(data).decode()}"
+        out = _post_json(
+            "https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {self.s.secret('openai_api_key')}"},
+            payload={"model": self.s.openai_chat_model, "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": uri}}]}]},
+            timeout=self.s.llm_timeout,
+        )
+        return out["choices"][0]["message"]["content"].strip()
 
 
 class GeminiLLM(LLM):
@@ -183,6 +202,22 @@ class GeminiLLM(LLM):
             return "".join(p["text"] for p in data["candidates"][0]["content"]["parts"]).strip()
         except (KeyError, IndexError) as e:
             raise ProviderError(f"Unexpected Gemini response: {str(data)[:200]}") from e
+
+
+def _gemini_image(self, data: bytes, mime: str, prompt: str) -> str:
+    import base64
+
+    self.calls += 1
+    out = _post_json(
+        f"https://generativelanguage.googleapis.com/v1beta/models/{self.s.gemini_chat_model}:generateContent",
+        headers={"x-goog-api-key": self.s.secret("gemini_api_key")},
+        payload={"contents": [{"role": "user", "parts": [{"text": prompt}, {"inlineData": {"mimeType": mime, "data": base64.b64encode(data).decode()}}]}]},
+        timeout=self.s.llm_timeout,
+    )
+    return "".join(p["text"] for p in out["candidates"][0]["content"]["parts"]).strip()
+
+
+GeminiLLM.describe_image = _gemini_image
 
 
 def make_llm(s: Settings) -> LLM:

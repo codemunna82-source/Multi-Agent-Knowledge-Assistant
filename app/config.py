@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     redis_url: Optional[str] = None  # rate limiting + job queue; falls back to in-process when unset
     job_backend: str = "inprocess"  # inprocess | redis
     job_workers: int = 2
+    job_max_attempts: int = 3  # bounded retries for transient failures (embedding API outage ...)
+    job_retry_backoff: float = 2.0
+    job_stale_minutes: int = 30  # 'running' jobs older than this are re-queued by the worker on start
 
     # --- auth
     auth_enabled: bool = False  # dev default keeps the original open API; production requires True
@@ -93,6 +96,9 @@ class Settings(BaseSettings):
     # --- extraction
     ocr_enabled: bool = False
     ocr_languages: str = "eng"
+    pdf_tables: bool = True  # structured table extraction from PDFs (pdfplumber); exposed via /sources/{id}/tables
+    pdf_tables_max_pages: int = 300
+    max_zip_uncompressed_mb: int = 500  # zip-bomb guard for .docx/.xlsx
     vision_captions: bool = False  # multimodal: caption images via the configured vision-capable LLM
 
     @property

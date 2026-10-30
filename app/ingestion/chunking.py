@@ -11,6 +11,8 @@ class Chunk:
     text: str
     loc: dict
     loc_end: Optional[dict] = None
+    u0: int = 0  # index of first unit covered (parent span)
+    u1: int = 0  # index of last unit covered (inclusive)
 
 
 def _windows(text: str, size: int, overlap: int) -> list[str]:
@@ -32,23 +34,25 @@ def chunk_units(units: list[Unit], size: int = 1000, overlap: int = 150) -> list
     A chunk always starts/ends on unit boundaries, so its location range is exact."""
     chunks: list[Chunk] = []
     buf: list[Unit] = []
+    idx: list[int] = []
     blen = 0
 
     def flush():
-        nonlocal buf, blen
+        nonlocal buf, idx, blen
         if buf:
-            chunks.append(Chunk("\n".join(u.text for u in buf), buf[0].loc, buf[-1].loc if len(buf) > 1 else None))
-        buf, blen = [], 0
+            chunks.append(Chunk("\n".join(u.text for u in buf), buf[0].loc, buf[-1].loc if len(buf) > 1 else None, idx[0], idx[-1]))
+        buf, idx, blen = [], [], 0
 
-    for u in units:
+    for i, u in enumerate(units):
         if len(u.text) > size:
             flush()
-            chunks.extend(Chunk(w, u.loc) for w in _windows(u.text, size, overlap))
+            chunks.extend(Chunk(w, u.loc, None, i, i) for w in _windows(u.text, size, overlap))
             continue
         # never merge across pages: a citation must point at exactly one page
         if blen + len(u.text) + 1 > size or (buf and buf[-1].loc.get("page") != u.loc.get("page")):
             flush()
         buf.append(u)
+        idx.append(i)
         blen += len(u.text) + 1
     flush()
     return chunks

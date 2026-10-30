@@ -72,6 +72,7 @@ class Job(Base):
     status: Mapped[str] = mapped_column(String(20), default="queued", index=True)  # queued|running|ready|failed
     stage: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     progress: Mapped[int] = mapped_column(Integer, default=0)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
     error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     source_id: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     payload: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
