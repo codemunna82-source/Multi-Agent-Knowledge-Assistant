@@ -23,9 +23,10 @@ def parse_json(text: str):
         return None
 
 
-def _sentences(text: str) -> list[str]:
-    parts = re.split(r"(?<=[.!?।。])\s+|\n+", text)
-    return [p.strip() for p in parts if p.strip()]
+def _sentences(text: str, keep_lines: bool = False) -> list[str]:
+    if not keep_lines:  # hard-wrapped PDF lines are layout, not sentence boundaries
+        text = re.sub(r"(?<!\n)\n(?!\n)", " ", text)
+    return [p.strip() for p in re.split(r"(?<=[.!?।。])\s+|\n+", text) if p.strip()]
 
 
 # ----------------------------------------------------------------------------- 1. query rewriting
@@ -123,8 +124,8 @@ def cross_encoder_rerank(model_name: str, query: str, hits: list[Hit]) -> bool:
 
 
 # ----------------------------------------------------------------------------- 5. contextual compression (verbatim only)
-def extractive_compress(text: str, query: str, budget: int = 700) -> str:
-    sents = _sentences(text)
+def extractive_compress(text: str, query: str, budget: int = 700, keep_lines: bool = False) -> str:
+    sents = _sentences(text, keep_lines)
     if sum(len(s) for s in sents) <= budget:
         return text
     qs = {stem(t) for t in tokenize(query)}

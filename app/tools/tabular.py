@@ -46,6 +46,35 @@ class PlanError(Exception):
     """The question could not be turned into a safe, unambiguous plan; message tells the user what to clarify."""
 
 
+class NotTabular(PlanError):
+    """The question only superficially looks like a table question (e.g. "how many days of leave...") - let another agent handle it."""
+
+
+AGG_WORDS = set("""highest lowest maximum minimum max min largest smallest biggest total sum average mean median avg count number many much top bottom most least per each group
+    sort sorted order ordered rank ranked ranking duplicate duplicates duplicated unique distinct compare comparison difference differences ascending descending first last
+    show list give display row rows column columns table tables sheet sheets csv xlsx excel spreadsheet spreadsheets record records value values data file""".split())
+
+
+def explained_ratio(tables: list["Table"], question: str) -> float:
+    """Share of the question's content words that the tables can explain (aggregate words, column names, cell values, file/sheet names)."""
+    words = [stem(w) for w in tokenize(question) if not w.isdigit()]
+    if not words:
+        return 0.0
+    known = {stem(w) for w in AGG_WORDS}
+    structural = set()
+    for t in tables:
+        for c in t.df.columns:
+            structural |= _words(c)
+        structural |= {stem(w) for w in tokenize(t.source.rsplit(".", 1)[0] + " " + (t.sheet or ""))}
+        for c in t.text:
+            for v in t.df[c].dropna().astype(str).unique()[:500]:
+                structural |= {stem(w) for w in tokenize(v)}
+    hit = [w for w in words if w in known or w in structural]
+    if not any(w in structural for w in hit):
+        return 1.0 if len(hit) == len(words) else 0.0  # purely generic ("duplicate rows?") is fine; generic + unrelated words ("how many days of leave") is not
+    return len(hit) / len(words)
+
+
 def _to_number(s: pd.Series) -> Optional[pd.Series]:
     cleaned = s.astype(str).str.replace(r"[,$€£%\s]", "", regex=True).str.replace(r"^\((.*)\)$", r"-\1", regex=True)
     nums = pd.to_numeric(cleaned.where(s.astype(str).str.strip() != ""), errors="coerce")
@@ -84,12 +113,19 @@ def _qwords(q: str) -> set[str]:
 
 
 def pick_table(tables: list[Table], question: str) -> Table:
+    """Table the question is most likely about: file/sheet name mentions, column-name words and cell values (whole words, incl. short ones like 'UK')."""
     qw, ql = _qwords(question), question.lower()
     best, best_score = None, -1.0
     for t in tables:
         score = sum(2 for c in t.df.columns if _words(c) & qw)
-        score += sum(1 for c in t.text for v in t.df[c].dropna().astype(str).unique()[:200] if len(v) > 2 and v.lower() in ql)
-        score += 1.5 if t.source.lower() in ql else 0
+        for c in t.text:
+            for v in t.df[c].dropna().astype(str).unique()[:300]:
+                if len(v) >= 2 and re.search(rf"(?<!\w){re.escape(v.lower())}(?!\w)", ql):
+                    score += 1
+        stem_ = t.source.rsplit(".", 1)[0].lower()
+        score += 3 if t.source.lower() in ql else 0
+        score += 2 if len(stem_) >= 3 and re.search(rf"(?<![\w.]){re.escape(stem_)}(?!\w)", ql) else 0
+        score += 1.5 if t.sheet and re.search(rf"(?<!\w){re.escape(t.sheet.lower())}(?!\w)", ql) else 0
         if score > best_score:
             best, best_score = t, score
     return best
@@ -364,6 +400,8 @@ def compare_tables(a: Table, b: Table, key: str, max_rows: int = 20) -> dict:
 def analyse(tables: list[Table], question: str, llm=None) -> dict:
     if not tables:
         raise PlanError("No CSV/Excel data is available")
+    if explained_ratio(tables, question) < 0.6:
+        raise NotTabular("question does not refer to the table data")
     ql = question.lower()
     if re.search(r"\b(compare|comparison|differ\w*|diff|match(?:es)?|same as|versus|vs\.?)\b", ql) and len(tables) >= 2:
         scored = sorted(tables, key=lambda tb: -(2 * (tb.source.lower() in ql or tb.source.rsplit(".", 1)[0].lower() in ql) + ((tb.sheet or "").lower() in ql)))

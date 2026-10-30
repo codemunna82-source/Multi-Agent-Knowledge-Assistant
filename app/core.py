@@ -82,7 +82,11 @@ def tokenize(text: str, drop_stop: bool = True) -> list[str]:
 
 
 def stem(tok: str) -> str:
-    for suf in ("ies", "es", "s"):
-        if tok.endswith(suf) and len(tok) > len(suf) + 2:
-            return tok[: -len(suf)] + ("y" if suf == "ies" else "")
+    """Very light plural stripping (consistent on both sides of every comparison): employees->employee, policies->policy, boxes->box."""
+    if len(tok) > 4 and tok.endswith("ies"):
+        return tok[:-3] + "y"
+    if len(tok) > 4 and tok.endswith(("sses", "xes", "zes", "ches", "shes")):
+        return tok[:-2]
+    if len(tok) > 3 and tok.endswith("s") and not tok.endswith(("ss", "us", "is")):
+        return tok[:-1]
     return tok

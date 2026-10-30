@@ -29,12 +29,23 @@ def result(route: str, answer: str, **kw) -> dict:
     return {"route": route, "answer": answer, **kw}
 
 
+def split_sentences(text: str, keep_lines: bool = False) -> list[str]:
+    """Sentence split. Single newlines are layout (hard-wrapped PDF lines) unless the text is row/line structured (`keep_lines`)."""
+    if not keep_lines:
+        text = re.sub(r"(?<!\n)\n(?!\n)", " ", text)
+    return [p.strip() for p in re.split(r"(?<=[.!?।。])\s+|\n+", text) if p.strip()]
+
+
+def _structured(location: str) -> bool:
+    return bool(re.search(r"\b(row|rows|path|table)\b", location))
+
+
 def best_sentences(evidence: list[dict], query: str, n: int = 3) -> list[tuple[dict, str]]:
     """Verbatim sentences from the evidence that overlap most with the query (the extractive, no-LLM answer)."""
     qs = {stem(t) for t in tokenize(query)}
     scored = []
     for e in evidence:
-        for s in re.split(r"(?<=[.!?।。])\s+|\n+", e.get("context") or e["text"]):
+        for s in split_sentences(e.get("context") or e["text"], _structured(e.get("location", ""))):
             s = s.strip()
             if len(s) < 15:
                 continue

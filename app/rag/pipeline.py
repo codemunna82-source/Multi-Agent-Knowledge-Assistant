@@ -198,7 +198,7 @@ class RAGPipeline:
             for h in hits:
                 src = h.context or h.text
                 out = steps.llm_compress(llm, src, q) if llm is not None else None
-                comp = out or steps.extractive_compress(src, q)
+                comp = out or steps.extractive_compress(src, q, keep_lines=any(k in h.loc for k in ("row", "path", "table")))
                 if comp != src:
                     h.context, h.compressed = comp, True
             r.trace.append({"step": "compress", "compressed": sum(h.compressed for h in hits)})

@@ -276,6 +276,8 @@ class Agents:
             return {"draft": result("data", "No CSV/Excel sources are indexed for this question.", limitations=["Upload a .csv or .xlsx file."])}
         try:
             out = self.tools.call("table_query", c, question=state["question"])
+        except tab.NotTabular:  # "how many days of leave..." matched aggregate keywords but is not about the spreadsheets
+            return {"route": "semantic", "trace": ["data: question is not about the table data -> handing over to the semantic agent"], "plan": {**state.get("plan", {}), "redirected_from": "data"}}
         except (tab.PlanError, ToolError) as e:
             msg = str(e)
             return {"draft": result("data", f"I could not run a reliable calculation: {msg}", needs_input=True,

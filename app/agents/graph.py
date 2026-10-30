@@ -29,8 +29,8 @@ def build_graph(agents: Agents, checkpointer=None):
     g.add_node("final", m(agents.final))
     g.set_entry_point("supervisor")
     g.add_conditional_edges("supervisor", lambda st: st["route"], {r: r for r in DETERMINISTIC + GENERATIVE})
-    for r in DETERMINISTIC:
-        g.add_edge(r, "final")
+    g.add_edge("exact", "final")
+    g.add_conditional_edges("data", lambda st: "semantic" if st.get("route") == "semantic" else "final", {"semantic": "semantic", "final": "final"})
 
     def after_semantic(st: AgentState) -> str:
         d = st.get("draft") or {}
