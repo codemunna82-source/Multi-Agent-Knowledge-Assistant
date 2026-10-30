@@ -7,7 +7,7 @@ function Users({ me }: { me: User }) {
   const users = useLoad(() => api.users(), []);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<Role>("viewer");
+  const [role, setRole] = useState<Role>("user");
   const [err, setErr] = useState<string | null>(null);
   const run = async (fn: () => Promise<unknown>) => { try { await fn(); setErr(null); } catch (e) { setErr(e instanceof Error ? e.message : "Failed"); } void users.reload(); };
   return (
@@ -16,7 +16,7 @@ function Users({ me }: { me: User }) {
       <table><thead><tr><th>Email</th><th>Role</th><th>Status</th><th /></tr></thead>
         <tbody>{(users.data ?? []).map((u) => (
           <tr key={u.id}><td>{u.email}{u.id === me.id && <span className="muted"> (you)</span>}</td>
-            <td><select aria-label={`Role of ${u.email}`} value={u.role} onChange={(e) => void run(() => api.updateUser(u.id, { role: e.target.value }))}><option>viewer</option><option>editor</option><option>admin</option></select></td>
+            <td><select aria-label={`Role of ${u.email}`} value={u.role} onChange={(e) => void run(() => api.updateUser(u.id, { role: e.target.value }))}><option>user</option><option>manager</option><option>admin</option></select></td>
             <td>{u.is_active ? "active" : "disabled"}</td>
             <td className="row"><button className="small" onClick={() => void run(() => api.updateUser(u.id, { is_active: !u.is_active }))}>{u.is_active ? "Disable" : "Enable"}</button>
               <button className="small danger" onClick={() => { if (confirm(`Delete ${u.email} and their conversations?`)) void run(() => api.deleteUser(u.id)); }}>Delete</button></td></tr>
@@ -26,7 +26,7 @@ function Users({ me }: { me: User }) {
       <form className="row" onSubmit={(e) => { e.preventDefault(); void run(async () => { await api.createUser(email, password, role); setEmail(""); setPassword(""); }); }}>
         <input type="email" placeholder="email" aria-label="New user email" value={email} onChange={(e) => setEmail(e.target.value)} required style={{ width: 220 }} />
         <input type="password" placeholder="password (10+ chars)" aria-label="New user password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={10} style={{ width: 200 }} />
-        <select aria-label="New user role" value={role} onChange={(e) => setRole(e.target.value as Role)} style={{ width: 110 }}><option>viewer</option><option>editor</option><option>admin</option></select>
+        <select aria-label="New user role" value={role} onChange={(e) => setRole(e.target.value as Role)} style={{ width: 110 }}><option>user</option><option>manager</option><option>admin</option></select>
         <button className="primary">Create</button>
       </form>
     </div>
@@ -48,7 +48,7 @@ function Audit() {
   );
 }
 
-function Settings() {
+function PlatformSettings() {
   const s = useLoad(() => api.settings(), []);
   const [confirmText, setConfirmText] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
@@ -69,5 +69,5 @@ function Settings() {
 }
 
 export function Admin({ me }: { me: User }) {
-  return <div><Users me={me} /><Audit /><Settings /></div>;
+  return <div><Users me={me} /><Audit /><PlatformSettings /></div>;
 }

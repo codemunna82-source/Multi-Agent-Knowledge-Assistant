@@ -43,3 +43,33 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[]) {
   useEffect(() => { void reload(); }, deps);
   return { data, error, loading, reload };
 }
+
+export function Pager({ total, limit, offset, onChange }: { total: number; limit: number; offset: number; onChange: (offset: number) => void }) {
+  if (total <= limit) return null;
+  const page = Math.floor(offset / limit) + 1, pages = Math.ceil(total / limit);
+  return (
+    <nav className="row small" aria-label="Pagination">
+      <button className="small" disabled={offset <= 0} onClick={() => onChange(Math.max(0, offset - limit))}>‹ Prev</button>
+      <span>Page {page} of {pages} · {total} total</span>
+      <button className="small" disabled={offset + limit >= total} onClick={() => onChange(offset + limit)}>Next ›</button>
+    </nav>
+  );
+}
+
+export function Tabs<T extends string>({ tabs, value, onChange, label }: { tabs: [T, string][]; value: T; onChange: (t: T) => void; label: string }) {
+  return (
+    <div className="subtabs" role="tablist" aria-label={label}>
+      {tabs.map(([k, name]) => <button key={k} role="tab" aria-selected={value === k} className={value === k ? "on" : ""} onClick={() => onChange(k)}>{name}</button>)}
+    </div>
+  );
+}
+
+export const errText = (e: unknown, fallback = "Failed") => (e instanceof Error ? e.message : fallback);
+
+/** Table of arbitrary rows (analysis results). Cells are rendered as text only. */
+export function DataTable({ columns, rows }: { columns: string[]; rows: unknown[][] }) {
+  return (
+    <div className="scroll"><table><thead><tr>{columns.map((c) => <th key={c}>{c}</th>)}</tr></thead>
+      <tbody>{rows.map((r, i) => <tr key={i}>{r.map((v, j) => <td key={j}>{v === null || v === undefined ? "" : typeof v === "number" ? v.toLocaleString(undefined, { maximumFractionDigits: 4 }) : String(v)}</td>)}</tr>)}</tbody></table></div>
+  );
+}

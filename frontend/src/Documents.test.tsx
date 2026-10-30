@@ -15,7 +15,7 @@ describe("Documents", () => {
       "/jobs/j1": () => { polls++; return { body: polls < 2 ? { id: "j1", name: "a.pdf", status: "running", stage: "embedding", progress: 60, attempts: 1 } : { id: "j1", name: "a.pdf", status: "ready", stage: "done", progress: 100, attempts: 1, source_id: "s1" } }; },
       "/sources": () => { if (polls >= 2) listed = [{ id: "s1", name: "a.pdf", kind: "pdf", pages: 3, chunks: 5, tabular: false, warnings: ["1 page had no text"], needs_reindex: false, visibility: "tenant", status: "ready", created_at: "" }]; return { body: listed }; },
     });
-    render(<Documents workspace="w" canIngest onAsk={() => {}} />);
+    render(<Documents workspace="w" canIngest canShare onAsk={() => {}} />);
     await screen.findByText("Nothing indexed in this workspace yet.");
     await userEvent.upload(screen.getByTestId("file-input"), [new File(["x"], "a.pdf"), new File([""], "b.txt")]);
     expect(await screen.findByText("embedding 60%")).toBeInTheDocument();
@@ -27,7 +27,7 @@ describe("Documents", () => {
 
   it("hides ingestion controls for viewers", async () => {
     mockFetch({ "/sources": { body: [] } });
-    render(<Documents workspace="w" canIngest={false} onAsk={() => {}} />);
+    render(<Documents workspace="w" canIngest={false} canShare={false} onAsk={() => {}} />);
     await screen.findByText("Nothing indexed in this workspace yet.");
     expect(screen.queryByLabelText("Upload documents")).toBeNull();
   });
@@ -40,7 +40,7 @@ describe("Documents", () => {
     });
     vi.stubGlobal("confirm", () => true);
     const asked: string[] = [];
-    render(<Documents workspace="w" canIngest onAsk={(q) => asked.push(q)} />);
+    render(<Documents workspace="w" canIngest canShare onAsk={(q) => asked.push(q)} />);
     expect(await screen.findByText("needs re-index")).toBeInTheDocument();
     expect(screen.getByText("private")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Questions" }));

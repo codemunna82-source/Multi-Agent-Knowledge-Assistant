@@ -25,6 +25,30 @@ describe("api client", () => {
     await expect(api.ask("w", { question: "x" })).rejects.toBeInstanceOf(ApiError);
   });
 
+  it("keeps the access token in memory only and refreshes it silently from the cookie", async () => {
+    let first = true;
+    const { calls } = mockFetch({
+      "POST /auth/refresh": { body: { access_token: "fresh", expires_in: 900, user: { id: "u" } } },
+      "/sources": () => { if (first) { first = false; return { status: 401, body: { detail: "Token expired" } }; } return { body: [{ id: "s1" }] }; },
+    });
+    setToken("stale");
+    const r = await api.sources("w");
+    expect(r.items).toEqual([{ id: "s1" }]);
+    const retried = calls.filter((c) => c.url.includes("/sources"));
+    expect(retried).toHaveLength(2);
+    expect((retried[1].init.headers as Record<string, string>).Authorization).toBe("Bearer fresh");
+    expect(calls.filter((c) => c.url.includes("/auth/refresh"))).toHaveLength(1);
+    expect(JSON.stringify({ ...sessionStorage })).not.toContain("fresh");
+    expect(JSON.stringify({ ...localStorage })).not.toContain("fresh");
+  });
+
+  it("reads pagination totals from X-Total-Count", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("[{\"id\":\"a\"}]", { status: 200, headers: { "X-Total-Count": "57", "content-type": "application/json" } })));
+    const r = await api.sources("w", { limit: 1, offset: 10 });
+    expect(r.total).toBe(57);
+    expect((fetch as unknown as { mock: { calls: string[][] } }).mock.calls[0][0]).toContain("limit=1&offset=10");
+  });
+
   it("uploads with async=true as multipart", async () => {
     const { calls } = mockFetch({ "POST /sources/upload": { status: 202, body: [{ name: "a.txt", job_id: "j1", status: "queued", error: null }] } });
     const r = await api.uploadFiles("w", [new File(["x"], "a.txt")], "private");
@@ -44,7 +68,7 @@ describe("api client", () => {
   });
 
   it("rejects when the stream endpoint refuses", async () => {
-    mockFetch({ "/ask/stream": { status: 403, body: { detail: "Your role (viewer) may not perform 'ask'" } } });
+    mockFetch({ "/ask/stream": { status: 403, body: { detail: "Your role (user) may not perform 'ask'" } } });
     await expect(askStream("w", { question: "x" }, () => {})).rejects.toThrow("may not perform");
   });
 });

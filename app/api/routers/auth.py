@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Optional
 
+from pydantic import BaseModel
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from sqlalchemy import select
 
@@ -71,11 +72,19 @@ def login(body: LoginRequest, request: Request, response: Response, svc: Service
     return out
 
 
-@router.post("/refresh", response_model=TokenResponse, dependencies=[Depends(rate_limit("auth"))])
-def refresh(request: Request, response: Response, body: Optional[RefreshRequest] = None, cookie: Optional[str] = Cookie(default=None, alias=COOKIE), svc: Services = Depends(get_svc)):
-    """Exchange a refresh token (body or httpOnly cookie) for a new access token; the refresh token rotates on every use."""
+class NoSession(BaseModel):
+    authenticated: bool = False
+
+
+@router.post("/refresh", response_model=TokenResponse | NoSession, dependencies=[Depends(rate_limit("auth"))])
+def refresh(request: Request, response: Response, optional: bool = False, body: Optional[RefreshRequest] = None, cookie: Optional[str] = Cookie(default=None, alias=COOKIE),
+            svc: Services = Depends(get_svc)):
+    """Exchange a refresh token (body or httpOnly cookie) for a new access token; the refresh token rotates on every use.
+    `optional=true` (used by the browser on page load): a missing or invalid token answers 200 {"authenticated": false} instead of 401, so signed-out visits stay quiet."""
     token = (body.refresh_token if body else None) or cookie
     if not token:
+        if optional:
+            return NoSession()
         raise HTTPException(401, "No refresh token")
     try:
         user, new = rotate_refresh(svc.db, svc.settings, token, _ip(request))
@@ -85,6 +94,8 @@ def refresh(request: Request, response: Response, body: Optional[RefreshRequest]
         raise HTTPException(401, str(e))
     except AuthError as e:
         response.delete_cookie(COOKIE, path="/auth")
+        if optional:
+            return NoSession()
         raise HTTPException(401, str(e))
     out = _respond(svc, response, user, new)
     svc.auditor.record("token_refresh", tenant_id=user.tenant_id, user_id=user.id, ip=_ip(request), request_id=request.state.request_id)

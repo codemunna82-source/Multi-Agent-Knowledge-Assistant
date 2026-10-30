@@ -168,6 +168,10 @@ def ask_stream(body: AskRequest, request: Request, ctx: Ctx = Depends(require("a
             for ev in svc.assistant.ask_stream(ctx.scope, body, ctx.principal, conversation_id=turn.thread, history=turn.history, summary=turn.summary, notes=turn.notes):
                 if ev["type"] == "final":
                     ev["response"]["request_id"], ev["response"]["conversation_id"] = rid, turn.conv_id
+                    if turn.private:
+                        ev["response"]["details"]["private"] = True
+                    if turn.notes:
+                        ev["response"]["details"]["memory_notes_used"] = len(turn.notes)
                     final = ev["response"]
                 yield f"event: {ev['type']}\ndata: {json.dumps(ev, ensure_ascii=False)}\n\n"
         except KeyError as e:

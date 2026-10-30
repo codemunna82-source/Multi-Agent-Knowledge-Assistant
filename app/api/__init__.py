@@ -25,7 +25,7 @@ from .routers import admin, analytics, auth, chat, features, memory, reports, ev
 log = logging.getLogger("mka")
 STATIC = Path(__file__).resolve().parent.parent / "static"
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
-CSP = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'"
+CSP = "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'"
 
 
 class JsonFormatter(logging.Formatter):

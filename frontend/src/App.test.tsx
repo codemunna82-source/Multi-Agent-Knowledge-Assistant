@@ -11,20 +11,21 @@ import type { EvalReport } from "./types";
 beforeEach(() => setToken(null));
 afterEach(() => vi.unstubAllGlobals());
 
+const EMPTY = { "/sources": { body: [] }, "/jobs": { body: [] }, "/conversations": { body: [] }, "/reports": { body: [] } };
 const health = (auth: boolean) => ({ status: "ok", version: "2", embedder: "hash", llm: "none", vector_store: "local", auth_enabled: auth });
 
 describe("App shell", () => {
   it("dev mode (auth disabled) shows a warning banner and all tabs", async () => {
-    mockFetch({ "/health": { body: health(false) }, "/sources": { body: [] } });
+    mockFetch({ "/health": { body: health(false) }, ...EMPTY });
     render(<App />);
     expect(await screen.findByText(/Development mode/)).toBeInTheDocument();
-    for (const t of ["Documents", "Chat", "Evaluation", "Admin"]) expect(screen.getByRole("button", { name: t })).toBeInTheDocument();
+    for (const t of ["Dashboard", "Library", "Chat", "Exact search", "Compare", "Data analyst", "Reports", "History", "Evaluation", "Settings", "Admin"]) expect(screen.getByRole("button", { name: t })).toBeInTheDocument();
   });
 
   it("requires login when auth is enabled and role-gates the tabs", async () => {
     mockFetch({
-      "/health": { body: health(true) }, "POST /auth/login": { body: { access_token: "t", expires_in: 60, user: { id: "u", tenant_id: "t", email: "v@x.io", role: "viewer" } } },
-      "/sources": { body: [] },
+      "/health": { body: health(true) }, "POST /auth/login": { body: { access_token: "t", expires_in: 60, user: { id: "u", tenant_id: "t", email: "v@x.io", role: "user" } } },
+      ...EMPTY,
     });
     render(<App />);
     await userEvent.type(await screen.findByLabelText("Email"), "v@x.io");
@@ -33,12 +34,14 @@ describe("App shell", () => {
     expect(await screen.findByRole("button", { name: "Chat" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Admin" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Evaluation" })).toBeNull();
-    expect(screen.queryByLabelText("Upload documents")).toBeNull();
+    expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Library" }));
+    expect(screen.queryByLabelText("Upload documents")).toBeNull();      // plain users cannot ingest
     expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
   });
 
   it("validates the workspace id", async () => {
-    mockFetch({ "/health": { body: health(false) }, "/sources": { body: [] } });
+    mockFetch({ "/health": { body: health(false) }, ...EMPTY });
     render(<App />);
     const ws = await screen.findByLabelText("Workspace");
     await userEvent.clear(ws);

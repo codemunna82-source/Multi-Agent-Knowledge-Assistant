@@ -350,3 +350,18 @@ def test_scheduler_round_uses_a_leader_lock(tmp_path):
     assert scheduler.run_round(k, aud, r) is None                              # another replica is the leader
     r.keys.clear()
     assert scheduler.run_round(k, aud, r) is not None and r.keys == {}         # lock released afterwards
+
+
+# ----------------------------------------------------------------------------- browser-facing details
+def test_optional_refresh_is_quiet_when_signed_out_and_csp_allows_blob_page_images(tmp_path):
+    s = Settings(data_dir=str(tmp_path / "d"), auth_enabled=True, jwt_secret="x" * 40, rate_limit_auth="1000/minute", _env_file=None)
+    c = TestClient(create_app(s))
+    assert c.post("/auth/refresh").status_code == 401                                         # strict by default
+    r = c.post("/auth/refresh?optional=true")
+    assert r.status_code == 200 and r.json() == {"authenticated": False}                       # page-load probe: no 401 noise in the browser console
+    assert c.post("/auth/refresh?optional=true", json={"refresh_token": "garbage"}).json() == {"authenticated": False}
+    c.post("/auth/signup", json={"tenant_name": "Acme", "email": "a@acme.io", "password": PW})
+    ok = c.post("/auth/refresh?optional=true")                                                 # the signup cookie is sent automatically by the test client
+    assert ok.status_code == 200 and ok.json()["access_token"] and ok.json()["user"]["email"] == "a@acme.io"
+    csp = c.get("/").headers["content-security-policy"]
+    assert "img-src 'self' data: blob:" in csp and "frame-ancestors 'none'" in csp and "connect-src 'self'" in csp
