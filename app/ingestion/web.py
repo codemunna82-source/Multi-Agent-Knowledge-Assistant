@@ -103,7 +103,7 @@ def fetch(url: str, s: Settings, transport: Optional[httpx.BaseTransport] = None
     raise IngestError("Too many redirects")
 
 
-def extract_html(final_url: str, ctype: str, body: str) -> Extracted:
+def extract_html(final_url: str, ctype: str, body: str, as_file: bool = False) -> Extracted:
     if ctype == "text/plain":
         blocks = [b.strip() for b in body.split("\n\n") if b.strip()]
         units = [Unit(b, {"url": final_url}) for b in blocks]
@@ -119,7 +119,7 @@ def extract_html(final_url: str, ctype: str, body: str) -> Extracted:
             rows = [[" ".join(c.get_text(" ", strip=True).split()) for c in tr.find_all(["th", "td"])] for tr in tb.find_all("tr")]
             rows = [r for r in rows if any(r)]
             if len(rows) >= 2:
-                tables_out.append({"location": {"url": final_url, "table": ti}, "header": rows[0], "rows": rows[1:]})
+                tables_out.append({"location": {"table": ti} if as_file else {"url": final_url, "table": ti}, "header": rows[0], "rows": rows[1:]})
         units, section = [], None
         for el in soup.find_all(BLOCK_TAGS):
             if el.find(BLOCK_TAGS):  # only leaf blocks, avoids duplicated text
@@ -129,7 +129,10 @@ def extract_html(final_url: str, ctype: str, body: str) -> Extracted:
                 continue
             if el.name.startswith("h") and len(el.name) == 2:
                 section = text
-            loc = {"url": final_url}
+            if as_file:  # uploaded .html file: cite by paragraph number + section instead of a URL
+                loc = {"paragraph": len(units) + 1}
+            else:
+                loc = {"url": final_url}
             if section and not el.name.startswith("h"):
                 loc["section"] = section
             units.append(Unit(text, loc))

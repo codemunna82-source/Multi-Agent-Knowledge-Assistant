@@ -36,7 +36,7 @@ class Registry:
     def _meta(row: Document) -> dict:
         m = dict(row.meta or {})
         m.update(id=row.id, doc_key=row.doc_key, version=row.version, is_current=row.is_current, name=row.name, kind=row.kind, owner_id=row.owner_id,
-                 visibility=row.visibility, content_hash=row.content_hash, classification=row.classification)
+                 visibility=row.visibility, content_hash=row.content_hash)  # classification stays the full dict stored in meta (the column holds only its label, for SQL filters)
         return m
 
     def _acl_map(self, s, tenant: str, doc_keys: list[str]) -> dict[str, dict]:

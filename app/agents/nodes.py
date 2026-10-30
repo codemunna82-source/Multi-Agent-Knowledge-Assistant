@@ -116,7 +116,7 @@ class Agents:
         if not metas:
             return {"draft": self._no_sources("exact")}
         r, _ = self.tools.call("exact_search", c, term=term, case_sensitive=req.case_sensitive, whole_word=req.whole_word)
-        cites = [Citation(source_id=m["source_id"], source=m["source"], location=m["location"], excerpt=m["excerpt"]) for m in r.matches]
+        cites = [Citation(source_id=m["source_id"], source=m["source"], location=m["location"], excerpt=m["excerpt"], loc=m["loc"]) for m in r.matches]
         lim = [f"Matching rules: {r.rules}."] + self._stale([m for m in metas if m.get("warnings")])[:5]
         if r.truncated:
             lim.append(f"Showing the first {len(r.matches)} of {r.count} matches; the count covers all of them.")
@@ -180,7 +180,7 @@ class Agents:
         term, q = state.get("term"), state["question"]
         if term:  # exact + semantic ("where does clause 8 appear?")
             ex, _ = self.tools.call("exact_search", c, term=term, case_sensitive=req.case_sensitive, whole_word=req.whole_word)
-            cites = [Citation(source_id=m["source_id"], source=m["source"], location=m["location"], excerpt=m["excerpt"]) for m in ex.matches]
+            cites = [Citation(source_id=m["source_id"], source=m["source"], location=m["location"], excerpt=m["excerpt"], loc=m["loc"]) for m in ex.matches]
             rr = self._search(c, state["query"], state)
             sem = evidence_citations([hit_to_evidence(i, h) for i, h in enumerate(rr.hits, 1)])
             seen = {(x.source_id, x.location) for x in cites}

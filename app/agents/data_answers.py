@@ -7,7 +7,8 @@ from .common import fmt, result
 
 def _cite(r: dict) -> Citation:
     loc = (f"sheet '{r['sheet']}', " if "sheet" in r else "") + f"row {r['row']}"
-    return Citation(source_id=r["source_id"], source=r["source"], location=loc, excerpt="; ".join(f"{k}: {v}" for k, v in r["values"].items() if v is not None))
+    return Citation(source_id=r["source_id"], source=r["source"], location=loc, excerpt="; ".join(f"{k}: {v}" for k, v in r["values"].items() if v is not None),
+                    loc={**({"sheet": r["sheet"]} if "sheet" in r else {}), "row": r["row"]})
 
 
 def _label(r: dict) -> str:

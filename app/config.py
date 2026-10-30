@@ -115,6 +115,8 @@ class Settings(BaseSettings):
     # --- extraction
     ocr_enabled: bool = False
     ocr_languages: str = "eng"
+    pdf_engine: str = "auto"  # auto (PyMuPDF if installed) | pypdf
+    pdf_heading_max_pages: int = 400  # font-size heading detection (when a PDF has no bookmarks) runs only up to this many pages
     pdf_tables: bool = True  # structured table extraction from PDFs (pdfplumber); exposed via /sources/{id}/tables
     pdf_tables_max_pages: int = 300
     max_zip_uncompressed_mb: int = 500  # zip-bomb guard for .docx/.xlsx

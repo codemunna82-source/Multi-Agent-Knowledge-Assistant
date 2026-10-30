@@ -74,8 +74,30 @@ _W = r"[\w\u0300-\u036f\u0900-\u0dff\u0e00-\u0eff\u0f00-\u0fff\u1ab0-\u1aff\u20d
 _TOKEN = re.compile(rf"{_W}+(?:[-']{_W}+)*", re.UNICODE)  # unicode-aware: Hindi, Arabic, accented Latin, CJK runs, ...
 
 
+NOSPACE = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\u0e00-\u0e7f]")  # CJK, Hangul, Thai: no spaces between words
+
+
+def _split_nospace(tok: str) -> list[str]:
+    """Words are not delimited in these scripts: index overlapping character bigrams (the standard cheap approach), single characters stay as they are."""
+    out: list[str] = []
+    run = ""
+    for ch in tok + " ":
+        if NOSPACE.match(ch):
+            run += ch
+            continue
+        if run:
+            out.extend([run] if len(run) == 1 else [run[i:i + 2] for i in range(len(run) - 1)])
+            run = ""
+        if ch != " ":
+            out.append(ch)
+    return ["".join(out)] if out and not any(NOSPACE.match(c) for c in "".join(out)) else out
+
+
 def tokenize(text: str, drop_stop: bool = True) -> list[str]:
-    toks = [t.lower() for t in _TOKEN.findall(text)]
+    toks: list[str] = []
+    for t in _TOKEN.findall(text):
+        t = t.lower()
+        toks.extend(_split_nospace(t) if NOSPACE.search(t) else [t])
     if drop_stop:
         toks = [t for t in toks if t not in STOPWORDS]
     return toks

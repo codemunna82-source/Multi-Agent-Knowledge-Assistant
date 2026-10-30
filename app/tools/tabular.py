@@ -84,7 +84,7 @@ def _to_number(s: pd.Series) -> Optional[pd.Series]:
 def load_tables(store, metas: list[dict]) -> list[Table]:
     tables = []
     for meta in metas:
-        if meta.get("kind") not in ("csv", "xlsx"):
+        if meta.get("kind") not in ("csv", "xlsx", "xls"):
             continue
         path = store.source_dir(meta["id"]) / meta["original"]
         for sheet, header, data in read_sheets(path, meta["kind"]):

@@ -3,7 +3,7 @@
 Counting rules (also returned to the caller so they are never implicit):
   * Unicode NFKC normalised; whitespace inside the term matches any run of whitespace (incl. line breaks)
   * case-insensitive by default (case_sensitive=true to change)
-  * whole-word by default: "Ann" does not match "Annual" (whole_word=false for substring matching)
+  * whole-word by default: "Ann" does not match "Annual" (whole_word=false for substring matching); scripts without word delimiters (CJK, Thai) always use substring matching
   * every non-overlapping occurrence counts, in every page / row / paragraph; a match that spans a page
     or row boundary is not counted
 """
@@ -14,7 +14,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from typing import Iterable
 
-from ..core import Unit, format_loc
+from ..core import NOSPACE, Unit, format_loc
 
 
 @dataclass
@@ -33,6 +33,8 @@ def build_pattern(term: str, case_sensitive: bool = False, whole_word: bool = Tr
     if not term:
         raise ValueError("empty search term")
     body = r"\s+".join(re.escape(p) for p in term.split())
+    if whole_word and NOSPACE.search(term):
+        whole_word = False  # CJK/Thai have no word delimiters: a "whole word" match is meaningless there, substring matching is the only sensible rule
     if whole_word:
         pre = r"(?<!\w)" if re.match(r"\w", term[0]) else ""
         post = (r"(?!\w)" + (r"(?!\.\d)" if term[-1].isdigit() else "")) if re.match(r"\w", term[-1]) else ""

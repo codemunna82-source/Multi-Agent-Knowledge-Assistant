@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
+import numpy as np
 
 from .config import Settings
 from .db import Database
@@ -19,6 +20,7 @@ from .core import IngestError, ProviderError, Unit
 from .ingestion import web
 from .ingestion.chunking import chunk_units
 from .ingestion.loaders import TABULAR_KINDS, extract, kind_for
+from .intel.classify import classify
 from .intel.entities import chunk_entities
 from .intel.language import detect_language
 from .security.files import validate_upload
@@ -183,7 +185,7 @@ class Knowledge:
                 if src_file.resolve() != orig.resolve():
                     shutil.copyfile(src_file, orig)
                 validate_upload(orig, kind, s.max_zip_uncompressed_mb)
-                ex = extract(orig, kind, s)
+                ex = extract(orig, kind, s, on_page=lambda i, n: progress("extracting", 10 + int(25 * i / max(n, 1))) if i % 25 == 0 or i == n else None)
                 if kind == "image":
                     self._caption_image(orig, ex)
                     if not ex.units:
@@ -210,10 +212,19 @@ class Knowledge:
             texts = [r["text"] for r in records]
             self.stats.embedded_chars += sum(map(len, texts))
             progress("embedding", 60)
-            vectors = self.embedder.embed_documents(texts)
+            B, parts = max(1, s.embed_batch), []
+            for i in range(0, len(texts), B):  # batches keep memory flat on 1,000+ page documents and give the progress bar something to show
+                parts.append(self.embedder.embed_documents(texts[i:i + B]))
+                progress("embedding", 60 + int(25 * min(i + B, len(texts)) / len(texts)))
+            vectors = np.vstack(parts) if parts else np.zeros((0, 1), dtype=np.float32)
             if len(vectors) != len(records):
                 raise ProviderError("Embedding provider returned an unexpected number of vectors")
             meta["language"] = detect_language(" ".join(u.text for u in ex.units[:40]))
+            meta["classification"] = classify(kind, name, ex.units, self.llm if self.llm.available else None)
+            if ex.meta.get("properties"):
+                meta["properties"] = ex.meta["properties"]
+            if ex.meta.get("engine"):
+                meta["engine"] = ex.meta["engine"]
             meta.update(
                 units=len(ex.units), chunks=len(records), warnings=ex.warnings, embedding=self.embedder.name,
                 tabular=kind in TABULAR_KINDS, **{k: v for k, v in ex.meta.items() if k in ("pages", "tables")},

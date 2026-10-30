@@ -13,9 +13,9 @@ from ..core import Extracted, IngestError, Unit
 
 log = logging.getLogger("mka.loaders")
 
-SUPPORTED = {".pdf": "pdf", ".csv": "csv", ".xlsx": "xlsx", ".docx": "docx", ".txt": "txt", ".md": "md", ".markdown": "md", ".json": "json",
-             ".png": "image", ".jpg": "image", ".jpeg": "image", ".tif": "image", ".tiff": "image", ".webp": "image"}
-TABULAR_KINDS = ("csv", "xlsx")
+SUPPORTED = {".pdf": "pdf", ".csv": "csv", ".xlsx": "xlsx", ".xls": "xls", ".docx": "docx", ".txt": "txt", ".md": "md", ".markdown": "md", ".json": "json",
+             ".html": "html", ".htm": "html", ".png": "image", ".jpg": "image", ".jpeg": "image", ".tif": "image", ".tiff": "image", ".webp": "image"}
+TABULAR_KINDS = ("csv", "xlsx", "xls")
 
 
 def kind_for(filename: str) -> str:
@@ -26,12 +26,24 @@ def kind_for(filename: str) -> str:
 
 
 def decode(data: bytes) -> str:
-    for enc in ("utf-8-sig", "utf-16") if data[:2] in (b"\xff\xfe", b"\xfe\xff") else ("utf-8-sig",):
-        try:
-            return data.decode(enc)
-        except UnicodeDecodeError:
-            pass
-    return data.decode("latin-1")
+    """Bytes -> text without ever failing: BOMs, UTF-8, then statistical detection (cp1252, GBK, Shift-JIS, ...), then latin-1 with replacement."""
+    if data[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        return data.decode("utf-16", errors="replace")
+    if data[:3] == b"\xef\xbb\xbf":
+        return data[3:].decode("utf-8", errors="replace")
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        pass
+    try:
+        from charset_normalizer import from_bytes
+
+        best = from_bytes(data[:200_000]).best()
+        if best is not None:
+            return data.decode(best.encoding, errors="replace")
+    except Exception:  # detection is best-effort
+        pass
+    return data.decode("cp1252", errors="replace")
 
 
 # ----------------------------------------------------------------------------- tabular (shared with analysis)
@@ -64,6 +76,31 @@ def read_sheets(path: Path, kind: str) -> list[tuple[Optional[str], list[str], l
             dialect = csv.excel
         rows = ((i, [_cell(c) for c in r]) for i, r in enumerate(csv.reader(text.splitlines(), dialect), 1))
         sheets.append((None, rows))
+    elif kind == "xls":
+        try:
+            import xlrd
+
+            book = xlrd.open_workbook(str(path), on_demand=True)
+        except Exception as e:
+            raise IngestError(f"Could not open legacy Excel workbook: {e}") from e
+
+        def xls_rows(sh):
+            for i in range(sh.nrows):
+                row = []
+                for c in sh.row(i):
+                    if c.ctype == xlrd.XL_CELL_DATE:
+                        try:
+                            row.append(xlrd.xldate_as_datetime(c.value, book.datemode).date().isoformat())
+                        except Exception:
+                            row.append(str(c.value))
+                    elif c.ctype == xlrd.XL_CELL_ERROR:
+                        row.append("")
+                    else:
+                        row.append(_cell(c.value))
+                yield i + 1, row
+
+        for sh in book.sheets():
+            sheets.append((sh.name, xls_rows(sh)))
     else:
         try:
             from openpyxl import load_workbook
@@ -176,7 +213,7 @@ def _pdf_tables(path: Path, max_pages: int) -> tuple[list[dict], list[str]]:
     return tables, warns
 
 
-def _load_pdf(path: Path, st: Settings) -> Extracted:
+def _load_pdf_pypdf(path: Path, st: Settings, on_page=None) -> Extracted:
     from pypdf import PdfReader
     from pypdf.errors import PyPdfError
 
@@ -195,6 +232,8 @@ def _load_pdf(path: Path, st: Settings) -> Extracted:
     units, warnings, empty, ocr_pages = [], [], [], []
     oi, section = 0, None
     for i, page in enumerate(pages, 1):
+        if on_page:
+            on_page(i, len(pages))
         while oi < len(outline) and outline[oi][0] <= i - 1:
             section = outline[oi][1]
             oi += 1
@@ -230,7 +269,137 @@ def _load_pdf(path: Path, st: Settings) -> Extracted:
         tables, tw = _pdf_tables(path, st.pdf_tables_max_pages)
         warnings.extend(tw)
     title = (reader.metadata.title if reader.metadata else None) or None
-    return Extracted(units, title=title, warnings=warnings, meta={"pages": len(pages), "ocr_pages": ocr_pages}, tables=tables)
+    props = {k: str(v) for k, v in {"author": getattr(reader.metadata, "author", None), "subject": getattr(reader.metadata, "subject", None), "creator": getattr(reader.metadata, "creator", None)}.items() if v}
+    return Extracted(units, title=title, warnings=warnings, meta={"pages": len(pages), "ocr_pages": ocr_pages, "properties": props, "engine": "pypdf"}, tables=tables)
+
+
+def _ocr_pixmap(page, lang: str) -> str:
+    from PIL import Image
+
+    pix = page.get_pixmap(dpi=200)
+    img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples) if pix.n == 3 else Image.frombytes("RGBA", (pix.width, pix.height), pix.samples).convert("RGB")
+    return _ocr_image(img, lang)
+
+
+def _body_font_size(doc, sample: int = 20) -> float:
+    from collections import Counter
+
+    c: Counter = Counter()
+    for i in range(min(sample, len(doc))):
+        for b in doc[i].get_text("dict")["blocks"]:
+            for ln in b.get("lines", []):
+                for sp in ln["spans"]:
+                    c[round(sp["size"], 1)] += len(sp["text"].strip())
+    return c.most_common(1)[0][0] if c else 0.0
+
+
+def _page_headings(page, body: float) -> list[str]:
+    """Lines set noticeably larger than body text (>= 1.2x), short, not sentences -> section headings (used when the PDF has no bookmarks)."""
+    out = []
+    for b in page.get_text("dict")["blocks"]:
+        for ln in b.get("lines", []):
+            spans = [sp for sp in ln["spans"] if sp["text"].strip()]
+            if not spans:
+                continue
+            text = " ".join(sp["text"].strip() for sp in spans)
+            if max(sp["size"] for sp in spans) >= body * 1.2 and 2 <= len(text) <= 100 and not text.endswith((".", ",", ";")):
+                out.append(text)
+    return out
+
+
+def _load_pdf_mupdf(path: Path, st: Settings, on_page=None) -> Extracted:
+    import pymupdf
+
+    try:
+        doc = pymupdf.open(str(path))
+    except Exception as e:
+        raise IngestError(f"Could not read PDF (corrupt or unsupported): {e}") from e
+    try:
+        if doc.needs_pass and not doc.authenticate(""):
+            raise IngestError("The PDF is password protected")
+        n = len(doc)
+        if n == 0:
+            raise IngestError("The PDF has no pages")
+        if n > st.max_pdf_pages:
+            raise IngestError(f"The PDF has {n} pages; the limit is {st.max_pdf_pages}")
+        toc = [(max(p - 1, 0), t.strip()) for lvl, t, p in doc.get_toc(simple=True) if lvl <= 3 and t.strip()]
+        toc.sort(key=lambda x: x[0])
+        body = 0.0 if (toc or n > st.pdf_heading_max_pages) else _body_font_size(doc)
+        units, warnings, empty, ocr_pages = [], [], [], []
+        ti, section = 0, None
+        tables: list[dict] = []
+        want_tables = st.pdf_tables and hasattr(pymupdf.Page, "find_tables")
+        for i, page in enumerate(doc, 1):
+            if on_page:
+                on_page(i, n)
+            while ti < len(toc) and toc[ti][0] <= i - 1:
+                section = toc[ti][1]
+                ti += 1
+            try:
+                # INFINITE_RECT: by default MuPDF silently drops glyphs outside the page box (e.g. very long un-wrapped lines);
+                # the text is still part of the document, and an "exact search over the complete text" must not lose it
+                text = page.get_text("text", clip=pymupdf.INFINITE_RECT(), flags=pymupdf.TEXTFLAGS_TEXT & ~pymupdf.TEXT_MEDIABOX_CLIP).strip()  # content-stream order = reading order (sort=True would interleave columns and is 20x slower)
+            except Exception as e:
+                warnings.append(f"page {i}: extraction failed ({e})")
+                text = ""
+            if body and text:
+                try:
+                    heads = _page_headings(page, body)
+                    if heads:
+                        section = heads[0]
+                except Exception:
+                    pass
+            if not text and st.ocr_enabled:
+                try:
+                    text = _ocr_pixmap(page, st.ocr_languages).strip()
+                    if text:
+                        ocr_pages.append(i)
+                except IngestError:
+                    raise
+                except Exception as e:
+                    warnings.append(f"page {i}: OCR failed ({e})")
+            if text:
+                loc = {"page": i}
+                if section:
+                    loc["section"] = section
+                units.append(Unit(text, loc))
+            else:
+                empty.append(i)
+            # find_tables costs 60-140 ms/page; ruled tables always have vector line/rect drawings, so text-only pages are skipped
+            # (borderless tables are therefore not detected - documented limitation)
+            if want_tables and i <= st.pdf_tables_max_pages and text and len(page.get_drawings()) >= 6:
+                try:
+                    for tn, t in enumerate(page.find_tables().tables, 1):
+                        rows = [[(c or "").strip() for c in r] for r in t.extract() if any(c for c in r)]
+                        if len(rows) >= 2 and len(rows[0]) >= 2:
+                            tables.append({"location": {"page": i, "table": tn}, "header": rows[0], "rows": rows[1:]})
+                except Exception as e:
+                    warnings.append(f"page {i}: table extraction failed ({e})")
+        if want_tables and n > st.pdf_tables_max_pages:
+            warnings.append(f"table extraction limited to the first {st.pdf_tables_max_pages} pages")
+        if ocr_pages:
+            warnings.append(f"{len(ocr_pages)} page(s) were read with OCR (accuracy depends on scan quality): {_ranges(ocr_pages)}")
+        if empty:
+            warnings.append(f"{len(empty)} of {n} page(s) had no extractable text (scanned images?): {_ranges(empty)}")
+        if not units:
+            raise IngestError("The PDF contains no extractable text (it may be scanned; enable OCR with MKA_OCR_ENABLED=true)")
+        md = doc.metadata or {}
+        props = {k: v for k, v in {"author": md.get("author"), "subject": md.get("subject"), "creator": md.get("creator"), "producer": md.get("producer"), "created": md.get("creationDate")}.items() if v}
+        return Extracted(units, title=(md.get("title") or None), warnings=warnings, meta={"pages": n, "ocr_pages": ocr_pages, "properties": props, "engine": "pymupdf"}, tables=tables)
+    finally:
+        doc.close()
+
+
+def _load_pdf(path: Path, st: Settings, on_page=None) -> Extracted:
+    """PyMuPDF (fast, headings, tables, page images) when available; pypdf + pdfplumber as fallback. MKA_PDF_ENGINE=pypdf forces the fallback."""
+    if st.pdf_engine != "pypdf":
+        try:
+            import pymupdf  # noqa: F401
+        except ImportError:
+            pass
+        else:
+            return _load_pdf_mupdf(path, st, on_page)
+    return _load_pdf_pypdf(path, st, on_page)
 
 
 def _ranges(nums: list[int], limit: int = 20) -> str:
@@ -280,7 +449,9 @@ def _load_docx(path: Path) -> Extracted:
                     units.append(Unit(text, {"table": tn, "row": ri}))
     if not units:
         raise IngestError("The DOCX file is empty")
-    return Extracted(units, tables=tables)
+    cp = doc.core_properties
+    props = {k: str(v) for k, v in {"author": cp.author, "created": cp.created, "modified": cp.modified, "subject": cp.subject, "title": cp.title}.items() if v}
+    return Extracted(units, title=(cp.title or None), tables=tables, meta={"properties": props})
 
 
 # ----------------------------------------------------------------------------- TXT / MD
@@ -371,14 +542,27 @@ def _load_image(path: Path, st: Settings) -> Extracted:
     return Extracted(units, meta={"image_size": [img.width, img.height]}, warnings=[] if text else ["No text recognised in the image"])
 
 
+# ----------------------------------------------------------------------------- HTML files
+def _load_html_file(path: Path) -> Extracted:
+    from .web import extract_html
+
+    body = decode(path.read_bytes())
+    if "<" not in body:
+        raise IngestError("The file does not contain HTML")
+    return extract_html(path.name, "text/html", body, as_file=True)
+
+
 # ----------------------------------------------------------------------------- dispatcher
-def extract(path: Path, kind: str, st: Optional[Settings] = None) -> Extracted:
+def extract(path: Path, kind: str, st: Optional[Settings] = None, on_page=None) -> Extracted:
+    """`on_page(done, total)` reports progress for page-based formats."""
     st = st or Settings(_env_file=None)
     try:
         if kind == "image":
             return _load_image(path, st)
+        if kind == "html":
+            return _load_html_file(path)
         if kind == "pdf":
-            return _load_pdf(path, st)
+            return _load_pdf(path, st, on_page)
         if kind in TABULAR_KINDS:
             return _load_tabular(path, kind)
         if kind == "docx":

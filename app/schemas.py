@@ -13,6 +13,8 @@ class Citation(BaseModel):
     location: str
     excerpt: str
     score: Optional[float] = None
+    loc: Optional[dict] = Field(default=None, description="machine-readable location: page / sheet+row / paragraph / line / path ...")
+    version: Optional[int] = None
 
 
 class AskRequest(BaseModel):
@@ -70,8 +72,11 @@ class SourceInfo(BaseModel):
     doc_key: Optional[str] = None
     version: int = 1
     is_current: bool = True
-    classification: Optional[str] = None
+    classification: Optional[dict] = None
     language: Optional[str] = None
+    properties: Optional[dict] = None
+    engine: Optional[str] = None
+    content_hash: Optional[str] = None
 
 
 class IngestResult(BaseModel):

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from ..core import IngestError
 
-TEXT_KINDS = {"txt", "md", "csv", "json"}
+TEXT_KINDS = {"txt", "md", "csv", "json", "html"}
 IMAGE_MAGIC = {"png": b"\x89PNG\r\n\x1a\n", "jpeg": b"\xff\xd8\xff", "tiff_le": b"II*\x00", "tiff_be": b"MM\x00*"}
 _SAFE = re.compile(r"[^\w.\- ()\[\]]+", re.UNICODE)
 
@@ -54,6 +54,9 @@ def validate_upload(path: Path, kind: str, max_uncompressed_mb: int = 500) -> No
         _zip_check(path, "word/document.xml", max_uncompressed_mb * 1024 * 1024)
     elif kind == "xlsx":
         _zip_check(path, "xl/workbook.xml", max_uncompressed_mb * 1024 * 1024)
+    elif kind == "xls":
+        if not head.startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"):
+            raise IngestError("File content does not match its extension (not a legacy Excel workbook)")
     elif kind == "image":
         if not any(head.startswith(m) for m in IMAGE_MAGIC.values()) and not (head[:4] == b"RIFF" and head[8:12] == b"WEBP"):
             raise IngestError("File content does not match its extension (not a supported image)")

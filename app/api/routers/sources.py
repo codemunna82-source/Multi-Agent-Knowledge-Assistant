@@ -154,6 +154,85 @@ def tables(source_id: str, max_rows: int = 200, ctx: Ctx = Depends(require("read
     return out
 
 
+def _readable(ctx: Ctx, source_id: str) -> dict:
+    m = ctx.svc.knowledge.store(ctx.scope).get_source(source_id, ctx.principal)
+    if not m:
+        raise HTTPException(404, "Source not found")
+    return m
+
+
+@router.get("/{source_id}/classification")
+def classification(source_id: str, ctx: Ctx = Depends(require("read"))):
+    """Document type from a closed taxonomy (contract, invoice, policy, report, ...) with confidence and method (keywords | structure | llm)."""
+    return _readable(ctx, source_id).get("classification") or {"label": "other", "confidence": 0.0, "method": "none"}
+
+
+@router.get("/{source_id}/timeline")
+def timeline(source_id: str, ctx: Ctx = Depends(require("read"))):
+    """Chronological list of dated events (the sentence around every date) with citations."""
+    from ...intel.timeline import build_timeline
+
+    m = _readable(ctx, source_id)
+    items = [(m, u) for _, u in ctx.svc.knowledge.store(ctx.scope).iter_units([source_id])]
+    return {"source": m["name"], "events": build_timeline(items)}
+
+
+def _find_unit(ctx: Ctx, m: dict, want: dict):
+    units = [u for _, u in ctx.svc.knowledge.store(ctx.scope).iter_units([m["id"]])]
+    for i, u in enumerate(units):
+        if all(str(u.loc.get(k)) == str(v) for k, v in want.items()):
+            return units, i
+    return units, None
+
+
+@router.get("/{source_id}/passage")
+def passage(source_id: str, page: int | None = None, row: int | None = None, sheet: str | None = None, paragraph: int | None = None, line: int | None = None,
+            table: int | None = None, ctx: Ctx = Depends(require("read"))):
+    """The extracted text at a citation location (+ the neighbouring passages) - used by the dashboard to preview a cited passage."""
+    from ...core import format_loc
+
+    want = {k: v for k, v in (("page", page), ("row", row), ("sheet", sheet), ("paragraph", paragraph), ("line", line), ("table", table)) if v is not None}
+    if not want:
+        raise HTTPException(422, "Give a location: page, row(+sheet), paragraph, line or table")
+    m = _readable(ctx, source_id)
+    units, i = _find_unit(ctx, m, want)
+    if i is None:
+        raise HTTPException(404, "No passage at that location")
+    cut = lambda t: t[:6000]  # noqa: E731
+    return {"source": m["name"], "kind": m["kind"], "version": m.get("version", 1), "location": format_loc(units[i].loc), "loc": units[i].loc, "text": cut(units[i].text),
+            "before": cut(units[i - 1].text)[-800:] if i > 0 else None, "after": cut(units[i + 1].text)[:800] if i + 1 < len(units) else None}
+
+
+@router.get("/{source_id}/pages/{page}/image")
+def page_image(source_id: str, page: int, highlight: str | None = Query(None, max_length=300), zoom: float = Query(1.4, ge=0.5, le=3.0), ctx: Ctx = Depends(require("read"))):
+    """PNG of a PDF page with the cited text highlighted (PDF sources only; needs PyMuPDF)."""
+    m = _readable(ctx, source_id)
+    if m["kind"] != "pdf":
+        raise HTTPException(415, "Page images are available for PDF sources only; use /passage for other formats")
+    try:
+        import pymupdf
+    except ImportError:
+        raise HTTPException(501, "Page previews need PyMuPDF")
+    path = ctx.svc.knowledge.store(ctx.scope).source_dir(source_id) / m["original"]
+    try:
+        doc = pymupdf.open(str(path))
+    except Exception:
+        raise HTTPException(500, "Could not open the stored PDF")
+    try:
+        if not 1 <= page <= len(doc):
+            raise HTTPException(404, f"The document has {len(doc)} pages")
+        pg = doc[page - 1]
+        if highlight:
+            words = " ".join(highlight.split())
+            rects = pg.search_for(words[:120]) or pg.search_for(" ".join(words.split()[:6]))
+            for r in rects[:30]:
+                pg.draw_rect(r, color=None, fill=(1, 0.85, 0), fill_opacity=0.4, overlay=True)
+        png = pg.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom)).tobytes("png")
+    finally:
+        doc.close()
+    return Response(png, media_type="image/png", headers={"Cache-Control": "private, max-age=300"})
+
+
 def _owned(ctx: Ctx, source_id: str) -> dict:
     m = ctx.svc.knowledge.store(ctx.scope).get_source(source_id, ctx.principal)
     if not m:

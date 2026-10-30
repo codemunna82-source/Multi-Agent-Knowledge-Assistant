@@ -65,12 +65,12 @@ def best_sentences(evidence: list[dict], query: str, n: int = 3) -> list[tuple[d
 
 
 def hit_to_evidence(i: int, h) -> dict:
-    return {"i": i, "chunk_id": h.chunk_id, "source_id": h.source_id, "source": h.source, "location": h.location, "text": h.text, "context": h.llm_text,
+    return {"i": i, "chunk_id": h.chunk_id, "source_id": h.source_id, "source": h.source, "location": h.location, "loc": h.loc, "text": h.text, "context": h.llm_text,
             "score": round(h.score, 4), "lexical": round(h.lexical, 3), "suspicious": h.suspicious, "rerank": h.rerank}
 
 
 def evidence_citations(evidence: list[dict]) -> list[dict]:
-    return [Citation(source_id=e["source_id"], source=e["source"], location=e["location"], excerpt=excerpt(e["text"]), score=e.get("score") or None).model_dump()
+    return [Citation(source_id=e["source_id"], source=e["source"], location=e["location"], excerpt=excerpt(e["text"]), score=e.get("score") or None, loc=e.get("loc")).model_dump()
             for e in evidence]
 
 
