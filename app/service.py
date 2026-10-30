@@ -16,7 +16,7 @@ from .ingestion import web
 from .ingestion.chunking import chunk_units
 from .ingestion.loaders import TABULAR_KINDS, extract, kind_for
 from .providers import LLM, Embedder, make_embedder, make_llm
-from .storage import SessionStore, VectorBackend, make_backend, session_lock
+from .storage import Scope, SessionStore, VectorBackend, make_backend, session_lock
 
 log = logging.getLogger("mka.ingest")
 
@@ -40,32 +40,35 @@ class Knowledge:
         self.url_transport = url_transport
         self.stats = Stats()
 
-    def store(self, session: str) -> SessionStore:
-        return SessionStore(self.settings.data_dir, session)
+    def store(self, scope: Scope) -> SessionStore:
+        return SessionStore(self.settings.data_dir, scope)
 
     # ------------------------------------------------------------------ public API
-    def ingest_file(self, session: str, src: Path, filename: str) -> dict:
-        return self._guarded(filename, lambda: self._ingest(session, uuid.uuid4().hex, filename, kind_for(filename), src_file=src))
+    def ingest_file(self, scope: Scope, src: Path, filename: str, owner_id: str = "anonymous", visibility: str = "tenant", progress=None) -> dict:
+        return self._guarded(filename, lambda: self._ingest(scope, uuid.uuid4().hex, filename, kind_for(filename), src_file=src, owner_id=owner_id, visibility=visibility, progress=progress))
 
-    def ingest_url(self, session: str, url: str) -> dict:
-        return self._guarded(url, lambda: self._ingest(session, uuid.uuid4().hex, url, "url", url=url))
+    def ingest_url(self, scope: Scope, url: str, owner_id: str = "anonymous", visibility: str = "tenant", progress=None) -> dict:
+        return self._guarded(url, lambda: self._ingest(scope, uuid.uuid4().hex, url, "url", url=url, owner_id=owner_id, visibility=visibility, progress=progress))
 
-    def reindex(self, session: str, source_id: str) -> dict:
-        st = self.store(session)
-        meta = st.get_source(source_id)
+    def reindex(self, scope: Scope, source_id: str, principal=None, progress=None) -> dict:
+        st = self.store(scope)
+        meta = st.get_source(source_id, principal)
         if not meta:
             raise KeyError(source_id)
+        keep = dict(created_at=meta["created_at"], owner_id=meta.get("owner_id", "anonymous"), visibility=meta.get("visibility", "tenant"), progress=progress)
         if meta["kind"] == "url":
-            return self._guarded(meta["name"], lambda: self._ingest(session, source_id, meta["name"], "url", url=meta["url"], created_at=meta["created_at"]))
+            return self._guarded(meta["name"], lambda: self._ingest(scope, source_id, meta["name"], "url", url=meta["url"], **keep))
         orig = st.source_dir(source_id) / meta["original"]
-        return self._guarded(meta["name"], lambda: self._ingest(session, source_id, meta["name"], meta["kind"], src_file=orig, created_at=meta["created_at"]))
+        return self._guarded(meta["name"], lambda: self._ingest(scope, source_id, meta["name"], meta["kind"], src_file=orig, **keep))
 
-    def delete(self, session: str, source_id: str) -> bool:
-        with session_lock(session):
-            st = self.store(session)
-            existed = st.get_source(source_id) is not None
-            self.backend.delete(st, source_id)
-            st.delete(source_id)
+    def delete(self, scope: Scope, source_id: str, principal=None) -> bool:
+        """Removes text, chunks, vectors and the original file together. Hidden (ACL) sources behave as missing."""
+        with session_lock(scope):
+            st = self.store(scope)
+            existed = st.get_source(source_id, principal) is not None
+            if existed:
+                self.backend.delete(st, source_id)
+                st.delete(source_id)
             return existed
 
     # ------------------------------------------------------------------ internals
@@ -83,13 +86,17 @@ class Knowledge:
             log.exception("unexpected ingestion failure for %s", name)
             return {"status": "failed", "name": name, "source": None, "error": f"Unexpected error during ingestion: {type(e).__name__}"}
 
-    def _ingest(self, session: str, source_id: str, name: str, kind: str, *, src_file: Optional[Path] = None,
-                url: Optional[str] = None, created_at: Optional[str] = None) -> dict:
+    def _ingest(self, scope: Scope, source_id: str, name: str, kind: str, *, src_file: Optional[Path] = None,
+                url: Optional[str] = None, created_at: Optional[str] = None, owner_id: str = "anonymous",
+                visibility: str = "tenant", progress=None) -> dict:
         s = self.settings
-        st = self.store(session)
+        st = self.store(scope)
+        progress = progress or (lambda stage, pct: None)
+        progress("extracting", 10)
         staging = st.staging_dir(source_id)
         try:
-            meta: dict = {"id": source_id, "name": name, "kind": kind, "status": "ready", "created_at": created_at or _now(), "ingested_at": _now()}
+            meta: dict = {"id": source_id, "name": name, "kind": kind, "status": "ready", "created_at": created_at or _now(), "ingested_at": _now(),
+                          "owner_id": owner_id, "visibility": visibility}
             if kind == "url":
                 final_url, ctype, body = web.fetch(url, s, self.url_transport)
                 ex = web.extract_html(final_url, ctype, body)
@@ -102,12 +109,14 @@ class Knowledge:
                     shutil.copyfile(src_file, orig)
                 ex = extract(orig, kind, s.ocr_enabled)
                 meta.update(original=orig.name, size_bytes=orig.stat().st_size, title=ex.title)
+            progress("chunking", 40)
             chunks = chunk_units(ex.units, s.chunk_size, s.chunk_overlap)
             if not chunks:
                 raise IngestError("No indexable content was extracted")
             records = [{"id": f"{source_id}:{i}", "text": c.text, "loc": c.loc, "loc_end": c.loc_end} for i, c in enumerate(chunks)]
             texts = [r["text"] for r in records]
             self.stats.embedded_chars += sum(map(len, texts))
+            progress("embedding", 60)
             vectors = self.embedder.embed_documents(texts)
             if len(vectors) != len(records):
                 raise ProviderError("Embedding provider returned an unexpected number of vectors")
@@ -115,7 +124,8 @@ class Knowledge:
                 units=len(ex.units), chunks=len(records), warnings=ex.warnings, embedding=self.embedder.name,
                 tabular=kind in TABULAR_KINDS, **{k: v for k, v in ex.meta.items() if k in ("pages", "tables")},
             )
-            with session_lock(session):
+            progress("indexing", 85)
+            with session_lock(scope):
                 self.backend.delete(st, source_id)
                 self.backend.add(st, staging, source_id, [r["id"] for r in records], vectors, texts)
                 st.write_source(staging, meta, ex.units, records)

@@ -7,8 +7,10 @@ Deleting a source removes its directory, so text, chunks and (local) vectors dis
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
+from dataclasses import dataclass
 import shutil
 import threading
 from pathlib import Path
@@ -19,21 +21,44 @@ import numpy as np
 from .core import Unit
 
 SESSION_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+@dataclass(frozen=True)
+class Scope:
+    """Isolation boundary: every read/write is addressed by (tenant, workspace); there is no cross-tenant API."""
+
+    tenant: str
+    workspace: str
+
+    def __post_init__(self):
+        if not SESSION_RE.match(self.tenant) or not SESSION_RE.match(self.workspace):
+            raise ValueError("Invalid tenant/workspace id (use 1-64 letters, digits, '-' or '_')")
+
+    @property
+    def key(self) -> str:
+        return f"{self.tenant}__{self.workspace}"
+
+
+def visible(meta: dict, principal) -> bool:
+    """Document-level access control: 'private' sources are visible to their owner and to admins only."""
+    if principal is None or principal.role == "admin" or meta.get("visibility", "tenant") != "private":
+        return True
+    return meta.get("owner_id") == principal.user_id
 _locks: dict[str, threading.RLock] = {}
 _locks_guard = threading.Lock()
 
 
-def session_lock(session: str) -> threading.RLock:
+def session_lock(scope: "Scope | str") -> threading.RLock:
+    key = scope.key if isinstance(scope, Scope) else scope
     with _locks_guard:
-        return _locks.setdefault(session, threading.RLock())
+        return _locks.setdefault(key, threading.RLock())
 
 
 class SessionStore:
-    def __init__(self, data_dir: str | Path, session: str):
-        if not SESSION_RE.match(session):
-            raise ValueError("Invalid session id (use 1-64 letters, digits, '-' or '_')")
-        self.session = session
-        self.root = Path(data_dir) / "sessions" / session
+    def __init__(self, data_dir: str | Path, scope: Scope):
+        self.scope = scope
+        self.session = scope.key  # unique per (tenant, workspace); used as cache / collection key
+        self.root = Path(data_dir) / "tenants" / scope.tenant / "workspaces" / scope.workspace
         self.sources_dir = self.root / "sources"
         self.sources_dir.mkdir(parents=True, exist_ok=True)
 
@@ -80,23 +105,28 @@ class SessionStore:
         return True
 
     # -- reads
-    def list_sources(self) -> list[dict]:
+    def list_sources(self, principal=None) -> list[dict]:
         out = []
         for d in sorted(self.sources_dir.iterdir()):
             if d.name.startswith(".") or not (d / "meta.json").exists():
                 continue
-            out.append(json.loads((d / "meta.json").read_text(encoding="utf-8")))
+            meta = json.loads((d / "meta.json").read_text(encoding="utf-8"))
+            if visible(meta, principal):
+                out.append(meta)
         return sorted(out, key=lambda m: m.get("created_at", ""))
 
-    def get_source(self, source_id: str) -> Optional[dict]:
+    def get_source(self, source_id: str, principal=None) -> Optional[dict]:
         try:
             p = self.source_dir(source_id) / "meta.json"
         except KeyError:
             return None
-        return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
+        if not p.exists():
+            return None
+        meta = json.loads(p.read_text(encoding="utf-8"))
+        return meta if visible(meta, principal) else None  # hidden documents look exactly like missing ones
 
     def iter_units(self, source_ids: Optional[list[str]] = None) -> Iterator[tuple[dict, Unit]]:
-        for meta in self.list_sources():
+        for meta in self.list_sources():  # callers pass the already ACL-filtered ids
             if source_ids is not None and meta["id"] not in source_ids:
                 continue
             with open(self.source_dir(meta["id"]) / "units.jsonl", encoding="utf-8") as f:
@@ -186,7 +216,7 @@ class ChromaVectors(VectorBackend):
         self.client = chromadb.PersistentClient(path=str(Path(data_dir) / "chroma"))
 
     def _col(self, store: SessionStore):
-        return self.client.get_or_create_collection(f"mka_{store.session}", metadata={"hnsw:space": "cosine"})
+        return self.client.get_or_create_collection("mka_" + hashlib.sha1(store.session.encode()).hexdigest()[:40], metadata={"hnsw:space": "cosine"})
 
     def add(self, store, staging, source_id, chunk_ids, vectors, texts):
         col = self._col(store)

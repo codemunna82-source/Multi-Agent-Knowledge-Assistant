@@ -36,7 +36,8 @@ FOLLOWUP = re.compile(r"^(and|also|what about|how about|then|so|which|where|thos
 
 
 class State(TypedDict, total=False):
-    session: str
+    session: object  # storage.Scope
+    principal: object
     question: str
     query: str
     req: Any
@@ -116,15 +117,22 @@ class Assistant:
             g.add_edge(r, END)
         return g.compile()
 
-    def ask(self, session: str, req: AskRequest) -> AskResponse:
+    def forget(self, scope, conversation_id: str) -> None:
+        self.history.pop((scope.key, conversation_id), None)
+
+    def forget_workspace(self, scope) -> None:
+        for key in [k for k in self.history if k[0] == scope.key]:
+            self.history.pop(key, None)
+
+    def ask(self, session, req: AskRequest, principal=None, conversation_id: str = "default") -> AskResponse:
         self.k.stats.questions += 1
-        hist = self.history.setdefault(session, deque(maxlen=10))
+        hist = self.history.setdefault((session.key, conversation_id), deque(maxlen=10))
         question = req.question.strip()
         query = question
         last = hist[-1] if hist else None
         if last and len(question.split()) <= 8 and FOLLOWUP.match(question) and last["route"] in ("semantic", "combined", "compare"):
             query = f"{last['question']} {question}"  # carry context into short follow-ups
-        state = self.graph.invoke({"session": session, "question": question, "query": query, "req": req, "source_ids": req.source_ids, "history_last": last})
+        state = self.graph.invoke({"session": session, "principal": principal, "question": question, "query": query, "req": req, "source_ids": req.source_ids, "history_last": last})
         res = state["result"]
         resp = AskResponse(**res)
         hist.append({"question": question, "route": resp.route, "term": res.get("details", {}).get("term") or (last or {}).get("term"), "answer": resp.answer[:500]})
@@ -133,7 +141,7 @@ class Assistant:
     # ------------------------------------------------------------------ helpers
     def _sources(self, s: State) -> list[dict]:
         st = self.k.store(s["session"])
-        metas = st.list_sources()
+        metas = st.list_sources(s.get("principal"))
         ids = s.get("source_ids")
         if ids is not None:
             unknown = set(ids) - {m["id"] for m in metas}

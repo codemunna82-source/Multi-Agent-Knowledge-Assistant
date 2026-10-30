@@ -89,7 +89,7 @@ class OpenAIEmbedder(Embedder):
             batch = [t[:8000] or " " for t in texts[i : i + self.s.embed_batch]]
             data = _post_json(
                 "https://api.openai.com/v1/embeddings",
-                headers={"Authorization": f"Bearer {self.s.openai_api_key}"},
+                headers={"Authorization": f"Bearer {self.s.secret('openai_api_key')}"},
                 payload={"model": self.model, "input": batch},
                 timeout=self.s.llm_timeout,
             )
@@ -111,7 +111,7 @@ class GeminiEmbedder(Embedder):
             batch = texts[i : i + step]
             data = _post_json(
                 f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:batchEmbedContents",
-                headers={"x-goog-api-key": self.s.gemini_api_key},
+                headers={"x-goog-api-key": self.s.secret('gemini_api_key')},
                 payload={"requests": [{"model": f"models/{self.model}", "content": {"parts": [{"text": t[:8000] or " "}]}} for t in batch]},
                 timeout=self.s.llm_timeout,
             )
@@ -152,7 +152,7 @@ class OpenAILLM(LLM):
         self.calls += 1
         data = _post_json(
             "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {self.s.openai_api_key}"},
+            headers={"Authorization": f"Bearer {self.s.secret('openai_api_key')}"},
             payload={"model": self.s.openai_chat_model, "temperature": 0, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]},
             timeout=self.s.llm_timeout,
         )
@@ -171,7 +171,7 @@ class GeminiLLM(LLM):
         self.calls += 1
         data = _post_json(
             f"https://generativelanguage.googleapis.com/v1beta/models/{self.s.gemini_chat_model}:generateContent",
-            headers={"x-goog-api-key": self.s.gemini_api_key},
+            headers={"x-goog-api-key": self.s.secret('gemini_api_key')},
             payload={
                 "systemInstruction": {"parts": [{"text": system}]},
                 "contents": [{"role": "user", "parts": [{"text": user}]}],
