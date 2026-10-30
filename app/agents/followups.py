@@ -7,7 +7,7 @@ from ..rag.steps import parse_json
 from ..security.injection import SYSTEM_GUARD, wrap_untrusted
 
 
-def _heuristic(state, draft) -> list[str]:
+def _heuristic(state, draft, n: int = 3) -> list[str]:
     route, term = draft.get("route", ""), state.get("term")
     out: list[str] = []
     cites = draft.get("citations", [])
@@ -33,22 +33,23 @@ def _heuristic(state, draft) -> list[str]:
         out += [f"Tell me more about {n}" for n in names]
         if len({c["source"] for c in cites}) > 1:
             out += ["Compare what these documents say about this"]
-    return out[:3]
+    return out[:n]
 
 
-def suggest_followups(k, ctx, state, draft) -> list[str]:
+def suggest_followups(k, ctx, state, draft, n: int = 3) -> list[str]:
+    """Candidate follow-ups (up to n); the caller keeps only those the indexed sources can actually answer."""
     if draft.get("needs_input") or not draft.get("verified", True):
         return []
     if k.llm.available and draft.get("citations") and draft.get("route") in ("semantic", "document_search", "web", "summarize"):
         ev = "\n".join(f"- {c['excerpt'][:200]}" for c in draft["citations"][:4])
-        sys = f'Suggest 3 short follow-up questions the user could ask next, answerable from the same documents. JSON only: {{"questions": ["..."]}}. {SYSTEM_GUARD}'
+        sys = f'Suggest {n} short follow-up questions the user could ask next, answerable from the same documents. JSON only: {{"questions": ["..."]}}. {SYSTEM_GUARD}'
         try:
             j = parse_json(k.llm.complete(sys, f"Question: {state['question'][:300]}\nAnswer: {draft['answer'][:500]}\n{wrap_untrusted(ev, 'evidence')}"))
             qs = (j or {}).get("questions") if isinstance(j, dict) else None
             if isinstance(qs, list):
                 good = [q.strip() for q in qs if isinstance(q, str) and 5 <= len(q.strip()) <= 160 and q.strip().endswith("?")]
                 if good:
-                    return good[:3]
+                    return good[:n]
         except ProviderError:
             pass
-    return _heuristic(state, draft)
+    return _heuristic(state, draft, n)

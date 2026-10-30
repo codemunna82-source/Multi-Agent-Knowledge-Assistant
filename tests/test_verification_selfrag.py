@@ -192,3 +192,17 @@ def test_hindi_negation_contradiction_and_compare_route(client):
     upload(client, "b.txt", "कर्मचारियों को घर से काम करने की अनुमति नहीं है सप्ताह में तीन दिन".encode())
     r = ask(client, "a.txt और b.txt की तुलना करें")
     assert r["route"] == "compare"
+
+
+def test_followups_are_only_offered_when_the_sources_can_answer_them(tmp_path):
+    def script(sy, u):
+        if "Answer the question" in sy:
+            return "Employees accrue 25 days of annual leave per year [1]."
+        if "follow-up questions" in sy:
+            return '{"questions": ["How many days of annual leave can be carried over?", "What was the CEO salary at Zorblax Corporation?", "Which spaceship launched in 1969?"]}'
+        return None
+
+    c, k = app_with(tmp_path, llm=FakeLLM(script))
+    upload(c, "p.txt", b"Employees accrue 25 days of annual leave per year. Unused days of annual leave can be carried over for 12 months.")
+    r = ask(c, "How many days of annual leave do employees get?")
+    assert r["followups"] == ["How many days of annual leave can be carried over?"]

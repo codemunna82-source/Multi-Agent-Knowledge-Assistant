@@ -567,6 +567,16 @@ class Agents:
             return None
         return j.get("supported") if isinstance(j, dict) and isinstance(j.get("supported"), bool) else None
 
+    def _answerable(self, c: RunCtx, question: str) -> bool:
+        from dataclasses import replace
+
+        try:
+            res = self.a.pipeline.retrieve(self.k.store(c.scope), question, replace(c.opts, top_k=3, corrective=False, rewrite=False, multi_query=False, hyde=False, max_retries=0),
+                                           [m["id"] for m in c.sources(self.k)], None, None)
+        except Exception:
+            return False
+        return bool(res.hits) and not res.abstain and res.grade != "incorrect"
+
     def _check_citations(self, c: RunCtx, d: dict) -> None:
         """Validate citations of drafts that skipped the verify node (deterministic routes: exact, data)."""
         det = d.setdefault("details", {})
@@ -590,7 +600,11 @@ class Agents:
         det["plan"] = state.get("plan", {})
         det["verification"] = ver
         det["trace"] = state.get("trace", [])
-        d["followups"] = suggest_followups(self.k, c, state, d)
+        cands = suggest_followups(self.k, c, state, d, n=6)
+        if d.get("route") not in ("data", "exact"):  # a suggestion is only offered when the sources can answer it
+            own_agent = ("Summarize ", "Compare what")  # templated requests handled by the summary/comparison agents, not passage lookups
+            cands = [q for q in cands if q.startswith(own_agent) or self._answerable(c, q)]
+        d["followups"] = cands[:3]
         d["language"] = detect_language(state["question"])
         if abstained:
             d["verified"], d["confidence"] = False, "none"
