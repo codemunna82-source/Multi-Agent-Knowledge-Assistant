@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+import os
 import secrets
 from functools import lru_cache
+from pathlib import Path
 from typing import Optional
 
-from pydantic import AliasChoices, Field, SecretStr
+from pydantic import AliasChoices, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+# Docker/Kubernetes secrets: any of these may be supplied as <NAME>_FILE=/run/secrets/xyz instead of the value itself
+FILE_SECRETS = {"jwt_secret": "MKA_JWT_SECRET", "openai_api_key": "OPENAI_API_KEY", "gemini_api_key": "GEMINI_API_KEY", "qdrant_api_key": "MKA_QDRANT_API_KEY",
+                "brave_api_key": "BRAVE_API_KEY", "database_url": "MKA_DATABASE_URL", "redis_url": "MKA_REDIS_URL"}
 
 
 class Settings(BaseSettings):
@@ -25,12 +32,17 @@ class Settings(BaseSettings):
     job_retry_backoff: float = 2.0
     job_stale_minutes: int = 30  # 'running' jobs older than this are re-queued by the worker on start
 
+    auto_migrate: bool = False  # run Alembic migrations at start-up (always on when MKA_ENV=production)
+    max_versions_per_document: int = 5  # older versions beyond this are pruned (content + vectors)
+    allow_duplicate_uploads: bool = False  # identical file already indexed in the workspace -> reported as duplicate, not re-ingested
+
     # --- auth
     auth_enabled: bool = False  # dev default keeps the original open API; production requires True
     allow_signup: bool = True  # POST /auth/signup creates a tenant + admin; disable in production
     jwt_secret: Optional[SecretStr] = None
     jwt_algorithm: str = "HS256"
-    access_token_minutes: int = 60
+    access_token_minutes: int = 15
+    refresh_token_days: int = 14
     cors_origins: str = ""  # comma separated; empty = same-origin only
 
     # --- rate limiting ("N/second|minute|hour")
@@ -107,6 +119,19 @@ class Settings(BaseSettings):
     pdf_tables_max_pages: int = 300
     max_zip_uncompressed_mb: int = 500  # zip-bomb guard for .docx/.xlsx
     vision_captions: bool = False  # multimodal: caption images via the configured vision-capable LLM
+
+    @model_validator(mode="before")
+    @classmethod
+    def _read_secret_files(cls, data):
+        data = dict(data or {})
+        for field, env in FILE_SECRETS.items():
+            path = os.environ.get(f"{env}_FILE")
+            if path and field not in data and env not in os.environ:
+                try:
+                    data[field] = Path(path).read_text(encoding="utf-8").strip()
+                except OSError as e:
+                    raise ValueError(f"{env}_FILE points to an unreadable file: {e.strerror}") from e
+        return data
 
     @property
     def effective_min_score(self) -> float:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
 
 from ..deps import Ctx, require
@@ -35,8 +35,10 @@ def _user_filter(ctx: Ctx):
 
 
 @router.get("", response_model=list[JobOut])
-def list_jobs(ctx: Ctx = Depends(require("ingest")), limit: int = Query(50, le=200), all_workspaces: bool = False):
-    return [out(j) for j in ctx.svc.jobs.list(ctx.principal.tenant_id, _user_filter(ctx), None if all_workspaces else ctx.scope.workspace, limit)]
+def list_jobs(response: Response, ctx: Ctx = Depends(require("ingest")), limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0), all_workspaces: bool = False):
+    items = ctx.svc.jobs.list(ctx.principal.tenant_id, _user_filter(ctx), None if all_workspaces else ctx.scope.workspace, 1000)
+    response.headers["X-Total-Count"] = str(len(items))
+    return [out(j) for j in items[offset:offset + limit]]
 
 
 @router.get("/{job_id}", response_model=JobOut)

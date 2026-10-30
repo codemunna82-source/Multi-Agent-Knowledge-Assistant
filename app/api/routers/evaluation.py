@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -70,6 +70,7 @@ def run(body: EvalRequest, ctx: Ctx = Depends(require("evaluate"))):
             for m in st.list_sources():
                 k.backend.delete(st, m["id"])
             st.clear()
+            k.registry.delete_scope(scope.tenant, scope.workspace)
             import shutil
 
             shutil.rmtree(st.root, ignore_errors=True)
@@ -85,9 +86,13 @@ def run(body: EvalRequest, ctx: Ctx = Depends(require("evaluate"))):
 
 
 @router.get("/runs")
-def runs(ctx: Ctx = Depends(require("evaluate")), limit: int = Query(20, le=100)):
+def runs(response: Response, ctx: Ctx = Depends(require("evaluate")), limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0)):
+    from sqlalchemy import func
+
     with ctx.svc.db.session() as s:
-        rows = s.scalars(select(EvalRun).where(EvalRun.tenant_id == ctx.principal.tenant_id).order_by(EvalRun.created_at.desc()).limit(limit)).all()
+        base = select(EvalRun).where(EvalRun.tenant_id == ctx.principal.tenant_id)
+        response.headers["X-Total-Count"] = str(s.scalar(select(func.count()).select_from(base.subquery())))
+        rows = s.scalars(base.order_by(EvalRun.created_at.desc()).limit(limit).offset(offset)).all()
         return [{"id": r.id, "name": r.name, "created_at": r.created_at.isoformat(), "embedder": r.config.get("embedder"), "llm": r.config.get("llm"), "cases": r.metrics.get("cases"),
                  "recall@5": r.metrics.get("retrieval", {}).get("recall@5"), "mrr": r.metrics.get("retrieval", {}).get("mrr"),
                  "latency_p50": r.metrics.get("latency_ms", {}).get("p50"), "cost_per_query": r.metrics.get("cost_usd", {}).get("per_query")} for r in rows]

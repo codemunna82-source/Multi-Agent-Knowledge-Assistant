@@ -60,8 +60,8 @@ def create_app(settings: Optional[Settings] = None, knowledge: Optional[Knowledg
     setup_logging()
     settings = settings or get_settings()
     settings.validate_production()
-    db = db or Database(settings.db_url)
-    k = knowledge or Knowledge(settings)
+    db = db or (knowledge.db if knowledge is not None else Database(settings.db_url, run_migrations=settings.env == "production" or settings.auto_migrate))
+    k = knowledge or Knowledge(settings, db=db)
     redis_client = redis_client or make_redis(settings)
     svc = Services(settings=settings, db=db, knowledge=k, assistant=Assistant(k), limiter=RateLimiter(redis_client, settings.rate_limit_enabled),
                    auditor=Auditor(db, settings.audit_enabled))
@@ -112,6 +112,7 @@ def create_app(settings: Optional[Settings] = None, knowledge: Optional[Knowledg
             k.backend.delete(st, m["id"])
             n += 1
         st.clear()
+        k.registry.delete_scope(ctx.scope.tenant, ctx.scope.workspace)
         svc.assistant.forget_workspace(ctx.scope)
         from sqlalchemy import select
 

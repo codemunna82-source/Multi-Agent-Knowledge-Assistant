@@ -67,10 +67,16 @@ class SourceInfo(BaseModel):
     needs_reindex: bool = False
     owner_id: Optional[str] = None
     visibility: str = "tenant"
+    doc_key: Optional[str] = None
+    version: int = 1
+    is_current: bool = True
+    classification: Optional[str] = None
+    language: Optional[str] = None
 
 
 class IngestResult(BaseModel):
-    status: str  # ready | failed
+    status: str  # ready | duplicate | failed
+    duplicate_of: Optional[str] = None
     name: str
     source: Optional[SourceInfo] = None
     error: Optional[str] = None
@@ -109,19 +115,25 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     expires_in: int
+    refresh_token: Optional[str] = Field(default=None, description="Also set as an httpOnly cookie for browsers; API clients may store it")
     user: UserOut
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: Optional[str] = Field(default=None, max_length=200)
 
 
 class UserCreate(BaseModel):
     email: str = Field(max_length=320)
     password: str = Field(min_length=10, max_length=72)
-    role: str = "viewer"
+    role: str = "user"
 
     def model_post_init(self, _):
+        from .security.auth import normalize_role
+
         if not _EMAIL.match(self.email):
             raise ValueError("invalid email")
-        if self.role not in ("viewer", "editor", "admin"):
-            raise ValueError("role must be viewer, editor or admin")
+        self.role = normalize_role(self.role)
 
 
 class UserUpdate(BaseModel):
@@ -130,8 +142,10 @@ class UserUpdate(BaseModel):
     password: Optional[str] = Field(default=None, min_length=10, max_length=72)
 
     def model_post_init(self, _):
-        if self.role is not None and self.role not in ("viewer", "editor", "admin"):
-            raise ValueError("role must be viewer, editor or admin")
+        from .security.auth import normalize_role
+
+        if self.role is not None:
+            self.role = normalize_role(self.role)
 
 
 class MessageOut(BaseModel):

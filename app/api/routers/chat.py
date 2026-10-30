@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import select
 
 from ...core import ProviderError
@@ -60,10 +60,13 @@ def ask(body: AskRequest, request: Request, ctx: Ctx = Depends(require("ask", "a
 
 
 @router.get("/conversations", response_model=list[ConversationOut])
-def list_conversations(ctx: Ctx = Depends(require("ask")), limit: int = Query(50, le=200)):
+def list_conversations(response: Response, ctx: Ctx = Depends(require("ask")), limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0)):
+    from sqlalchemy import func
+
     with ctx.svc.db.session() as s:
-        rows = s.scalars(select(Conversation).where(Conversation.tenant_id == ctx.principal.tenant_id, Conversation.user_id == ctx.principal.user_id,
-                                                    Conversation.workspace == ctx.scope.workspace).order_by(Conversation.updated_at.desc()).limit(limit)).all()
+        base = select(Conversation).where(Conversation.tenant_id == ctx.principal.tenant_id, Conversation.user_id == ctx.principal.user_id, Conversation.workspace == ctx.scope.workspace)
+        response.headers["X-Total-Count"] = str(s.scalar(select(func.count()).select_from(base.subquery())))
+        rows = s.scalars(base.order_by(Conversation.updated_at.desc()).limit(limit).offset(offset)).all()
         return [ConversationOut(id=c.id, workspace=c.workspace, title=c.title, updated_at=c.updated_at.isoformat()) for c in rows]
 
 

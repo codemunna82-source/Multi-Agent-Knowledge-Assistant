@@ -55,7 +55,8 @@ def session_lock(scope: "Scope | str") -> threading.RLock:
 
 
 class SessionStore:
-    def __init__(self, data_dir: str | Path, scope: Scope):
+    def __init__(self, data_dir: str | Path, scope: Scope, registry=None):
+        self.registry = registry  # PostgreSQL document registry (versions, ACL); None = standalone/disk-only mode
         self.scope = scope
         self.session = scope.key  # unique per (tenant, workspace); used as cache / collection key
         self.root = Path(data_dir) / "tenants" / scope.tenant / "workspaces" / scope.workspace
@@ -105,7 +106,10 @@ class SessionStore:
         return True
 
     # -- reads
-    def list_sources(self, principal=None) -> list[dict]:
+    def list_sources(self, principal=None, include_old: bool = False) -> list[dict]:
+        """Current (searchable) versions visible to `principal`; include_old adds superseded versions."""
+        if self.registry is not None:
+            return self.registry.list(self.scope, principal, include_old)
         out = []
         for d in sorted(self.sources_dir.iterdir()):
             if d.name.startswith(".") or not (d / "meta.json").exists():
@@ -116,6 +120,12 @@ class SessionStore:
         return sorted(out, key=lambda m: (m.get("created_at", ""), m.get("name", ""), m["id"]))  # name tie-break: same-second ingests must list in a stable order
 
     def get_source(self, source_id: str, principal=None) -> Optional[dict]:
+        if self.registry is not None:
+            try:
+                self.source_dir(source_id)
+            except KeyError:
+                return None
+            return self.registry.get(self.scope, source_id, principal)
         try:
             p = self.source_dir(source_id) / "meta.json"
         except KeyError:
@@ -126,7 +136,7 @@ class SessionStore:
         return meta if visible(meta, principal) else None  # hidden documents look exactly like missing ones
 
     def iter_units(self, source_ids: Optional[list[str]] = None) -> Iterator[tuple[dict, Unit]]:
-        for meta in self.list_sources():  # callers pass the already ACL-filtered ids
+        for meta in self.list_sources(include_old=source_ids is not None):  # callers pass the already ACL-filtered ids
             if source_ids is not None and meta["id"] not in source_ids:
                 continue
             with open(self.source_dir(meta["id"]) / "units.jsonl", encoding="utf-8") as f:
@@ -140,6 +150,8 @@ class SessionStore:
 
     def version(self) -> tuple:
         """Cheap change signature used to invalidate in-memory indexes."""
+        if self.registry is not None:
+            return self.registry.signature(self.scope)
         sig = []
         for d in sorted(self.sources_dir.iterdir()):
             m = d / "meta.json"

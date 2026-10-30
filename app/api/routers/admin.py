@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import delete, func, select
 
-from ...db import AuditEvent, Conversation, EvalRun, Job, User
+from ...db import AuditEvent, Conversation, EvalRun, Job, TenantSettings, User
 from ...schemas import AuditOut, PurgeRequest, UserCreate, UserOut, UserUpdate
 from ...security.auth import hash_password
-from ..deps import Ctx, require
+from ..deps import Ctx, page_params, require
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -25,9 +27,11 @@ def _active_admins(s, tenant_id: str) -> int:
 
 
 @router.get("/users", response_model=list[UserOut])
-def users(ctx: Ctx = Depends(require("manage_users"))):
+def users(response: Response, page: tuple[int, int] = Depends(page_params), ctx: Ctx = Depends(require("manage_users"))):
     with ctx.svc.db.session() as s:
-        return [_out(u) for u in s.scalars(select(User).where(User.tenant_id == ctx.principal.tenant_id).order_by(User.created_at))]
+        q = select(User).where(User.tenant_id == ctx.principal.tenant_id)
+        response.headers["X-Total-Count"] = str(s.scalar(select(func.count()).select_from(q.subquery())))
+        return [_out(u) for u in s.scalars(q.order_by(User.created_at).limit(page[0]).offset(page[1]))]
 
 
 @router.post("/users", response_model=UserOut, status_code=201)
@@ -84,11 +88,15 @@ def delete_user(user_id: str, ctx: Ctx = Depends(require("manage_users"))):
 
 
 @router.get("/audit", response_model=list[AuditOut])
-def audit(ctx: Ctx = Depends(require("audit")), action: str | None = None, limit: int = Query(100, le=1000)):
+def audit(response: Response, ctx: Ctx = Depends(require("audit")), action: str | None = None, outcome: str | None = None, limit: int = Query(100, ge=1, le=1000), offset: int = Query(0, ge=0)):
     with ctx.svc.db.session() as s:
-        q = select(AuditEvent).where(AuditEvent.tenant_id == ctx.principal.tenant_id).order_by(AuditEvent.id.desc()).limit(limit)
+        base = select(AuditEvent).where(AuditEvent.tenant_id == ctx.principal.tenant_id)
         if action:
-            q = q.where(AuditEvent.action == action)
+            base = base.where(AuditEvent.action == action)
+        if outcome:
+            base = base.where(AuditEvent.outcome == outcome)
+        response.headers["X-Total-Count"] = str(s.scalar(select(func.count()).select_from(base.subquery())))
+        q = base.order_by(AuditEvent.id.desc()).limit(limit).offset(offset)
         return [AuditOut(id=a.id, ts=a.ts.isoformat(), user_id=a.user_id, action=a.action, resource=a.resource, outcome=a.outcome, ip=a.ip,
                          request_id=a.request_id, detail=a.detail) for a in s.scalars(q)]
 
@@ -119,6 +127,7 @@ def purge_tenant(body: PurgeRequest, ctx: Ctx = Depends(require("purge"))):
             st.clear()
             ctx.svc.assistant.forget_workspace(scope)
         shutil.rmtree(Path(k.settings.data_dir) / "tenants" / tid, ignore_errors=True)
+    k.registry.delete_scope(tid)
     with ctx.svc.db.session() as s:
         for c in s.scalars(select(Conversation).where(Conversation.tenant_id == tid)):
             s.delete(c)
@@ -126,3 +135,47 @@ def purge_tenant(body: PurgeRequest, ctx: Ctx = Depends(require("purge"))):
         s.execute(delete(EvalRun).where(EvalRun.tenant_id == tid))
     ctx.audit("purge_tenant_data", tid, detail={"sources_removed": removed})
     return {"purged": True, "sources_removed": removed}
+
+
+class TenantSettingsBody(BaseModel):
+    retention_days_documents: Optional[int] = Field(default=None, ge=1, le=36500, description="delete documents older than N days (null = keep)")
+    retention_days_conversations: Optional[int] = Field(default=None, ge=1, le=36500)
+    retention_days_audit: Optional[int] = Field(default=None, ge=30, le=36500, description="audit trail is never kept for less than 30 days")
+    retention_days_reports: Optional[int] = Field(default=None, ge=1, le=36500)
+    web_allowed: bool = True
+    web_allowed_domains: list[str] = Field(default_factory=list, max_length=200, description="empty = any public domain; otherwise only these domains (and sub-domains)")
+    redact_stored_messages: bool = False
+
+
+def get_tenant_settings(db, tenant_id: str) -> TenantSettings:
+    with db.session() as s:
+        row = s.get(TenantSettings, tenant_id)
+        if row is None:
+            row = TenantSettings(tenant_id=tenant_id, web_allowed_domains=[])
+            s.add(row)
+            s.flush()
+        s.expunge(row)
+        return row
+
+
+@router.get("/tenant-settings", response_model=TenantSettingsBody)
+def tenant_settings(ctx: Ctx = Depends(require("settings"))):
+    r = get_tenant_settings(ctx.svc.db, ctx.principal.tenant_id)
+    return TenantSettingsBody(**{f: getattr(r, f) for f in TenantSettingsBody.model_fields})
+
+
+@router.put("/tenant-settings", response_model=TenantSettingsBody)
+def put_tenant_settings(body: TenantSettingsBody, ctx: Ctx = Depends(require("settings"))):
+    """Retention periods, approved web domains and message redaction for the whole organisation."""
+    import re
+
+    domains = [d.strip().lower().lstrip(".") for d in body.web_allowed_domains if d.strip()]
+    if any(not re.fullmatch(r"[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?", d) or "." not in d for d in domains):
+        raise HTTPException(422, "web_allowed_domains must be plain domain names such as example.com")
+    with ctx.svc.db.session() as s:
+        row = s.get(TenantSettings, ctx.principal.tenant_id) or TenantSettings(tenant_id=ctx.principal.tenant_id)
+        for f in TenantSettingsBody.model_fields:
+            setattr(row, f, domains if f == "web_allowed_domains" else getattr(body, f))
+        s.merge(row)
+    ctx.audit("update_tenant_settings", ctx.principal.tenant_id, detail=body.model_dump())
+    return body.model_copy(update={"web_allowed_domains": domains})

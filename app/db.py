@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from datetime import datetime, UTC
 from typing import Iterator, Optional
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, Text, create_engine, event
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -36,9 +36,24 @@ class User(Base):
     tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id"), index=True)
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(200))
-    role: Mapped[str] = mapped_column(String(20), default="viewer")  # admin | editor | viewer
+    role: Mapped[str] = mapped_column(String(20), default="user")  # admin | manager | user
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class RefreshToken(Base):
+    """Rotating refresh tokens (only the SHA-256 of the token is stored). `family_id` groups a rotation chain: presenting a token
+    that was already rotated revokes the whole family (theft detection)."""
+
+    __tablename__ = "refresh_tokens"
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    family_id: Mapped[str] = mapped_column(String(32), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    replaced_by: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    ip: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
 
 
 class RevokedToken(Base):
@@ -59,6 +74,103 @@ class AuditEvent(Base):
     ip: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     request_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     detail: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+
+
+class Document(Base):
+    """Registry row per document VERSION (the ingested content lives on the data volume / vector store).
+    `doc_key` is the logical document (stable across versions); only `is_current` versions are searchable."""
+
+    __tablename__ = "documents"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)  # source id
+    tenant_id: Mapped[str] = mapped_column(String(64))
+    workspace: Mapped[str] = mapped_column(String(64))
+    doc_key: Mapped[str] = mapped_column(String(32))
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    is_current: Mapped[bool] = mapped_column(default=True)
+    name: Mapped[str] = mapped_column(String(2048))
+    kind: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20), default="ready")
+    content_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    text_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    size_bytes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    owner_id: Mapped[str] = mapped_column(String(32), default="anonymous")
+    visibility: Mapped[str] = mapped_column(String(12), default="tenant")  # tenant | private | restricted
+    classification: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    language: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
+    meta: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "workspace", "doc_key", "version", name="uq_document_version"),
+        Index("ix_documents_scope_current", "tenant_id", "workspace", "is_current"),
+        Index("ix_documents_scope_hash", "tenant_id", "workspace", "content_hash"),
+        Index("ix_documents_doc_key", "doc_key"),
+        Index("ix_documents_created", "tenant_id", "created_at"),
+    )
+
+
+class DocumentPermission(Base):
+    """Sharing of a logical document with a user or a role (used when visibility == 'restricted')."""
+
+    __tablename__ = "document_permissions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(String(64))
+    doc_key: Mapped[str] = mapped_column(String(32))
+    principal_type: Mapped[str] = mapped_column(String(8))  # user | role
+    principal_id: Mapped[str] = mapped_column(String(32))
+    level: Mapped[str] = mapped_column(String(8), default="read")  # read | write
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    __table_args__ = (UniqueConstraint("doc_key", "principal_type", "principal_id", name="uq_doc_permission"), Index("ix_docperm_tenant_doc", "tenant_id", "doc_key"))
+
+
+class TenantSettings(Base):
+    __tablename__ = "tenant_settings"
+    tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), primary_key=True)
+    retention_days_documents: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # None = keep forever
+    retention_days_conversations: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    retention_days_audit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    retention_days_reports: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    web_allowed: Mapped[bool] = mapped_column(default=True)
+    web_allowed_domains: Mapped[list] = mapped_column(JSON, default=list)  # empty = any public domain
+    redact_stored_messages: Mapped[bool] = mapped_column(default=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+
+
+class MemoryFact(Base):
+    """Opt-in long-term memory: short notes a user explicitly asked the assistant to remember (never inferred automatically)."""
+
+    __tablename__ = "memory_facts"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    user_id: Mapped[str] = mapped_column(String(32), index=True)
+    text: Mapped[str] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class UserPref(Base):
+    __tablename__ = "user_prefs"
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    memory_enabled: Mapped[bool] = mapped_column(default=True)  # conversation memory (history window + summary)
+    long_term_memory: Mapped[bool] = mapped_column(default=False)  # saved facts are recalled into prompts only when True
+    theme: Mapped[str] = mapped_column(String(8), default="system")
+
+
+class Report(Base):
+    __tablename__ = "reports"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    user_id: Mapped[str] = mapped_column(String(32))
+    workspace: Mapped[str] = mapped_column(String(64))
+    kind: Mapped[str] = mapped_column(String(24))  # summary | executive | comparison | research | analytics
+    format: Mapped[str] = mapped_column(String(8))  # pdf | docx | xlsx
+    title: Mapped[str] = mapped_column(String(300))
+    status: Mapped[str] = mapped_column(String(12), default="ready")
+    params: Mapped[dict] = mapped_column(JSON, default=dict)
+    path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    size_bytes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    __table_args__ = (Index("ix_reports_tenant_created", "tenant_id", "created_at"),)
 
 
 class Job(Base):
@@ -87,6 +199,7 @@ class Conversation(Base):
     user_id: Mapped[str] = mapped_column(String(32), index=True)
     workspace: Mapped[str] = mapped_column(String(64))
     title: Mapped[str] = mapped_column(String(200), default="New conversation")
+    memory_enabled: Mapped[bool] = mapped_column(default=True)  # False = private chat: nothing is stored or recalled
     summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # rolling memory of older turns
     summary_upto: Mapped[int] = mapped_column(Integer, default=0)  # number of leading messages already folded into `summary`
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
@@ -117,10 +230,36 @@ class EvalRun(Base):
 
 
 Index("ix_messages_conv_id", Message.conversation_id, Message.id)
+Index("ix_audit_tenant_ts", AuditEvent.tenant_id, AuditEvent.ts)
+Index("ix_jobs_tenant_created", Job.tenant_id, Job.created_at)
+Index("ix_conversations_scope", Conversation.tenant_id, Conversation.user_id, Conversation.workspace, Conversation.updated_at)
+
+
+def migrate(url: str) -> None:
+    """Apply Alembic migrations up to head (serialised across replicas with a PostgreSQL advisory lock)."""
+    from pathlib import Path
+
+    from alembic import command
+    from alembic.config import Config
+
+    root = Path(__file__).resolve().parents[1]
+    cfg = Config(str(root / "alembic.ini"))
+    cfg.set_main_option("script_location", str(root / "migrations"))
+    cfg.attributes["url"] = url
+    eng = create_engine(url, future=True, poolclass=StaticPool if ":memory:" in url else None) if url.startswith("sqlite") else create_engine(url, future=True)
+    with eng.connect() as conn:
+        if conn.dialect.name == "postgresql":
+            conn.exec_driver_sql("SELECT pg_advisory_lock(727274)")
+        try:
+            command.upgrade(cfg, "head")
+        finally:
+            if conn.dialect.name == "postgresql":
+                conn.exec_driver_sql("SELECT pg_advisory_unlock(727274)")
+    eng.dispose()
 
 
 class Database:
-    def __init__(self, url: str):
+    def __init__(self, url: str, run_migrations: bool = False):
         kw: dict = {"future": True, "pool_pre_ping": True}
         if url.startswith("sqlite"):
             kw["connect_args"] = {"check_same_thread": False}
@@ -133,7 +272,10 @@ class Database:
                 dbapi_conn.execute("PRAGMA foreign_keys=ON")
                 dbapi_conn.execute("PRAGMA journal_mode=WAL")
         self._sm = sessionmaker(self.engine, expire_on_commit=False, future=True)
-        Base.metadata.create_all(self.engine)
+        if run_migrations:  # production: schema is owned by Alembic
+            migrate(url)
+        else:  # development / tests: create tables directly (kept identical to the migrations by `alembic check` in the test-suite)
+            Base.metadata.create_all(self.engine)
 
     @contextmanager
     def session(self) -> Iterator[Session]:

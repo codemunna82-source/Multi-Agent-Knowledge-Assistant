@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, UTC
 from typing import Callable
 
-from fastapi import Depends, Header, HTTPException, Request
+from fastapi import Depends, Header, HTTPException, Query, Request, Response
 
 from ..config import Settings
 from ..db import Database, RevokedToken, User
@@ -97,3 +97,14 @@ def require(permission: str, limit: str | None = None) -> Callable:
 
 def utcnow() -> datetime:
     return datetime.now(UTC)
+
+
+def page_params(limit: int = Query(50, ge=1, le=200, description="page size"), offset: int = Query(0, ge=0)) -> tuple[int, int]:
+    return limit, offset
+
+
+def paginate(items: list, response: Response, page: tuple[int, int]) -> list:
+    """Slice an in-memory list; the full size is reported in the X-Total-Count header."""
+    limit, offset = page
+    response.headers["X-Total-Count"] = str(len(items))
+    return items[offset:offset + limit]

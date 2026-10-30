@@ -88,7 +88,7 @@ class JobService:
                     result = self.k.ingest_url(scope, snap["payload"]["url"], owner_id=snap["user"], visibility=snap["payload"].get("visibility", "tenant"), progress=cb)
                 else:
                     result = self.k.reindex(scope, snap["payload"]["source_id"], None, progress=cb)
-                if result["status"] == "ready" or not result.get("retryable") or attempt == self.s.job_max_attempts:
+                if result["status"] in ("ready", "duplicate") or not result.get("retryable") or attempt == self.s.job_max_attempts:
                     break
                 log.warning("job %s attempt %d failed (%s); retrying", job_id, attempt, result["error"])
                 time.sleep(self.s.job_retry_backoff * attempt)
@@ -98,9 +98,10 @@ class JobService:
         finally:
             if path and snap["kind"] == "file":
                 shutil.rmtree(path.parent, ignore_errors=True)
-        ok = result["status"] == "ready"
-        self._set(job_id, status="ready" if ok else "failed", stage="done" if ok else "failed", progress=100 if ok else 0,
-                  error=None if ok else result["error"], source_id=(result["source"] or {}).get("id") if ok else None)
+        dup = result["status"] == "duplicate"
+        ok = result["status"] == "ready" or dup
+        self._set(job_id, status="duplicate" if dup else ("ready" if ok else "failed"), stage="duplicate" if dup else ("done" if ok else "failed"), progress=100 if ok else 0,
+                  error=(f"Identical to the already indexed '{result['source']['name']}'" if dup else (None if ok else result["error"])), source_id=(result["source"] or {}).get("id") if ok else None)
         self.auditor.record("ingest_job", tenant_id=snap["tenant"], user_id=snap["user"], resource=snap["name"], outcome="success" if ok else "failed",
                             detail={"job_id": job_id, "source_id": (result.get("source") or {}).get("id"), "workspace": snap["ws"]})
 
