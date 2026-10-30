@@ -76,6 +76,8 @@ class Settings(BaseSettings):
     compression: bool = True
     reranker: str = "lexical"  # none | lexical | llm | cross_encoder
     cross_encoder_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    graph_rag: bool = False  # expand retrieval with chunks linked through the entity knowledge graph
+    cross_lingual: bool = True  # (needs an LLM) add translated query variants when the question language differs from the documents'
     corrective: bool = True
     max_retries: int = 2  # bounded corrective / verification retries
 

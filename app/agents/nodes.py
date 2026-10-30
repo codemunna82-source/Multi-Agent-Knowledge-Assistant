@@ -7,6 +7,8 @@ from dataclasses import replace
 from typing import Optional
 
 from .. import web_search
+import logging
+
 from ..core import IngestError, ProviderError, format_loc
 from ..providers import track_usage
 from ..intel.language import detect_language, language_name
@@ -18,6 +20,8 @@ from .common import NOT_VERIFIED, best_sentences, confidence_from, evidence_cita
 from .routing import COMPARE, URL, llm_route, rules_route
 from .state import AgentState, RunCtx
 from .tools import ToolError
+
+log = logging.getLogger("mka.agent")
 
 ANSWER_SYSTEM = ("Answer the question using ONLY the numbered evidence. Cite evidence inline as [n]. If the evidence does not contain the answer, say you could not verify it. "
                  "Be concise. Do not invent numbers, names or dates.")
@@ -36,7 +40,16 @@ class Agents:
         """Bind the request's Usage to whatever thread/context the node runs in (token + cost accounting)."""
         def inner(state: AgentState):
             with track_usage(self.ctx(state).usage):
-                return fn(state)
+                try:
+                    return fn(state)
+                except (KeyError, ProviderError):
+                    raise  # unknown source id -> 404, upstream model error -> 502 (handled by the API layer)
+                except Exception as e:  # a bug in one agent must degrade to an honest message, never a 500 with a stack trace
+                    log.exception("agent node %s failed", fn.__name__)
+                    route = state.get("route") or "semantic"
+                    d = result(route, f"I could not complete this step ({type(e).__name__}). The error has been logged.", limitations=["Internal error while processing the request."])
+                    d["abstained"] = False
+                    return {"route": route, "draft": d, "verification": {"status": "fail", "issues": ["internal error"]}, "trace": [f"{fn.__name__}: internal error {type(e).__name__}"]}
         inner.__name__ = fn.__name__
         return inner
 

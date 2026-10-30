@@ -301,6 +301,20 @@ def _gemini_image(self, data: bytes, mime: str, prompt: str) -> str:
 GeminiLLM.describe_image = _gemini_image
 
 
+def transcribe_openai(s: Settings, data: bytes, filename: str, mime: str) -> str:
+    """Whisper speech-to-text. (Covered by a mocked-HTTP test only; not exercised against the live API in this repo's CI.)"""
+    if not s.secret("openai_api_key"):
+        raise ProviderError("OPENAI_API_KEY is not set")
+    try:
+        r = httpx.post("https://api.openai.com/v1/audio/transcriptions", headers={"Authorization": f"Bearer {s.secret('openai_api_key')}"},
+                       files={"file": (filename, data, mime)}, data={"model": s.openai_transcribe_model}, timeout=s.llm_timeout)
+    except httpx.HTTPError as e:
+        raise ProviderError(f"Transcription request failed: {e}") from e
+    if r.status_code >= 400:
+        raise ProviderError(f"Transcription returned HTTP {r.status_code}")
+    return str(r.json().get("text", "")).strip()
+
+
 def make_llm(s: Settings) -> LLM:
     p = s.llm_provider.lower()
     if p in ("none", ""):

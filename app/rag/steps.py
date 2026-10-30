@@ -196,3 +196,18 @@ def reformulate(llm, query: str, attempt: int, rare_terms: list[str]) -> tuple[s
             pass
     keep = rare_terms[: max(2, 5 - attempt)]  # fall back to the rarest (most discriminative) terms, progressively fewer
     return (" ".join(keep) if keep else query), "rare-terms"
+
+
+# ----------------------------------------------------------------------------- 7. cross-lingual query translation
+def translate_query(llm, query: str, target_langs: list[str]) -> list[str]:
+    """Translate the question into the languages of the indexed documents so lexical + vector search can match across languages."""
+    from ..intel.language import language_name
+
+    names = ", ".join(language_name(c) for c in target_langs)
+    sys = f'Translate the search query into: {names}. Keep names, numbers and IDs unchanged. JSON only: {{"translations": ["..."]}}'
+    try:
+        j = parse_json(llm.complete(sys, neutralize(query)[:500]))
+    except ProviderError:
+        return []
+    ts = (j or {}).get("translations") if isinstance(j, dict) else None
+    return [t.strip() for t in ts if isinstance(t, str) and 2 <= len(t.strip()) <= 300 and t.strip().lower() != query.lower()][: len(target_langs) + 1] if isinstance(ts, list) else []

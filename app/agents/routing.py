@@ -62,6 +62,8 @@ def rules_route(question: str, metas: list[dict], last: Optional[dict], web_enab
     has_tab = any(m.get("tabular") for m in metas)
     if web_enabled and (URL.search(q) or WEB_INTENT.search(q)):
         return {"route": "web", "why": "url or web intent"}
+    if GRAPH.search(q):
+        return {"route": "summarize", "sub": "graph", "why": "relationship question"}
     if SUMMARY.search(q):
         return {"route": "summarize", "sub": "summary", "why": "summary keywords"}
     if COMPARE.search(q) and len([m for m in metas if m.get("tabular")]) >= 2 and TABLE_NOUNS.search(q):
@@ -74,8 +76,6 @@ def rules_route(question: str, metas: list[dict], last: Optional[dict], web_enab
         return {"route": "summarize", "sub": "questions", "why": "question generation"}
     if TABLES.search(q):
         return {"route": "summarize", "sub": "tables", "why": "table extraction"}
-    if GRAPH.search(q):
-        return {"route": "summarize", "sub": "graph", "why": "relationship question"}
     if CLAUSE.search(q) and term:
         return {"route": "document_search", "term": term, "quoted": False, "why": "clause reference"}
     if DOC_LIST.search(q):

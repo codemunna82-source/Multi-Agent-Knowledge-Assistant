@@ -16,6 +16,8 @@ from .core import IngestError, ProviderError, Unit
 from .ingestion import web
 from .ingestion.chunking import chunk_units
 from .ingestion.loaders import TABULAR_KINDS, extract, kind_for
+from .intel.entities import chunk_entities
+from .intel.language import detect_language
 from .security.files import safe_filename, validate_upload
 from .security.injection import scan_units
 from .providers import LLM, Embedder, make_embedder, make_llm
@@ -136,6 +138,7 @@ class Knowledge:
             vectors = self.embedder.embed_documents(texts)
             if len(vectors) != len(records):
                 raise ProviderError("Embedding provider returned an unexpected number of vectors")
+            meta["language"] = detect_language(" ".join(u.text for u in ex.units[:40]))
             meta.update(
                 units=len(ex.units), chunks=len(records), warnings=ex.warnings, embedding=self.embedder.name,
                 tabular=kind in TABULAR_KINDS, **{k: v for k, v in ex.meta.items() if k in ("pages", "tables")},
@@ -145,6 +148,7 @@ class Knowledge:
                 self.backend.delete(st, source_id)
                 self.backend.add(st, staging, source_id, [r["id"] for r in records], vectors, texts)
                 st.write_source(staging, meta, ex.units, records)
+                (staging / "graph.json").write_text(json.dumps({r["id"]: chunk_entities(r["text"]) for r in records if r["text"]}, ensure_ascii=False), encoding="utf-8")
                 if ex.tables:
                     (staging / "tables.json").write_text(json.dumps(ex.tables, ensure_ascii=False), encoding="utf-8")
                 st.commit(staging, source_id)

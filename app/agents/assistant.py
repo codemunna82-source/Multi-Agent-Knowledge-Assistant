@@ -15,6 +15,7 @@ from ..providers import Usage
 from ..rag import RAGPipeline, resolve
 from ..schemas import AskRequest, AskResponse
 from ..storage import Scope
+from ..intel.graph import GraphCache
 from .graph import build_graph
 from .nodes import Agents
 from .state import RunCtx
@@ -50,6 +51,8 @@ class Assistant:
     def __init__(self, knowledge, checkpointer=None):
         self.k = knowledge
         self.pipeline = RAGPipeline(knowledge)
+        self.graphs = GraphCache()
+        self.pipeline.graphs = self.graphs
         self.tools = ToolRegistry(self)
         self.agents = Agents(self)
         self._pool = None

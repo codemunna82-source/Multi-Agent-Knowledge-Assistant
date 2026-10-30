@@ -34,6 +34,8 @@ class RetrievalOptions(BaseModel):
     compression: Optional[bool] = None
     reranker: Optional[Literal["none", "lexical", "llm", "cross_encoder"]] = None
     corrective: Optional[bool] = None
+    graph: Optional[bool] = None
+    cross_lingual: Optional[bool] = None
     max_retries: Optional[int] = Field(default=None, ge=0, le=4)
     filters: Optional[MetadataFilter] = None
 
@@ -50,6 +52,8 @@ class Resolved:
     compression: bool = True
     reranker: str = "lexical"
     corrective: bool = True
+    graph: bool = False
+    cross_lingual: bool = True
     max_retries: int = 2
     filters: MetadataFilter = field(default_factory=MetadataFilter)
     min_score: float = 0.12
@@ -68,7 +72,8 @@ def resolve(s: Settings, o: Optional[RetrievalOptions] = None, **force) -> Resol
         mode=pick("mode", s.retrieval_mode), top_k=pick("top_k", s.top_k), rewrite=pick("rewrite", s.query_rewrite),
         multi_query=pick("multi_query", s.multi_query), multi_query_n=s.multi_query_n, hyde=pick("hyde", s.hyde),
         parent_child=pick("parent_child", s.parent_child), compression=pick("compression", s.compression),
-        reranker=pick("reranker", s.reranker), corrective=pick("corrective", s.corrective), max_retries=pick("max_retries", s.max_retries),
+        reranker=pick("reranker", s.reranker), corrective=pick("corrective", s.corrective), graph=pick("graph", s.graph_rag),
+        cross_lingual=pick("cross_lingual", s.cross_lingual), max_retries=pick("max_retries", s.max_retries),
         filters=o.filters or MetadataFilter(), min_score=s.effective_min_score, parent_max_chars=s.parent_max_chars,
         injection_policy=s.injection_policy,
     )

@@ -20,7 +20,7 @@ from ..security.audit import Auditor
 from ..security.ratelimit import RateLimiter
 from ..service import Knowledge
 from .deps import Ctx, Services, require
-from .routers import admin, auth, chat, jobs, sources
+from .routers import admin, auth, chat, intel, jobs, sources
 
 log = logging.getLogger("mka")
 STATIC = Path(__file__).resolve().parent.parent / "static"
@@ -93,7 +93,7 @@ def create_app(settings: Optional[Settings] = None, knowledge: Optional[Knowledg
         log.info("request", extra={"request_id": rid, "path": request.url.path, "status": resp.status_code, "ms": round((time.perf_counter() - t0) * 1000, 1)})
         return resp
 
-    for r in (auth.router, sources.router, jobs.router, chat.router, admin.router):
+    for r in (auth.router, sources.router, jobs.router, chat.router, intel.router, admin.router):
         app.include_router(r)
 
     @app.get("/health", tags=["system"])

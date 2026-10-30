@@ -46,6 +46,9 @@ def format_data_answer(out: dict) -> dict:
         op = out["grouped_op"]
         top = "; ".join(f"{g['group']}: {fmt(g['value'])}" for g in out["groups"][:15])
         ans = f"{op.capitalize()}{' of ' + col if col else ''} by {grp} in {src}{where}: {top}."
+    elif kind == "distinct":
+        vals = ", ".join(f"{v['value']} ({v['count']})" for v in out["values"][:20])
+        ans = f"{out['value']} distinct value(s) of {col} in {src}{where}: {vals}" + (" …" if out["value"] > 20 else "") + "."
     elif kind == "sorted":
         lines = "\n".join(f"{i}. row {r['row']}: " + "; ".join(f"{k}: {v}" for k, v in r["values"].items() if v is not None) for i, r in enumerate(out["rows"], 1))
         ans = f"{src}{where} sorted by {col} ({'ascending' if p.get('ascending') else 'descending'}), top {len(out['rows'])}:\n{lines}"

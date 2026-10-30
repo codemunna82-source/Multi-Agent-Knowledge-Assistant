@@ -35,6 +35,7 @@ class RAGPipeline:
     def __init__(self, knowledge):
         self.k = knowledge
         self.cache = IndexCache()
+        self.graphs = None  # set by the Assistant (GraphCache)
 
     # ------------------------------------------------------------------ public
     def retrieve(self, st: SessionStore, query: str, opts: Resolved, source_ids: Optional[list[str]] = None,
@@ -53,10 +54,20 @@ class RAGPipeline:
             q, how = steps.rewrite_query(llm, query, last_question, summary)
             res.trace.append({"step": "rewrite", "method": how, "query": q})
 
+        extra: list[str] = []
+        if opts.cross_lingual and llm is not None:
+            from ..intel.language import detect_language
+
+            doc_langs = {idx.metas[sid].get("language", "en") for sid in allowed}
+            targets = sorted(doc_langs - {detect_language(q)})
+            if targets:
+                extra = steps.translate_query(llm, q, targets)
+                res.trace.append({"step": "cross-lingual", "targets": targets, "translations": extra})
+
         best: Optional[RetrievalResult] = None
         mode_opts = opts
         for attempt in range(opts.max_retries + 1 if opts.corrective else 1):
-            res_try = self._once(st, idx, q, mode_opts, allowed, llm, attempt)
+            res_try = self._once(st, idx, q, mode_opts, allowed, llm, attempt, extra)
             res_try.query = q
             res.trace.extend({**t, "attempt": attempt} for t in res_try.trace)
             rank = {"correct": 2, "ambiguous": 1, "incorrect": 0}
@@ -84,10 +95,10 @@ class RAGPipeline:
         return res
 
     # ------------------------------------------------------------------ one retrieval pass
-    def _once(self, st: SessionStore, idx: ScopeIndex, q: str, o: Resolved, allowed: list[str], llm, attempt: int) -> RetrievalResult:
+    def _once(self, st: SessionStore, idx: ScopeIndex, q: str, o: Resolved, allowed: list[str], llm, attempt: int, extra: Optional[list[str]] = None) -> RetrievalResult:
         r = RetrievalResult()
         allowed_set = set(allowed)
-        variants = [q]
+        variants = [q] + [t for t in (extra or []) if t != q]
         if o.multi_query:
             extra, how = steps.multi_queries(llm, q, o.multi_query_n)
             variants += extra
@@ -120,6 +131,14 @@ class RAGPipeline:
             rankings.append([cid for cid, _ in vec if cid in idx.by_id and keep(cid)][:pool])
             for cid, sc in vec:
                 cos[cid] = max(cos.get(cid, -1.0), sc)
+
+        if o.graph and getattr(self, "graphs", None) is not None:
+            kg = self.graphs.get(st, allowed_set)
+            keys = kg.find(q)
+            if keys:
+                gl = [cid for cid in kg.expand_chunks(keys, pool) if cid in idx.by_id and cid.split(":", 1)[0] in allowed_set and keep(cid)]
+                rankings.append(gl)
+                r.trace.append({"step": "graph-expand", "entities": [kg.nodes[k].name for k in keys], "chunks": len(gl)})
 
         fused: dict[str, float] = {}
         for rl in rankings:
