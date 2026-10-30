@@ -1,9 +1,7 @@
 """Runs a dataset through the real pipeline and agents and produces a report dict (metrics, per-case results, per-type breakdown)."""
 from __future__ import annotations
 
-import re
 import time
-from dataclasses import replace
 from typing import Optional
 
 from ..agents.nodes import support_ratio

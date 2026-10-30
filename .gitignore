@@ -10,4 +10,4 @@ frontend/node_modules/
 frontend/dist/
 _uploads/
 *.zip
-eval_report.*
+/eval_report.*

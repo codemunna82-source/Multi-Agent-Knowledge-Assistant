@@ -67,7 +67,6 @@ def test_answer_relevancy_proxy():
 # ------------------------------------------------------------------ runner on the synthetic corpus (regression guard)
 @pytest.fixture(scope="module")
 def sample_report(tmp_path_factory):
-    from pathlib import Path
 
     td = tmp_path_factory.mktemp("evalsample")
     a, scope, ds = build_sample(Settings(data_dir=str(td / "data"), _env_file=None), td)
@@ -196,3 +195,19 @@ def test_eval_api_custom_dataset_on_own_documents(client):
     m = r.json()["metrics"]
     assert m["retrieval"]["recall@1"] == 1.0 and m["answers"]["keyword_accuracy"] == 1.0 and m["answers"]["abstention_accuracy"] == 1.0
     assert client.post("/eval/run", json={"dataset": {"name": "bad", "cases": []}}, headers=H).status_code == 422
+
+
+def test_evaluation_is_deterministic_across_hash_seeds(tmp_path):
+    """Retrieval must not depend on PYTHONHASHSEED (set/dict ordering): run the sample twice in fresh interpreters with different seeds."""
+    import os
+    import subprocess
+
+    outs = []
+    for seed in ("11", "97"):
+        out = tmp_path / f"r{seed}"
+        subprocess.run([sys.executable, "-m", "app.eval", "run", "--sample", "--out", str(out)], check=True, capture_output=True, env={**os.environ, "PYTHONHASHSEED": seed})
+        rep = json.loads(out.with_suffix(".json").read_text())
+        m = {k: v for k, v in rep["metrics"].items() if k != "latency_ms"}
+        m["by_type"] = {t: {k: v for k, v in d.items() if k != "latency_p50_ms"} for t, d in m["by_type"].items()}  # wall-clock timings legitimately vary
+        outs.append((m, [(c["id"], c["route"], c["verified"], c["answer"], c.get("recall@5"), c.get("mrr")) for c in rep["cases"]]))
+    assert outs[0] == outs[1]

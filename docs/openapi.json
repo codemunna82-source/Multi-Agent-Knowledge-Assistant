@@ -1,0 +1,3456 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "Multi-Agent Knowledge Assistant",
+  "description": "Multi-tenant document intelligence: upload documents or URLs, ask questions, get cited answers.",
+  "version": "2.0.0"
+ },
+ "paths": {
+  "/auth/signup": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Signup",
+    "description": "Create a new tenant with its first admin. Disabled in production (use `python -m app.cli create-tenant`).",
+    "operationId": "signup_auth_signup_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SignupRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TokenResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/auth/login": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Login",
+    "operationId": "login_auth_login_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LoginRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TokenResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/auth/me": {
+   "get": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Me",
+    "operationId": "me_auth_me_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/UserOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/auth/logout": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Logout",
+    "operationId": "logout_auth_logout_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/sources/upload": {
+   "post": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Upload",
+    "description": "Multi-file upload. Default: synchronous (validated, extracted, embedded and indexed before the response).\nWith ?async=true: files are queued for background workers and 202 + job ids are returned.",
+    "operationId": "upload_sources_upload_post",
+    "parameters": [
+     {
+      "name": "async",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": false,
+       "title": "Async"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "$ref": "#/components/schemas/Body_upload_sources_upload_post"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/IngestResult"
+         },
+         "title": "Response Upload Sources Upload Post"
+        }
+       }
+      }
+     },
+     "202": {
+      "description": "async=true: queued job ids"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/sources/url": {
+   "post": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Add Url",
+    "operationId": "add_url_sources_url_post",
+    "parameters": [
+     {
+      "name": "visibility",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "tenant",
+       "title": "Visibility"
+      }
+     },
+     {
+      "name": "async",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": false,
+       "title": "Async"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/UrlRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/IngestResult"
+        }
+       }
+      }
+     },
+     "202": {
+      "description": "async=true: queued job id"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/sources": {
+   "get": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "List Sources",
+    "operationId": "list_sources_sources_get",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/SourceInfo"
+         },
+         "title": "Response List Sources Sources Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/sources/{source_id}": {
+   "get": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Get Source",
+    "operationId": "get_source_sources__source_id__get",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Source Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourceInfo"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Delete Source",
+    "operationId": "delete_source_sources__source_id__delete",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Source Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/sources/{source_id}/tables": {
+   "get": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Tables",
+    "description": "Structured tables extracted from the source (spreadsheets, DOCX, HTML, PDF), each with its location.",
+    "operationId": "tables_sources__source_id__tables_get",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Source Id"
+      }
+     },
+     {
+      "name": "max_rows",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "default": 200,
+       "title": "Max Rows"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/sources/{source_id}/reindex": {
+   "post": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Reindex",
+    "operationId": "reindex_sources__source_id__reindex_post",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Source Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/IngestResult"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/jobs": {
+   "get": {
+    "tags": [
+     "jobs"
+    ],
+    "summary": "List Jobs",
+    "operationId": "list_jobs_jobs_get",
+    "parameters": [
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 200,
+       "default": 50,
+       "title": "Limit"
+      }
+     },
+     {
+      "name": "all_workspaces",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": false,
+       "title": "All Workspaces"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/JobOut"
+         },
+         "title": "Response List Jobs Jobs Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/jobs/{job_id}": {
+   "get": {
+    "tags": [
+     "jobs"
+    ],
+    "summary": "Get Job",
+    "operationId": "get_job_jobs__job_id__get",
+    "parameters": [
+     {
+      "name": "job_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Job Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/JobOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/ask": {
+   "post": {
+    "tags": [
+     "chat"
+    ],
+    "summary": "Ask",
+    "operationId": "ask_ask_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AskRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AskResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/conversations": {
+   "get": {
+    "tags": [
+     "chat"
+    ],
+    "summary": "List Conversations",
+    "operationId": "list_conversations_conversations_get",
+    "parameters": [
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 200,
+       "default": 50,
+       "title": "Limit"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/ConversationOut"
+         },
+         "title": "Response List Conversations Conversations Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "chat"
+    ],
+    "summary": "New Conversation",
+    "operationId": "new_conversation_conversations_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ConversationOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/conversations/{conv_id}/messages": {
+   "get": {
+    "tags": [
+     "chat"
+    ],
+    "summary": "Messages",
+    "operationId": "messages_conversations__conv_id__messages_get",
+    "parameters": [
+     {
+      "name": "conv_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Conv Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/MessageOut"
+         },
+         "title": "Response Messages Conversations  Conv Id  Messages Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/conversations/{conv_id}": {
+   "delete": {
+    "tags": [
+     "chat"
+    ],
+    "summary": "Delete Conversation",
+    "operationId": "delete_conversation_conversations__conv_id__delete",
+    "parameters": [
+     {
+      "name": "conv_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Conv Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/ask/stream": {
+   "post": {
+    "tags": [
+     "chat"
+    ],
+    "summary": "Ask Stream",
+    "description": "Server-Sent Events: `step` (real graph progress), `token` (answer text pieces), `final` (full response incl. citations), `error`.",
+    "operationId": "ask_stream_ask_stream_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AskRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/conversations/{conv_id}/trace": {
+   "get": {
+    "tags": [
+     "chat"
+    ],
+    "summary": "Conversation Trace",
+    "description": "Checkpoint trail of the agent graph for this conversation (route, per-node trace, verification) - newest first.",
+    "operationId": "conversation_trace_conversations__conv_id__trace_get",
+    "parameters": [
+     {
+      "name": "conv_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Conv Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/sources/{source_id}/entities": {
+   "get": {
+    "tags": [
+     "intelligence"
+    ],
+    "summary": "Entities",
+    "operationId": "entities_sources__source_id__entities_get",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Source Id"
+      }
+     },
+     {
+      "name": "types",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "comma separated: NAME,ORG,EMAIL,DATE,MONEY,...",
+       "title": "Types"
+      },
+      "description": "comma separated: NAME,ORG,EMAIL,DATE,MONEY,..."
+     },
+     {
+      "name": "use_llm",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": true,
+       "title": "Use Llm"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/sources/{source_id}/questions": {
+   "get": {
+    "tags": [
+     "intelligence"
+    ],
+    "summary": "Questions",
+    "operationId": "questions_sources__source_id__questions_get",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Source Id"
+      }
+     },
+     {
+      "name": "n",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 20,
+       "minimum": 1,
+       "default": 8,
+       "title": "N"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/graph": {
+   "get": {
+    "tags": [
+     "intelligence"
+    ],
+    "summary": "Graph",
+    "description": "Knowledge graph view: top entities; neighbours of `entity`; or the shortest connection between `entity` and `to`.",
+    "operationId": "graph_graph_get",
+    "parameters": [
+     {
+      "name": "entity",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Entity"
+      }
+     },
+     {
+      "name": "to",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "To"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 50,
+       "minimum": 1,
+       "default": 10,
+       "title": "Limit"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/transcribe": {
+   "post": {
+    "tags": [
+     "intelligence"
+    ],
+    "summary": "Transcribe",
+    "description": "Speech-to-text for voice queries (OpenAI Whisper). Browsers can alternatively use client-side speech recognition.",
+    "operationId": "transcribe_transcribe_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "$ref": "#/components/schemas/Body_transcribe_transcribe_post"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/eval/run": {
+   "post": {
+    "tags": [
+     "evaluation"
+    ],
+    "summary": "Run",
+    "description": "Runs synchronously (a few seconds for the sample; up to 500 questions otherwise). Results are stored per tenant.",
+    "operationId": "run_eval_run_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/EvalRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/eval/runs": {
+   "get": {
+    "tags": [
+     "evaluation"
+    ],
+    "summary": "Runs",
+    "operationId": "runs_eval_runs_get",
+    "parameters": [
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 100,
+       "default": 20,
+       "title": "Limit"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/eval/runs/{run_id}": {
+   "get": {
+    "tags": [
+     "evaluation"
+    ],
+    "summary": "Get Run",
+    "operationId": "get_run_eval_runs__run_id__get",
+    "parameters": [
+     {
+      "name": "run_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Run Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/eval/runs/{run_id}/report.html": {
+   "get": {
+    "tags": [
+     "evaluation"
+    ],
+    "summary": "Report Html",
+    "operationId": "report_html_eval_runs__run_id__report_html_get",
+    "parameters": [
+     {
+      "name": "run_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Run Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "text/html": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/eval/runs/{run_id}/report.md": {
+   "get": {
+    "tags": [
+     "evaluation"
+    ],
+    "summary": "Report Md",
+    "operationId": "report_md_eval_runs__run_id__report_md_get",
+    "parameters": [
+     {
+      "name": "run_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Run Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "text/plain": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/admin/users": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Users",
+    "operationId": "users_admin_users_get",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/UserOut"
+         },
+         "title": "Response Users Admin Users Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Create User",
+    "operationId": "create_user_admin_users_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/UserCreate"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/UserOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/admin/users/{user_id}": {
+   "patch": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Update User",
+    "operationId": "update_user_admin_users__user_id__patch",
+    "parameters": [
+     {
+      "name": "user_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "User Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/UserUpdate"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/UserOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Delete User",
+    "operationId": "delete_user_admin_users__user_id__delete",
+    "parameters": [
+     {
+      "name": "user_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "User Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/admin/audit": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Audit",
+    "operationId": "audit_admin_audit_get",
+    "parameters": [
+     {
+      "name": "action",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Action"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 1000,
+       "default": 100,
+       "title": "Limit"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/AuditOut"
+         },
+         "title": "Response Audit Admin Audit Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/admin/settings": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Settings",
+    "description": "Effective configuration; secrets are masked and never returned.",
+    "operationId": "settings_admin_settings_get",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/admin/data": {
+   "delete": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Purge Tenant",
+    "description": "Irreversibly erase every document, vector, conversation, job and evaluation of the caller's tenant (users are kept).",
+    "operationId": "purge_tenant_admin_data_delete",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PurgeRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/health": {
+   "get": {
+    "tags": [
+     "system"
+    ],
+    "summary": "Health",
+    "operationId": "health_health_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/session": {
+   "delete": {
+    "tags": [
+     "chat"
+    ],
+    "summary": "Clear Workspace",
+    "description": "Delete ALL sources of the current workspace (X-Session-ID) and its conversation memory.",
+    "operationId": "clear_workspace_session_delete",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "schemas": {
+   "AskRequest": {
+    "properties": {
+     "question": {
+      "type": "string",
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Question"
+     },
+     "source_ids": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Ids",
+      "description": "Restrict to these sources (default: all in the session)"
+     },
+     "top_k": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 30.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Top K"
+     },
+     "case_sensitive": {
+      "type": "boolean",
+      "title": "Case Sensitive",
+      "default": false
+     },
+     "whole_word": {
+      "type": "boolean",
+      "title": "Whole Word",
+      "default": true
+     },
+     "conversation_id": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 32
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Conversation Id",
+      "description": "Continue this conversation (default: the user's latest one in the workspace)"
+     },
+     "retrieval": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/RetrievalOptions"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Per-request RAG strategy overrides (mode, rewrite, multi_query, hyde, rerank, filters, ...)"
+     }
+    },
+    "type": "object",
+    "required": [
+     "question"
+    ],
+    "title": "AskRequest"
+   },
+   "AskResponse": {
+    "properties": {
+     "answer": {
+      "type": "string",
+      "title": "Answer"
+     },
+     "route": {
+      "type": "string",
+      "title": "Route"
+     },
+     "confidence": {
+      "type": "string",
+      "title": "Confidence"
+     },
+     "verified": {
+      "type": "boolean",
+      "title": "Verified"
+     },
+     "citations": {
+      "items": {
+       "$ref": "#/components/schemas/Citation"
+      },
+      "type": "array",
+      "title": "Citations",
+      "default": []
+     },
+     "limitations": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Limitations",
+      "default": []
+     },
+     "needs_input": {
+      "type": "boolean",
+      "title": "Needs Input",
+      "default": false
+     },
+     "details": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Details",
+      "default": {}
+     },
+     "request_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Request Id"
+     },
+     "conversation_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Conversation Id"
+     },
+     "followups": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Followups",
+      "default": []
+     },
+     "language": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Language"
+     },
+     "usage": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Usage",
+      "default": {}
+     },
+     "latency_ms": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Latency Ms"
+     }
+    },
+    "type": "object",
+    "required": [
+     "answer",
+     "route",
+     "confidence",
+     "verified"
+    ],
+    "title": "AskResponse"
+   },
+   "AuditOut": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "ts": {
+      "type": "string",
+      "title": "Ts"
+     },
+     "user_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "User Id"
+     },
+     "action": {
+      "type": "string",
+      "title": "Action"
+     },
+     "resource": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Resource"
+     },
+     "outcome": {
+      "type": "string",
+      "title": "Outcome"
+     },
+     "ip": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ip"
+     },
+     "request_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Request Id"
+     },
+     "detail": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Detail"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "ts",
+     "user_id",
+     "action",
+     "resource",
+     "outcome",
+     "ip",
+     "request_id",
+     "detail"
+    ],
+    "title": "AuditOut"
+   },
+   "Body_transcribe_transcribe_post": {
+    "properties": {
+     "audio": {
+      "type": "string",
+      "contentMediaType": "application/octet-stream",
+      "title": "Audio"
+     }
+    },
+    "type": "object",
+    "required": [
+     "audio"
+    ],
+    "title": "Body_transcribe_transcribe_post"
+   },
+   "Body_upload_sources_upload_post": {
+    "properties": {
+     "files": {
+      "items": {
+       "type": "string",
+       "contentMediaType": "application/octet-stream"
+      },
+      "type": "array",
+      "title": "Files"
+     },
+     "visibility": {
+      "type": "string",
+      "title": "Visibility",
+      "default": "tenant"
+     }
+    },
+    "type": "object",
+    "required": [
+     "files"
+    ],
+    "title": "Body_upload_sources_upload_post"
+   },
+   "Citation": {
+    "properties": {
+     "source_id": {
+      "type": "string",
+      "title": "Source Id"
+     },
+     "source": {
+      "type": "string",
+      "title": "Source"
+     },
+     "location": {
+      "type": "string",
+      "title": "Location"
+     },
+     "excerpt": {
+      "type": "string",
+      "title": "Excerpt"
+     },
+     "score": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Score"
+     }
+    },
+    "type": "object",
+    "required": [
+     "source_id",
+     "source",
+     "location",
+     "excerpt"
+    ],
+    "title": "Citation"
+   },
+   "ConversationOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "workspace": {
+      "type": "string",
+      "title": "Workspace"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "updated_at": {
+      "type": "string",
+      "title": "Updated At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "workspace",
+     "title",
+     "updated_at"
+    ],
+    "title": "ConversationOut"
+   },
+   "EvalCase": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "question": {
+      "type": "string",
+      "maxLength": 1000,
+      "minLength": 1,
+      "title": "Question"
+     },
+     "type": {
+      "type": "string",
+      "enum": [
+       "semantic",
+       "exact",
+       "data",
+       "abstain",
+       "intel"
+      ],
+      "title": "Type",
+      "default": "semantic"
+     },
+     "relevant": {
+      "items": {
+       "$ref": "#/components/schemas/RelevantRef"
+      },
+      "type": "array",
+      "title": "Relevant",
+      "default": []
+     },
+     "expected_route": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expected Route"
+     },
+     "expected_keywords": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Expected Keywords",
+      "default": []
+     },
+     "expected_count": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expected Count"
+     },
+     "expected_value": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expected Value"
+     },
+     "answerable": {
+      "type": "boolean",
+      "title": "Answerable",
+      "default": true
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "question"
+    ],
+    "title": "EvalCase"
+   },
+   "EvalDataset": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "title": "Name",
+      "default": "dataset"
+     },
+     "cases": {
+      "items": {
+       "$ref": "#/components/schemas/EvalCase"
+      },
+      "type": "array",
+      "maxItems": 500,
+      "minItems": 1,
+      "title": "Cases"
+     }
+    },
+    "type": "object",
+    "required": [
+     "cases"
+    ],
+    "title": "EvalDataset"
+   },
+   "EvalRequest": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "maxLength": 200,
+      "title": "Name",
+      "default": ""
+     },
+     "sample": {
+      "type": "boolean",
+      "title": "Sample",
+      "description": "Evaluate the built-in synthetic corpus in a throw-away workspace instead of your own documents",
+      "default": false
+     },
+     "dataset": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EvalDataset"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Your questions + gold passages (required unless sample=true); evaluated against the current workspace"
+     },
+     "retrieval": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/RetrievalOptions"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "compare_strategies": {
+      "type": "boolean",
+      "title": "Compare Strategies",
+      "default": false
+     },
+     "use_llm_judge": {
+      "type": "boolean",
+      "title": "Use Llm Judge",
+      "default": true
+     }
+    },
+    "type": "object",
+    "title": "EvalRequest"
+   },
+   "HTTPValidationError": {
+    "properties": {
+     "detail": {
+      "items": {
+       "$ref": "#/components/schemas/ValidationError"
+      },
+      "type": "array",
+      "title": "Detail"
+     }
+    },
+    "type": "object",
+    "title": "HTTPValidationError"
+   },
+   "IngestResult": {
+    "properties": {
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "source": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/SourceInfo"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     }
+    },
+    "type": "object",
+    "required": [
+     "status",
+     "name"
+    ],
+    "title": "IngestResult"
+   },
+   "JobOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "kind": {
+      "type": "string",
+      "title": "Kind"
+     },
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "stage": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Stage"
+     },
+     "progress": {
+      "type": "integer",
+      "title": "Progress",
+      "default": 0
+     },
+     "attempts": {
+      "type": "integer",
+      "title": "Attempts",
+      "default": 0
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "source_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Id"
+     },
+     "workspace": {
+      "type": "string",
+      "title": "Workspace"
+     },
+     "created_at": {
+      "type": "string",
+      "title": "Created At"
+     },
+     "updated_at": {
+      "type": "string",
+      "title": "Updated At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "name",
+     "kind",
+     "status",
+     "workspace",
+     "created_at",
+     "updated_at"
+    ],
+    "title": "JobOut"
+   },
+   "LoginRequest": {
+    "properties": {
+     "email": {
+      "type": "string",
+      "maxLength": 320,
+      "title": "Email"
+     },
+     "password": {
+      "type": "string",
+      "maxLength": 200,
+      "title": "Password"
+     }
+    },
+    "type": "object",
+    "required": [
+     "email",
+     "password"
+    ],
+    "title": "LoginRequest"
+   },
+   "MessageOut": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "role": {
+      "type": "string",
+      "title": "Role"
+     },
+     "content": {
+      "type": "string",
+      "title": "Content"
+     },
+     "meta": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Meta"
+     },
+     "created_at": {
+      "type": "string",
+      "title": "Created At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "role",
+     "content",
+     "created_at"
+    ],
+    "title": "MessageOut"
+   },
+   "MetadataFilter": {
+    "properties": {
+     "kinds": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Kinds",
+      "description": "pdf, csv, xlsx, docx, txt, md, json, url, image"
+     },
+     "name_contains": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 200
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Name Contains"
+     },
+     "page_min": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Page Min"
+     },
+     "page_max": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Page Max"
+     },
+     "sheet": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 200
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Sheet"
+     },
+     "section_contains": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 200
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Section Contains"
+     },
+     "ingested_after": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ingested After",
+      "description": "ISO date/time"
+     },
+     "ingested_before": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ingested Before"
+     }
+    },
+    "type": "object",
+    "title": "MetadataFilter"
+   },
+   "PurgeRequest": {
+    "properties": {
+     "confirm": {
+      "type": "string",
+      "title": "Confirm"
+     }
+    },
+    "type": "object",
+    "required": [
+     "confirm"
+    ],
+    "title": "PurgeRequest"
+   },
+   "RelevantRef": {
+    "properties": {
+     "source": {
+      "type": "string",
+      "title": "Source"
+     },
+     "page": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Page"
+     },
+     "sheet": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Sheet"
+     },
+     "contains": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Contains",
+      "description": "case-insensitive phrase that must occur in the retrieved chunk"
+     }
+    },
+    "type": "object",
+    "required": [
+     "source"
+    ],
+    "title": "RelevantRef",
+    "description": "A gold passage: the source file and (optionally) page / sheet / row and a phrase the passage must contain."
+   },
+   "RetrievalOptions": {
+    "properties": {
+     "mode": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "semantic",
+         "keyword",
+         "hybrid"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mode"
+     },
+     "top_k": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 30.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Top K"
+     },
+     "rewrite": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Rewrite"
+     },
+     "multi_query": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Multi Query"
+     },
+     "hyde": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Hyde"
+     },
+     "parent_child": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parent Child"
+     },
+     "compression": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Compression"
+     },
+     "reranker": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "none",
+         "lexical",
+         "llm",
+         "cross_encoder"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reranker"
+     },
+     "corrective": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Corrective"
+     },
+     "graph": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Graph"
+     },
+     "cross_lingual": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cross Lingual"
+     },
+     "max_retries": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 4.0,
+        "minimum": 0.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Max Retries"
+     },
+     "filters": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/MetadataFilter"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "type": "object",
+    "title": "RetrievalOptions",
+    "description": "Per-request overrides; anything left unset falls back to the server defaults (MKA_*)."
+   },
+   "SignupRequest": {
+    "properties": {
+     "tenant_name": {
+      "type": "string",
+      "maxLength": 200,
+      "minLength": 2,
+      "title": "Tenant Name"
+     },
+     "email": {
+      "type": "string",
+      "maxLength": 320,
+      "title": "Email"
+     },
+     "password": {
+      "type": "string",
+      "maxLength": 72,
+      "minLength": 10,
+      "title": "Password"
+     }
+    },
+    "type": "object",
+    "required": [
+     "tenant_name",
+     "email",
+     "password"
+    ],
+    "title": "SignupRequest"
+   },
+   "SourceInfo": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "kind": {
+      "type": "string",
+      "title": "Kind"
+     },
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "created_at": {
+      "type": "string",
+      "title": "Created At"
+     },
+     "ingested_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ingested At"
+     },
+     "size_bytes": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Size Bytes"
+     },
+     "title": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Title"
+     },
+     "url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Url"
+     },
+     "final_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Final Url"
+     },
+     "units": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Units"
+     },
+     "chunks": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Chunks"
+     },
+     "pages": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pages"
+     },
+     "tabular": {
+      "type": "boolean",
+      "title": "Tabular",
+      "default": false
+     },
+     "tables": {
+      "anyOf": [
+       {
+        "items": {
+         "additionalProperties": true,
+         "type": "object"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Tables"
+     },
+     "warnings": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Warnings",
+      "default": []
+     },
+     "embedding": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Embedding"
+     },
+     "needs_reindex": {
+      "type": "boolean",
+      "title": "Needs Reindex",
+      "default": false
+     },
+     "owner_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Owner Id"
+     },
+     "visibility": {
+      "type": "string",
+      "title": "Visibility",
+      "default": "tenant"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "name",
+     "kind",
+     "status",
+     "created_at"
+    ],
+    "title": "SourceInfo"
+   },
+   "TokenResponse": {
+    "properties": {
+     "access_token": {
+      "type": "string",
+      "title": "Access Token"
+     },
+     "token_type": {
+      "type": "string",
+      "title": "Token Type",
+      "default": "bearer"
+     },
+     "expires_in": {
+      "type": "integer",
+      "title": "Expires In"
+     },
+     "user": {
+      "$ref": "#/components/schemas/UserOut"
+     }
+    },
+    "type": "object",
+    "required": [
+     "access_token",
+     "expires_in",
+     "user"
+    ],
+    "title": "TokenResponse"
+   },
+   "UrlRequest": {
+    "properties": {
+     "url": {
+      "type": "string",
+      "maxLength": 2048,
+      "minLength": 4,
+      "title": "Url"
+     }
+    },
+    "type": "object",
+    "required": [
+     "url"
+    ],
+    "title": "UrlRequest"
+   },
+   "UserCreate": {
+    "properties": {
+     "email": {
+      "type": "string",
+      "maxLength": 320,
+      "title": "Email"
+     },
+     "password": {
+      "type": "string",
+      "maxLength": 72,
+      "minLength": 10,
+      "title": "Password"
+     },
+     "role": {
+      "type": "string",
+      "title": "Role",
+      "default": "viewer"
+     }
+    },
+    "type": "object",
+    "required": [
+     "email",
+     "password"
+    ],
+    "title": "UserCreate"
+   },
+   "UserOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "tenant_id": {
+      "type": "string",
+      "title": "Tenant Id"
+     },
+     "email": {
+      "type": "string",
+      "title": "Email"
+     },
+     "role": {
+      "type": "string",
+      "title": "Role"
+     },
+     "is_active": {
+      "type": "boolean",
+      "title": "Is Active",
+      "default": true
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "tenant_id",
+     "email",
+     "role"
+    ],
+    "title": "UserOut"
+   },
+   "UserUpdate": {
+    "properties": {
+     "role": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Role"
+     },
+     "is_active": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Is Active"
+     },
+     "password": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 72,
+        "minLength": 10
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Password"
+     }
+    },
+    "type": "object",
+    "title": "UserUpdate"
+   },
+   "ValidationError": {
+    "properties": {
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "type": "array",
+      "title": "Location"
+     },
+     "msg": {
+      "type": "string",
+      "title": "Message"
+     },
+     "type": {
+      "type": "string",
+      "title": "Error Type"
+     },
+     "input": {
+      "title": "Input"
+     },
+     "ctx": {
+      "type": "object",
+      "title": "Context"
+     }
+    },
+    "type": "object",
+    "required": [
+     "loc",
+     "msg",
+     "type"
+    ],
+    "title": "ValidationError"
+   }
+  }
+ }
+}

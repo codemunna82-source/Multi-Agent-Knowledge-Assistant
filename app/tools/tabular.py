@@ -6,13 +6,12 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Optional
 
 import numpy as np
 import pandas as pd
 
-from ..core import IngestError, stem, tokenize
+from ..core import stem, tokenize
 from ..ingestion.loaders import read_sheets
 
 _NUM = (int, float, np.integer, np.floating)
@@ -316,7 +315,7 @@ def execute(plan: Plan, t: Table, max_rows: int = 20) -> dict:
         if plan.op == "count":
             agg = g.size()
         else:
-            agg = getattr(g[plan.column], plan.op)() if plan.op in ("sum", "mean", "median") else getattr(g[plan.column], "sum")()
+            agg = getattr(g[plan.column], plan.op)() if plan.op in ("sum", "mean", "median") else g[plan.column].sum()
         res["grouped_op"] = plan.op if plan.op in ("count", "sum", "mean", "median") else "sum"
         agg = agg.sort_values(ascending=(plan.op == "min"))
         res["groups"] = [{"group": str(k), "value": float(v)} for k, v in agg.items()]

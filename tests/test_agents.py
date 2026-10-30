@@ -11,8 +11,6 @@ from app.agents.tools import ToolError
 from app.api import create_app
 from app.config import Settings
 from app.ingestion import web
-from app.providers import HashEmbedder
-from app.schemas import AskRequest
 from app.service import Knowledge
 from app.storage import Scope
 

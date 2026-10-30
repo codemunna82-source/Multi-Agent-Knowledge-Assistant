@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from typing import Callable
 
 from fastapi import Depends, Header, HTTPException, Request
@@ -96,4 +96,4 @@ def require(permission: str, limit: str | None = None) -> Callable:
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)

@@ -1,0 +1,9 @@
+-r requirements.txt
+pytest>=8
+ruff>=0.4
+reportlab>=4        # builds PDF fixtures, the evaluation corpus and the BRD
+cryptography>=42    # self-signed certificates for the TLS/SNI pinning test
+fakeredis>=2.20
+# optional, NOT exercised by the test-suite:
+#   ragas datasets          -> app/eval/ragas_adapter.py
+#   sentence-transformers   -> MKA_RERANKER=cross_encoder

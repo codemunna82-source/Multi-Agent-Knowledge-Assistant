@@ -5,7 +5,6 @@ import re
 from typing import Optional
 
 from ..core import ProviderError
-from ..rag.options import MetadataFilter
 from ..rag.steps import parse_json
 from ..security.injection import neutralize
 

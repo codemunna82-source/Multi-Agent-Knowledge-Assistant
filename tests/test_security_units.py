@@ -2,7 +2,7 @@ import pytest
 
 from app.core import Unit
 from app.security.files import safe_filename
-from app.security.injection import guard_output, neutralize, scan_text, scan_units, wrap_untrusted
+from app.security.injection import guard_output, scan_text, scan_units, wrap_untrusted
 
 
 @pytest.mark.parametrize("text", [

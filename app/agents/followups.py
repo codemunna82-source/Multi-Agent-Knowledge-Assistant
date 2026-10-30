@@ -1,9 +1,8 @@
 """Follow-up question suggestions: LLM-written when available (validated), otherwise templated from real entities in the evidence."""
 from __future__ import annotations
 
-import re
 
-from ..core import ProviderError, stem, tokenize
+from ..core import ProviderError
 from ..rag.steps import parse_json
 from ..security.injection import SYSTEM_GUARD, wrap_untrusted
 

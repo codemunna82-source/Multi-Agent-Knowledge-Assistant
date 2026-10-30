@@ -1,0 +1,1721 @@
+{
+ "name": "default strategy",
+ "dataset": "synthetic-mixed-v1",
+ "created": "2026-10-30T05:42:51Z",
+ "duration_s": 0.66,
+ "config": {
+  "embedder": "hash:v1:1024",
+  "llm": "none",
+  "vector_store": "local",
+  "retrieval": {
+   "mode": "hybrid",
+   "top_k": 6,
+   "rewrite": true,
+   "multi_query": false,
+   "multi_query_n": 3,
+   "hyde": false,
+   "parent_child": true,
+   "compression": true,
+   "reranker": "lexical",
+   "corrective": true,
+   "graph": false,
+   "cross_lingual": true,
+   "max_retries": 2,
+   "filters": {
+    "kinds": null,
+    "name_contains": null,
+    "page_min": null,
+    "page_max": null,
+    "sheet": null,
+    "section_contains": null,
+    "ingested_after": null,
+    "ingested_before": null
+   },
+   "min_score": 0.12,
+   "parent_max_chars": 3000,
+   "injection_policy": "flag",
+   "pool": 24
+  }
+ },
+ "metrics": {
+  "cases": 42,
+  "retrieval": {
+   "recall@1": 0.9090909090909091,
+   "recall@3": 0.9090909090909091,
+   "recall@5": 0.9090909090909091,
+   "precision@1": 0.9090909090909091,
+   "precision@3": 0.303030303030303,
+   "precision@5": 0.18181818181818182,
+   "ndcg@1": 0.9090909090909091,
+   "ndcg@3": 0.9090909090909091,
+   "ndcg@5": 0.9090909090909091,
+   "mrr": 0.9090909090909091,
+   "cases_with_gold": 22
+  },
+  "answers": {
+   "route_accuracy": 1.0,
+   "keyword_accuracy": 0.9230769230769231,
+   "exact_count_accuracy": 1.0,
+   "data_accuracy": 1.0,
+   "abstention_accuracy": 0.75,
+   "abstained_or_flagged_low_confidence": 1.0,
+   "answer_rate_on_answerable": 0.9722222222222222,
+   "faithfulness_lexical (proxy)": 0.8888888888888888,
+   "answer_relevancy_embedding (proxy)": 0.26710810810810814,
+   "faithfulness_llm_judge": null,
+   "answer_relevancy_llm_judge": null,
+   "false_answer_rate_on_unanswerable": 0.25
+  },
+  "latency_ms": {
+   "mean": 14.46452380952381,
+   "p50": 8.965,
+   "p95": 27.536500000000007,
+   "max": 31.38,
+   "retrieval_p50": 0.9099999999999999,
+   "retrieval_p95": 3.9219999999999997
+  },
+  "tokens": {
+   "prompt": 0,
+   "completion": 0,
+   "embedding": 0,
+   "per_query": 0.0,
+   "estimated": false
+  },
+  "cost_usd": {
+   "total": 0.0,
+   "per_query": 0.0
+  },
+  "by_type": {
+   "abstain": {
+    "cases": 4,
+    "recall@5": null,
+    "mrr": null,
+    "route_accuracy": null,
+    "correct": 0.75,
+    "latency_p50_ms": 7.98
+   },
+   "data": {
+    "cases": 9,
+    "recall@5": null,
+    "mrr": null,
+    "route_accuracy": 1.0,
+    "correct": 1.0,
+    "latency_p50_ms": 23.16
+   },
+   "exact": {
+    "cases": 6,
+    "recall@5": 1.0,
+    "mrr": 1.0,
+    "route_accuracy": 1.0,
+    "correct": 1.0,
+    "latency_p50_ms": 7.41
+   },
+   "intel": {
+    "cases": 2,
+    "recall@5": null,
+    "mrr": null,
+    "route_accuracy": 1.0,
+    "correct": 1.0,
+    "latency_p50_ms": 9.105
+   },
+   "semantic": {
+    "cases": 21,
+    "recall@5": 0.9047619047619048,
+    "mrr": 0.9047619047619048,
+    "route_accuracy": 1.0,
+    "correct": 0.9047619047619048,
+    "latency_p50_ms": 8.52
+   }
+  }
+ },
+ "failures": [
+  {
+   "id": "h01",
+   "question": "How much vacation time do staff get yearly?",
+   "why": [
+    "keywords_ok",
+    "no relevant passage in top 5"
+   ]
+  },
+  {
+   "id": "h03",
+   "question": "What is the cost of the Pro subscription per month?",
+   "why": [
+    "keywords_ok",
+    "no relevant passage in top 5"
+   ]
+  },
+  {
+   "id": "a02",
+   "question": "What was the weather in Pune yesterday?",
+   "why": [
+    "abstained_ok"
+   ]
+  }
+ ],
+ "cases": [
+  {
+   "id": "s01",
+   "type": "semantic",
+   "question": "How many days of annual leave do full-time employees accrue?",
+   "retrieval_ms": 9.88,
+   "retrieved": [
+    {
+     "source": "hr_policy.pdf",
+     "location": "page 1",
+     "score": 0.433,
+     "relevant": true
+    },
+    {
+     "source": "service_agreement.docx",
+     "location": "paragraphs 4-5 (section: Clause 4. Payment)",
+     "score": 0.214,
+     "relevant": false
+    }
+   ],
+   "recall@1": 1.0,
+   "precision@1": 1.0,
+   "ndcg@1": 1.0,
+   "recall@3": 1.0,
+   "precision@3": 0.3333333333333333,
+   "ndcg@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.2,
+   "ndcg@5": 1.0,
+   "mrr": 1.0,
+   "retrieval_grade": "correct",
+   "latency_ms": 31.38,
+   "route": "semantic",
+   "verified": true,
+   "confidence": "high",
+   "answer": "Most relevant passages found in the indexed sources:\n- Full-time employees accrue 25 days of annual leave per calendar year. [hr_policy.pdf, page 1]\n- Sick leave is limited to 10 days per year and requires a doctor's note after 3 consecutive days. [hr_policy.pdf, page 1]\n- Section 1: Leave. [hr_policy.pdf, page 1]",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "answered": true,
+   "faithfulness_lexical": 1.0,
+   "support_ratio": 0.605,
+   "answer_relevancy_embedding": 0.365
+  },
+  {
+   "id": "s02",
+   "type": "semantic",
+   "question": "How many unused leave days can be carried over?",
+   "retrieval_ms": 0.83,
+   "retrieved": [
+    {
+     "source": "hr_policy.pdf",
+     "location": "page 1",
+     "score": 0.282,
+     "relevant": true
+    }
+   ],
+   "recall@1": 1.0,
+   "precision@1": 1.0,
+   "ndcg@1": 1.0,
+   "recall@3": 1.0,
+   "precision@3": 0.3333333333333333,
+   "ndcg@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.2,
+   "ndcg@5": 1.0,
+   "mrr": 1.0,
+   "retrieval_grade": "correct",
+   "latency_ms": 22.87,
+   "route": "semantic",
+   "verified": true,
+   "confidence": "high",
+   "answer": "Most relevant passages found in the indexed sources:\n- Up to 5 unused days may be carried over into the next year. [hr_policy.pdf, page 1]\n- Full-time employees accrue 25 days of annual leave per calendar year. [hr_policy.pdf, page 1]\n- Sick leave is limited to 10 days per year and requires a doctor's note after 3 consecutive days. [hr_policy.pdf, page 1]",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "answered": true,
+   "faithfulness_lexical": 1.0,
+   "support_ratio": 0.659,
+   "answer_relevancy_embedding": 0.227
+  },
+  {
+   "id": "s03",
+   "type": "semantic",
+   "question": "When is a doctor's note required for sick leave?",
+   "retrieval_ms": 0.84,
+   "retrieved": [
+    {
+     "source": "hr_policy.pdf",
+     "location": "page 1",
+     "score": 0.262,
+     "relevant": true
+    }
+   ],
+   "recall@1": 1.0,
+   "precision@1": 1.0,
+   "ndcg@1": 1.0,
+   "recall@3": 1.0,
+   "precision@3": 0.3333333333333333,
+   "ndcg@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.2,
+   "ndcg@5": 1.0,
+   "mrr": 1.0,
+   "retrieval_grade": "correct",
+   "latency_ms": 7.5,
+   "route": "semantic",
+   "verified": true,
+   "confidence": "high",
+   "answer": "Most relevant passages found in the indexed sources:\n- Sick leave is limited to 10 days per year and requires a doctor's note after 3 consecutive days. [hr_policy.pdf, page 1]\n- Section 1: Leave. [hr_policy.pdf, page 1]\n- Full-time employees accrue 25 days of annual leave per calendar year. [hr_policy.pdf, page 1]",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "answered": true,
+   "faithfulness_lexical": 1.0,
+   "support_ratio": 0.605,
+   "answer_relevancy_embedding": 0.236
+  },
+  {
+   "id": "s04",
+   "type": "semantic",
+   "question": "How many days a week can employees work remotely?",
+   "retrieval_ms": 0.82,
+   "retrieved": [
+    {
+     "source": "hr_policy.pdf",
+     "location": "page 2",
+     "score": 0.278,
+     "relevant": true
+    },
+    {
+     "source": "service_agreement.docx",
+     "location": "paragraphs 4-5 (section: Clause 4. Payment)",
+     "score": 0.186,
+     "relevant": false
+    }
+   ],
+   "recall@1": 1.0,
+   "precision@1": 1.0,
+   "ndcg@1": 1.0,
+   "recall@3": 1.0,
+   "precision@3": 0.3333333333333333,
+   "ndcg@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.2,
+   "ndcg@5": 1.0,
+   "mrr": 1.0,
+   "retrieval_grade": "correct",
+   "latency_ms": 24.3,
+   "route": "semantic",
+   "verified": true,
+   "confidence": "high",
+   "answer": "Most relevant passages found in the indexed sources:\n- Employees may work remotely up to 3 days per week with written manager approval. [hr_policy.pdf, page 2]\n- Section 2: Remote work. [hr_policy.pdf, page 2]\n- Expense reports must be filed within 30 days of purchase. [hr_policy.pdf, page 2]",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "answered": true,
+   "faithfulness_lexical": 1.0,
+   "support_ratio": 0.583,
+   "answer_relevancy_embedding": 0.316
+  },
+  {
+   "id": "s05",
+   "type": "semantic",
+   "question": "Within how many days must expense reports be filed?",
+   "retrieval_ms": 1.32,
+   "retrieved": [
+    {
+     "source": "hr_policy.pdf",
+     "location": "page 2",
+     "score": 0.269,
+     "relevant": true
+    },
+    {
+     "source": "security_policy.pdf",
+     "location": "page 1",
+     "score": 0.167,
+     "relevant": false
+    }
+   ],
+   "recall@1": 1.0,
+   "precision@1": 1.0,
+   "ndcg@1": 1.0,
+   "recall@3": 1.0,
+   "precision@3": 0.3333333333333333,
+   "ndcg@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.2,
+   "ndcg@5": 1.0,
+   "mrr": 1.0,
+   "retrieval_grade": "correct",
+   "latency_ms": 24.43,
+   "route": "semantic",
+   "verified": true,
+   "confidence": "high",
+   "answer": "Most relevant passages found in the indexed sources:\n- Expense reports must be filed within 30 days of purchase. [hr_policy.pdf, page 2]\n- Passwords must be rotated every 90 days and must contain at least 14 characters. [security_policy.pdf, page 1]\n- Employees may work remotely up to 3 days per week with written manager approval. [hr_policy.pdf, page 2]",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "answered": true,
+   "faithfulness_lexical": 1.0,
+   "support_ratio": 0.643,
+   "answer_relevancy_embedding": 0.271
+  },
+  {
+   "id": "s06",
+   "type": "semantic",
+   "question": "Above what amount are receipts mandatory?",
+   "retrieval_ms": 0.73,
+   "retrieved": [
+    {
+     "source": "hr_policy.pdf",
+     "location": "page 2",
+     "score": 0.192,
+     "relevant": true
+    }
+   ],
+   "recall@1": 1.0,
+   "precision@1": 1.0,
+   "ndcg@1": 1.0,
+   "recall@3": 1.0,
+   "precision@3": 0.3333333333333333,
+   "ndcg@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.2,
+   "ndcg@5": 1.0,
+   "mrr": 1.0,
+   "retrieval_grade": "correct",
+   "latency_ms": 6.88,
+   "route": "semantic",
+   "verified": true,
+   "confidence": "medium",
+   "answer": "Most relevant passages found in the indexed sources:\n- Receipts are mandatory for any expense above $25. [hr_policy.pdf, page 2]",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "answered": true,
+   "faithfulness_lexical": 1.0,
+   "support_ratio": 0.357,
+   "answer_relevancy_embedding": 0.272
+  },
+  {
+   "id": "s07",
+   "type": "semantic",
+   "question": "How often must passwords be rotated?",
+   "retrieval_ms": 0.7,
+   "retrieved": [
+    {
+     "source": "security_policy.pdf",
+     "location": "page 1",
+     "score": 0.227,
+     "relevant": true
+    }
+   ],
+   "recall@1": 1.0,
+   "precision@1": 1.0,
+   "ndcg@1": 1.0,
+   "recall@3": 1.0,
+   "precision@3": 0.3333333333333333,
+   "ndcg@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.2,
+   "ndcg@5": 1.0,
+   "mrr": 1.0,
+   "retrieval_grade": "correct",
+   "latency_ms": 7.71,
+   "route": "semantic",
+   "verified": true,
+   "confidence": "medium",
+   "answer": "Most relevant passages found in the indexed sources:\n- Passwords must be rotated every 90 days and must contain at least 14 characters. [security_policy.pdf, page 1]",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "answered": true,
+   "faithfulness_lexical": 1.0,
+   "support_ratio": 0.5,
+   "answer_relevancy_embedding": 0.21
+  },
+  {
+   "id": "s08",
+   "type": "semantic",
+   "question": "Within how many hours must a security incident be reported?",
+   "retrieval_ms": 1.05,
+   "retrieved": [
+    {
+     "source": "security_policy.pdf",
+     "location": "page 2",
+     "score": 0.415,
+     "relevant": true
+    },
+    {
+     "source": "security_policy.pdf",
+     "location": "page 1",
+     "score": 0.12,
+     "relevant": false
+    }
+   ],
+   "recall@1": 1.0,
+   "precision@1": 1.0,
+   "ndcg@1": 1.0,
+   "recall@3": 1.0,
+   "precision@3": 0.3333333333333333,
+   "ndcg@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.2,
+   "ndcg@5": 1.0,
+   "mrr": 1.0,
+   "retrieval_grade": "correct",
+   "latency_ms": 25.27,
+   "route": "semantic",
+   "verified": true,
+   "confidence": "high",
+   "answer": "Most relevant passages found in the indexed sources:\n- Incident response: any suspected security incident must be reported to the security team within 24 hours. [security_policy.pdf, page 2]\n- Customer data must be retained for 7 years and then securely destroyed. [security_policy.pdf, page 2]\n- Security Policy. [security_policy.pdf, page 1]",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "answered": true,
+   "faithfulness_lexical": 1.0,
+   "support_ratio": 0.583,
+   "answer_relevancy_embedding": 0.298
+  },
+  {
+   "id": "s09",
+   "type": "semantic",
+   "question": "How long must customer data be retained?",
+   "retrieval_ms": 1.52,
+   "retrieved": [
+    {
+     "source": "security_policy.pdf",
+     "location": "page 2",
+     "score": 0.285,
+     "relevant": true
+    },
+    {
+     "source": "security_policy.pdf",
+     "location": "page 1",
+     "score": 0.145,
+     "relevant": false
+    },
+    {
+     "source": "meeting_notes.md",
+     "location": "lines 13-15 (section: Risks)",
+     "score": 0.133,
+     "relevant": false
+    },
+    {
+     "source": "hr_policy.pdf",
+     "location": "page 1",
+     "score": 0.124,
+     "relevant": false
+    }
+   ],
+   "recall@1": 1.0,
+   "precision@1": 1.0,
+   "ndcg@1": 1.0,
+   "recall@3": 1.0,
+   "precision@3": 0.3333333333333333,
+   "ndcg@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.2,
+   "ndcg@5": 1.0,
+   "mrr": 1.0,
+   "retrieval_grade": "correct",
+   "latency_ms": 8.52,
+   "route": "semantic",
+   "verified": true,
+   "confidence": "high",
+   "answer": "Most relevant passages found in the indexed sources:\n- Customer data must be retained for 7 years and then securely destroyed. [security_policy.pdf, page 2]\n- Incident response: any suspected security incident must be reported to the security team within 24 hours. [security_policy.pdf, page 2]\n- Passwords must be rotated every 90 days and must contain at least 14 characters. [security_policy.pdf, ",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "answered": true,
+   "faithfulness_lexical": 1.0,
+   "support_ratio": 0.651,
+   "answer_relevancy_embedding": 0.235
+  },
+  {
+   "id": "s10",
+   "type": "semantic",
+   "question": "What notice is required to terminate the agreement for convenience?",
+   "retrieval_ms": 0.78,
+   "retrieved": [
+    {
+     "source": "service_agreement.docx",
+     "location": "paragraphs 6-7 (section: Clause 8. Termination)",
+     "score": 0.368,
+     "relevant": true
+    },
+    {
+     "source": "service_agreement.docx",
+     "location": "paragraph 1 (section: Master Services Agreement)",
+     "score": 0.149,
+     "relevant": false
+    }
+   ],
+   "recall@1": 1.0,
+   "precision@1": 1.0,
+   "ndcg@1": 1.0,
+   "recall@3": 1.0,
+   "precision@3": 0.3333333333333333,
+   "ndcg@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.2,
+   "ndcg@5": 1.0,
+   "mrr": 1.0,
+   "retrieval_grade": "correct",
+   "latency_ms": 8.16,
+   "route": "semantic",
+   "verified": true,
+   "confidence": "high",
+   "answer": "Most relevant passages found in the indexed sources:\n- Termination Either party may terminate this Agreement for convenience by giving ninety days written notice to the other party. [service_agreement.docx, paragraphs 6-7 (section: Clause 8. Termination)]\n- Master Services Agreement [service_agreement.docx, paragraph 1 (section: Master Services Agreement)]",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "answered": true,
+   "faithfulness_lexical": 1.0,
+   "support_ratio": 0.595,
+   "answer_relevancy_embedding": 0.267
+  },
+  {
+   "id": "s11",
+   "type": "semantic",
+   "question": "Within how many days must invoices be paid?",
+   "retrieval_ms": 2.98,
+   "retrieved": [
+    {
+     "source": "service_agreement.docx",
+     "location": "paragraphs 4-5 (section: Clause 4. Payment)",
+     "score": 0.093,
+     "relevant": true
+    },
+    {
+     "source": "hr_policy.pdf",
+     "location": "page 2",
+     "score": 0.139,
+     "relevant": false
+    },
+    {
+     "source": "security_policy.pdf",
+     "location": "page 1",
+     "score": 0.181,
+     "relevant": false
+    }
+   ],
+   "recall@1": 1.0,
+   "precision@1": 1.0,
+   "ndcg@1": 1.0,
+   "recall@3": 1.0,
+   "precision@3": 0.3333333333333333,
+   "ndcg@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.2,
+   "ndcg@5": 1.0,
+   "mrr": 1.0,
+   "retrieval_grade": "ambiguous",
+   "latency_ms": 25.95,
+   "route": "semantic",
+   "verified": true,
+   "confidence": "medium",
+   "answer": "Most relevant passages found in the indexed sources:\n- Expense reports must be filed within 30 days of purchase. [hr_policy.pdf, page 2]\n- Payment The Customer shall pay each invoice within 45 days of the invoice date. [service_agreement.docx, paragraphs 4-5 (section: Clause 4. Payment)]\n- Passwords must be rotated every 90 days and must contain at least 14 characters. [security_policy.pdf, page 1",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "answered": true,
+   "faithfulness_lexical": 1.0,
+   "support_ratio": 0.644,
+   "answer_relevancy_embedding": 0.192
+  },
+  {
+   "id": "s12",
+   "type": "semantic",
+   "question": "Which law governs the agreement?",
+   "retrieval_ms": 0.82,
+   "retrieved": [
+    {
+     "source": "service_agreement.docx",
+     "location": "paragraphs 10-11 (section: Clause 15. Governing law)",
+     "score": 0.217,
+     "relevant": true
+    },
+    {
+     "source": "service_agreement.docx",
+     "location": "paragraph 1 (section: Master Services Agreement)",
+     "score": 0.2,
+     "relevant": false
+    }
+   ],
+   "recall@1": 1.0,
+   "precision@1": 1.0,
+   "ndcg@1": 1.0,
+   "recall@3": 1.0,
+   "precision@3": 0.3333333333333333,
+   "ndcg@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.2,
+   "ndcg@5": 1.0,
+   "mrr": 1.0,
+   "retrieval_grade": "correct",
+   "latency_ms": 7.35,
+   "route": "semantic",
+   "verified": true,
+   "confidence": "medium",
+   "answer": "Most relevant passages found in the indexed sources:\n- Governing law This Agreement is governed by the laws of the State of Delaware. [service_agreement.docx, paragraphs 10-11 (section: Clause 15. Governing law)]\n- Master Services Agreement [service_agreement.docx, paragraph 1 (section: Master Services Agreement)]",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "answered": true,
+   "faithfulness_lexical": 1.0,
+   "support_ratio": 0.516,
+   "answer_relevancy_embedding": 0.2
+  },
+  {
+   "id": "s13",
+   "type": "semantic",
+   "question": "How long does the confidentiality obligation last after termination?",
+   "retrieval_ms": 3.97,
+   "retrieved": [
+    {
+     "source": "service_agreement.docx",
+     "location": "paragraphs 8-9 (section: Clause 12. Confidentiality)",
+     "score": 0.217,
+     "relevant": true
+    },
+    {
+     "source": "product_faq.txt",
+     "location": "lines 1-9",
+     "score": 0.145,
+     "relevant": false
+    },
+    {
+     "source": "service_agreement.docx",
+     "location": "paragraph 1 (section: Master Services Agreement)",
+     "score": 0.135,
+     "relevant": false
+    }
+   ],
+   "recall@1": 1.0,
+   "precision@1": 1.0,
+   "ndcg@1": 1.0,
+   "recall@3": 1.0,
+   "precision@3": 0.3333333333333333,
+   "ndcg@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.2,
+   "ndcg@5": 1.0,
+   "mrr": 1.0,
+   "retrieval_grade": "ambiguous",
+   "latency_ms": 10.56,
+   "route": "semantic",
+   "verified": true,
+   "confidence": "medium",
+   "answer": "Most relevant passages found in the indexed sources:\n- Confidentiality Each party shall keep the other party's confidential information secret for a period of 5 years after termination. [service_agreement.docx, paragraphs 8-9 (section: Clause 12. Confidentiality)]\n- The link expires after 1 hour. [product_faq.txt, lines 1-9]\n- How long does shipping take? [product_faq.txt, lines 1-9]",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "answered": true,
+   "faithfulness_lexical": 1.0,
+   "support_ratio": 0.548,
+   "answer_relevancy_embedding": 0.199
+  },
+  {
+   "id": "s14",
+   "type": "semantic",
+   "question": "What is the return policy for products?",
+   "retrieval_ms": 0.85,
+   "retrieved": [
+    {
+     "source": "product_faq.txt",
+     "location": "lines 1-9",
+     "score": 0.233,
+     "relevant": true
+    }
+   ],
+   "recall@1": 1.0,
+   "precision@1": 1.0,
+   "ndcg@1": 1.0,
+   "recall@3": 1.0,
+   "precision@3": 0.3333333333333333,
+   "ndcg@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.2,
+   "ndcg@5": 1.0,
+   "mrr": 1.0,
+   "retrieval_grade": "correct",
+   "latency_ms": 8.17,
+   "route": "semantic",
+   "verified": true,
+   "confidence": "high",
+   "answer": "Most relevant passages found in the indexed sources:\n- What is the return policy? [product_faq.txt, lines 1-9]\n- Products can be returned within 30 days of delivery for a full refund, provided they are unused. [product_faq.txt, lines 1-9]\n- All hardware products carry a 24 month limited warranty. [product_faq.txt, lines 1-9]",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "answered": true,
+   "faithfulness_lexical": 1.0,
+   "support_ratio": 0.514,
+   "answer_relevancy_embedding": 0.223
+  },
+  {
+   "id": "s15",
+   "type": "semantic",
+   "question": "How long is the hardware warranty?",
+   "retrieval_ms": 0.97,
+   "retrieved": [
+    {
+     "source": "product_faq.txt",
+     "location": "lines 1-9",
+     "score": 0.174,
+     "relevant": true
+    }
+   ],
+   "recall@1": 1.0,
+   "precision@1": 1.0,
+   "ndcg@1": 1.0,
+   "recall@3": 1.0,
+   "precision@3": 0.3333333333333333,
+   "ndcg@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.2,
+   "ndcg@5": 1.0,
+   "mrr": 1.0,
+   "retrieval_grade": "correct",
+   "latency_ms": 7.91,
+   "route": "semantic",
+   "verified": true,
+   "confidence": "high",
+   "answer": "Most relevant passages found in the indexed sources:\n- How long is the warranty? [product_faq.txt, lines 1-9]\n- All hardware products carry a 24 month limited warranty. [product_faq.txt, lines 1-9]\n- How long does shipping take? [product_faq.txt, lines 1-9]",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "answered": true,
+   "faithfulness_lexical": 1.0,
+   "support_ratio": 0.4,
+   "answer_relevancy_embedding": 0.231
+  },
+  {
+   "id": "s16",
+   "type": "semantic",
+   "question": "When will the mobile app launch?",
+   "retrieval_ms": 0.69,
+   "retrieved": [
+    {
+     "source": "meeting_notes.md",
+     "location": "lines 5-7 (section: Decisions)",
+     "score": 0.344,
+     "relevant": true
+    }
+   ],
+   "recall@1": 1.0,
+   "precision@1": 1.0,
+   "ndcg@1": 1.0,
+   "recall@3": 1.0,
+   "precision@3": 0.3333333333333333,
+   "ndcg@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.2,
+   "ndcg@5": 1.0,
+   "mrr": 1.0,
+   "retrieval_grade": "correct",
+   "latency_ms": 7.48,
+   "route": "semantic",
+   "verified": true,
+   "confidence": "high",
+   "answer": "Most relevant passages found in the indexed sources:\n- ## Decisions The team decided to launch the mobile app in June 2024. [meeting_notes.md, lines 5-7 (section: Decisions)]\n- Bob Mehta will own the launch checklist. [meeting_notes.md, lines 5-7 (section: Decisions)]",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "answered": true,
+   "faithfulness_lexical": 1.0,
+   "support_ratio": 0.467,
+   "answer_relevancy_embedding": 0.249
+  },
+  {
+   "id": "s17",
+   "type": "semantic",
+   "question": "Who signed the reseller agreement with Delta Systems?",
+   "retrieval_ms": 0.81,
+   "retrieved": [
+    {
+     "source": "meeting_notes.md",
+     "location": "lines 9-11 (section: Partnerships)",
+     "score": 0.671,
+     "relevant": true
+    },
+    {
+     "source": "meeting_notes.md",
+     "location": "lines 13-15 (section: Risks)",
+     "score": 0.2,
+     "relevant": false
+    },
+    {
+     "source": "service_agreement.docx",
+     "location": "paragraph 1 (section: Master Services Agreement)",
+     "score": 0.149,
+     "relevant": false
+    }
+   ],
+   "recall@1": 1.0,
+   "precision@1": 1.0,
+   "ndcg@1": 1.0,
+   "recall@3": 1.0,
+   "precision@3": 0.3333333333333333,
+   "ndcg@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.2,
+   "ndcg@5": 1.0,
+   "mrr": 1.0,
+   "retrieval_grade": "correct",
+   "latency_ms": 7.77,
+   "route": "semantic",
+   "verified": true,
+   "confidence": "high",
+   "answer": "Most relevant passages found in the indexed sources:\n- ## Partnerships Carol Singh signed the reseller agreement with Delta Systems. [meeting_notes.md, lines 9-11 (section: Partnerships)]\n- Delta Systems will distribute the Pro plan in Europe. [meeting_notes.md, lines 9-11 (section: Partnerships)]\n- Dev Patel from Delta Systems offered two engineers. [meeting_notes.md, lines 13-15 (section: Risks)",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "answered": true,
+   "faithfulness_lexical": 1.0,
+   "support_ratio": 0.533,
+   "answer_relevancy_embedding": 0.408
+  },
+  {
+   "id": "s18",
+   "type": "semantic",
+   "question": "What is the main risk to the launch?",
+   "retrieval_ms": 0.74,
+   "retrieved": [
+    {
+     "source": "meeting_notes.md",
+     "location": "lines 13-15 (section: Risks)",
+     "score": 0.268,
+     "relevant": true
+    }
+   ],
+   "recall@1": 1.0,
+   "precision@1": 1.0,
+   "ndcg@1": 1.0,
+   "recall@3": 1.0,
+   "precision@3": 0.3333333333333333,
+   "ndcg@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.2,
+   "ndcg@5": 1.0,
+   "mrr": 1.0,
+   "retrieval_grade": "correct",
+   "latency_ms": 7.54,
+   "route": "semantic",
+   "verified": true,
+   "confidence": "medium",
+   "answer": "Most relevant passages found in the indexed sources:\n- ## Risks The main risk is the shortage of qualified testers. [meeting_notes.md, lines 13-15 (section: Risks)]",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "answered": true,
+   "faithfulness_lexical": 1.0,
+   "support_ratio": 0.389,
+   "answer_relevancy_embedding": 0.225
+  },
+  {
+   "id": "h01",
+   "type": "semantic",
+   "question": "How much vacation time do staff get yearly?",
+   "retrieval_ms": 1.35,
+   "retrieved": [],
+   "recall@1": 0.0,
+   "precision@1": 0.0,
+   "ndcg@1": 0.0,
+   "recall@3": 0.0,
+   "precision@3": 0.0,
+   "ndcg@3": 0.0,
+   "recall@5": 0.0,
+   "precision@5": 0.0,
+   "ndcg@5": 0.0,
+   "mrr": 0.0,
+   "retrieval_grade": "incorrect",
+   "latency_ms": 9.16,
+   "route": "semantic",
+   "verified": false,
+   "confidence": "none",
+   "answer": "I could not verify an answer from the indexed sources. No passage was relevant enough to the question.",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": false,
+   "answered": false
+  },
+  {
+   "id": "h02",
+   "type": "semantic",
+   "question": "How soon do we have to tell the security team about a breach?",
+   "retrieval_ms": 2.08,
+   "retrieved": [
+    {
+     "source": "security_policy.pdf",
+     "location": "page 2",
+     "score": 0.208,
+     "relevant": true
+    }
+   ],
+   "recall@1": 1.0,
+   "precision@1": 1.0,
+   "ndcg@1": 1.0,
+   "recall@3": 1.0,
+   "precision@3": 0.3333333333333333,
+   "ndcg@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.2,
+   "ndcg@5": 1.0,
+   "mrr": 1.0,
+   "retrieval_grade": "ambiguous",
+   "latency_ms": 9.49,
+   "route": "semantic",
+   "verified": true,
+   "confidence": "medium",
+   "answer": "Most relevant passages found in the indexed sources:\n- Incident response: any suspected security incident must be reported to the security team within 24 hours. [security_policy.pdf, page 2]",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "answered": true,
+   "faithfulness_lexical": 1.0,
+   "support_ratio": 0.571,
+   "answer_relevancy_embedding": 0.159
+  },
+  {
+   "id": "h03",
+   "type": "semantic",
+   "question": "What is the cost of the Pro subscription per month?",
+   "retrieval_ms": 2.2,
+   "retrieved": [
+    {
+     "source": "service_agreement.docx",
+     "location": "paragraphs 4-5 (section: Clause 4. Payment)",
+     "score": 0.117,
+     "relevant": false
+    }
+   ],
+   "recall@1": 0.0,
+   "precision@1": 0.0,
+   "ndcg@1": 0.0,
+   "recall@3": 0.0,
+   "precision@3": 0.0,
+   "ndcg@3": 0.0,
+   "recall@5": 0.0,
+   "precision@5": 0.0,
+   "ndcg@5": 0.0,
+   "mrr": 0.0,
+   "retrieval_grade": "ambiguous",
+   "latency_ms": 30.55,
+   "route": "semantic",
+   "verified": true,
+   "confidence": "medium",
+   "answer": "Most relevant passages found in the indexed sources:\n- Late payments accrue interest at 2 percent per month. [service_agreement.docx, paragraphs 4-5 (section: Clause 4. Payment)]",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": false,
+   "answered": true,
+   "faithfulness_lexical": 1.0,
+   "support_ratio": 0.45,
+   "answer_relevancy_embedding": 0.152
+  },
+  {
+   "id": "e01",
+   "type": "exact",
+   "question": "Does Anjali Rao appear in the documents?",
+   "retrieval_ms": 3.01,
+   "retrieved": [
+    {
+     "source": "hr_policy.pdf",
+     "location": "page 3",
+     "score": 0.292,
+     "relevant": true
+    },
+    {
+     "source": "meeting_notes.md",
+     "location": "lines 1-3 (section: Planning meeting March 2024)",
+     "score": 0.227,
+     "relevant": false
+    },
+    {
+     "source": "meeting_notes.md",
+     "location": "lines 5-7 (section: Decisions)",
+     "score": 0.19,
+     "relevant": false
+    }
+   ],
+   "recall@1": 1.0,
+   "precision@1": 1.0,
+   "ndcg@1": 1.0,
+   "recall@3": 1.0,
+   "precision@3": 0.3333333333333333,
+   "ndcg@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.2,
+   "ndcg@5": 1.0,
+   "mrr": 1.0,
+   "retrieval_grade": "ambiguous",
+   "latency_ms": 7.65,
+   "route": "exact",
+   "verified": true,
+   "confidence": "high",
+   "answer": "Found 4 occurrences of “Anjali Rao” in 3 locations across 2 sources (hr_policy.pdf: 2; meeting_notes.md: 2). First locations: page 3, line 3 (section: Planning meeting March 2024), line 7 (section: Decisions). Pages — hr_policy.pdf: 3.",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "count_ok": true,
+   "answered": true,
+   "answer_relevancy_embedding": 0.178
+  },
+  {
+   "id": "e02",
+   "type": "exact",
+   "question": "How many times does \"Delta Systems\" appear?",
+   "latency_ms": 7.09,
+   "route": "exact",
+   "verified": true,
+   "confidence": "high",
+   "answer": "Found 3 occurrences of “Delta Systems” in 2 locations across 1 source (meeting_notes.md: 3). First locations: line 11 (section: Partnerships), line 15 (section: Risks).",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "count_ok": true,
+   "answered": true,
+   "answer_relevancy_embedding": 0.146
+  },
+  {
+   "id": "e03",
+   "type": "exact",
+   "question": "Find SKU-1003",
+   "latency_ms": 7.06,
+   "route": "exact",
+   "verified": true,
+   "confidence": "high",
+   "answer": "Found 1 occurrence of “SKU-1003” in 1 location across 1 source (inventory.json: 1). First locations: path $.items[2].sku.",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "count_ok": true,
+   "answered": true,
+   "answer_relevancy_embedding": 0.096
+  },
+  {
+   "id": "e04",
+   "type": "exact",
+   "question": "Search for \"Zaphod Beeblebrox\"",
+   "latency_ms": 7.17,
+   "route": "exact",
+   "verified": true,
+   "confidence": "high",
+   "answer": "No occurrences of “Zaphod Beeblebrox” were found in the full extracted text of 8 indexed sources.",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "count_ok": true,
+   "answered": true,
+   "answer_relevancy_embedding": 0.325
+  },
+  {
+   "id": "e05",
+   "type": "exact",
+   "question": "Where does clause 8 appear?",
+   "latency_ms": 9.36,
+   "route": "document_search",
+   "verified": true,
+   "confidence": "high",
+   "answer": "“clause 8” appears 1 time: paragraph 6 (section: Clause 8. Termination). Related passages (semantic matches) are also cited.",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "count_ok": true,
+   "answered": true,
+   "faithfulness_lexical": 0.3333333333333333,
+   "support_ratio": 0.231,
+   "answer_relevancy_embedding": 0.359
+  },
+  {
+   "id": "e06",
+   "type": "exact",
+   "question": "How many times does \"Bob Mehta\" appear?",
+   "latency_ms": 8.31,
+   "route": "exact",
+   "verified": true,
+   "confidence": "high",
+   "answer": "Found 2 occurrences of “Bob Mehta” in 2 locations across 1 source (meeting_notes.md: 2). First locations: line 3 (section: Planning meeting March 2024), line 7 (section: Decisions).",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "count_ok": true,
+   "answered": true,
+   "answer_relevancy_embedding": 0.136
+  },
+  {
+   "id": "d01",
+   "type": "data",
+   "question": "What is the total sales?",
+   "latency_ms": 27.62,
+   "route": "data",
+   "verified": true,
+   "confidence": "high",
+   "answer": "The total of Sales in sales_q1.xlsx / Q1 is 163,500 (over 9 rows).",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "value_ok": true,
+   "answered": true,
+   "answer_relevancy_embedding": 0.397
+  },
+  {
+   "id": "d02",
+   "type": "data",
+   "question": "Which employee has the highest sales?",
+   "latency_ms": 22.54,
+   "route": "data",
+   "verified": true,
+   "confidence": "high",
+   "answer": "The highest Sales in sales_q1.xlsx / Q1 is 34,000: Employee = Bob (row 3).",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "value_ok": true,
+   "answered": true,
+   "answer_relevancy_embedding": 0.39
+  },
+  {
+   "id": "d03",
+   "type": "data",
+   "question": "What is the average sales?",
+   "latency_ms": 21.79,
+   "route": "data",
+   "verified": true,
+   "confidence": "high",
+   "answer": "The average of Sales in sales_q1.xlsx / Q1 is 18,166.67 (over 9 rows).",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "value_ok": true,
+   "answered": true,
+   "answer_relevancy_embedding": 0.378
+  },
+  {
+   "id": "d04",
+   "type": "data",
+   "question": "What is the total sales in the North region?",
+   "latency_ms": 22.39,
+   "route": "data",
+   "verified": true,
+   "confidence": "high",
+   "answer": "The total of Sales in sales_q1.xlsx / Q1 where Region == North is 52,000 (over 3 rows).",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "value_ok": true,
+   "answered": true,
+   "answer_relevancy_embedding": 0.394
+  },
+  {
+   "id": "d05",
+   "type": "data",
+   "question": "Which region has the highest total sales?",
+   "latency_ms": 23.45,
+   "route": "data",
+   "verified": true,
+   "confidence": "high",
+   "answer": "By Region, South has the highest total Sales (56,000) in sales_q1.xlsx / Q1. Ranking: South: 56,000, North: 52,000, West: 32,000, East: 23,500.",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "answered": true,
+   "answer_relevancy_embedding": 0.328
+  },
+  {
+   "id": "d06",
+   "type": "data",
+   "question": "How many customers are in the UK?",
+   "latency_ms": 22.89,
+   "route": "data",
+   "verified": true,
+   "confidence": "high",
+   "answer": "2 row(s) in customers.csv where Country == UK.",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "value_ok": true,
+   "answered": true,
+   "answer_relevancy_embedding": 0.248
+  },
+  {
+   "id": "d07",
+   "type": "data",
+   "question": "Are there duplicate emails in customers.csv?",
+   "latency_ms": 24.88,
+   "route": "data",
+   "verified": true,
+   "confidence": "high",
+   "answer": "1 duplicated value group(s) in customers.csv on [Email], 2 rows involved: asha@mail.example ×2 (rows 2, 6).",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "value_ok": true,
+   "answered": true,
+   "answer_relevancy_embedding": 0.192
+  },
+  {
+   "id": "d08",
+   "type": "data",
+   "question": "Show the top 3 employees sorted by sales",
+   "latency_ms": 23.18,
+   "route": "data",
+   "verified": true,
+   "confidence": "high",
+   "answer": "sales_q1.xlsx / Q1 sorted by Sales (descending), top 3:\n1. row 3: Employee: Bob; Region: South; Product: Gadget; Sales: 34000\n2. row 8: Employee: Grace; Region: North; Product: Widget; Sales: 31000\n3. row 9: Employee: Heidi; Region: West; Product: Gadget; Sales: 27000",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "answered": true,
+   "answer_relevancy_embedding": 0.304
+  },
+  {
+   "id": "d09",
+   "type": "data",
+   "question": "What is the median sales?",
+   "latency_ms": 23.16,
+   "route": "data",
+   "verified": true,
+   "confidence": "high",
+   "answer": "The median of Sales in sales_q1.xlsx / Q1 is 15,500 (over 9 rows).",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "value_ok": true,
+   "answered": true,
+   "answer_relevancy_embedding": 0.397
+  },
+  {
+   "id": "a01",
+   "type": "abstain",
+   "question": "What is the capital of Mongolia?",
+   "latency_ms": 8.53,
+   "route": "semantic",
+   "verified": false,
+   "confidence": "none",
+   "answer": "I could not verify an answer from the indexed sources. No passage was relevant enough to the question.",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "abstained_ok": true,
+   "abstained_or_low_conf": true
+  },
+  {
+   "id": "a02",
+   "type": "abstain",
+   "question": "What was the weather in Pune yesterday?",
+   "latency_ms": 8.52,
+   "route": "semantic",
+   "verified": true,
+   "confidence": "low",
+   "answer": "Most relevant passages found in the indexed sources:\n- ## Partnerships Carol Singh signed the reseller agreement with Delta Systems. [meeting_notes.md, lines 9-11 (section: Partnerships)]",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "abstained_ok": false,
+   "abstained_or_low_conf": true,
+   "faithfulness_lexical": 1.0,
+   "support_ratio": 0.45
+  },
+  {
+   "id": "a03",
+   "type": "abstain",
+   "question": "Who won the football world cup in 1998?",
+   "latency_ms": 7.32,
+   "route": "semantic",
+   "verified": false,
+   "confidence": "none",
+   "answer": "I could not verify an answer from the indexed sources. No passage was relevant enough to the question.",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "abstained_ok": true,
+   "abstained_or_low_conf": true
+  },
+  {
+   "id": "a04",
+   "type": "abstain",
+   "question": "What is the CEO's favourite colour?",
+   "latency_ms": 7.44,
+   "route": "semantic",
+   "verified": false,
+   "confidence": "none",
+   "answer": "I could not verify an answer from the indexed sources. No passage was relevant enough to the question.",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "abstained_ok": true,
+   "abstained_or_low_conf": true
+  },
+  {
+   "id": "i01",
+   "type": "intel",
+   "question": "How is Anjali Rao related to Dev Patel?",
+   "latency_ms": 9.44,
+   "route": "summarize",
+   "verified": true,
+   "confidence": "medium",
+   "answer": "“Anjali Rao” is connected to “Dev Patel” through 3 hops: Anjali Rao → Carol Singh → Delta Systems → Dev Patel.",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "faithfulness_lexical": 0.0,
+   "support_ratio": 0.8,
+   "answer_relevancy_embedding": 0.543
+  },
+  {
+   "id": "i02",
+   "type": "intel",
+   "question": "Extract all the entities from meeting_notes.md",
+   "latency_ms": 8.77,
+   "route": "summarize",
+   "verified": true,
+   "confidence": "medium",
+   "answer": "meeting_notes.md (heuristic):\n  NAME: Anjali Rao ×2; Bob Mehta ×2; Carol Singh ×2; Dev Patel ×1\n  ORG: Delta Systems ×3; Acme Corp ×1\n  MONEY: $50,000 ×1",
+   "usage": {
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "embed_tokens": 0,
+    "cost_usd": 0.0,
+    "estimated": false
+   },
+   "route_ok": true,
+   "keywords_ok": true,
+   "faithfulness_lexical": 0.0,
+   "support_ratio": 0.611,
+   "answer_relevancy_embedding": 0.137
+  }
+ ],
+ "notes": [
+  "Faithfulness/relevancy marked (proxy) are lexical/embedding heuristics, not RAGAS; the LLM-judge values exist only when an LLM is configured.",
+  "Token counts are provider-reported when available, otherwise estimated at ~4 characters per token; cost uses MKA_PRICE_TABLE."
+ ],
+ "comparison": [
+  {
+   "strategy": "semantic",
+   "recall@5": 0.8636363636363636,
+   "precision@5": 0.17272727272727273,
+   "mrr": 0.8333333333333333,
+   "ndcg@5": 0.8409090909090909,
+   "p50_ms": 7.275,
+   "p95_ms": 24.587,
+   "cost_per_query": 0.0
+  },
+  {
+   "strategy": "keyword (BM25)",
+   "recall@5": 0.8636363636363636,
+   "precision@5": 0.17272727272727273,
+   "mrr": 0.8636363636363636,
+   "ndcg@5": 0.8636363636363636,
+   "p50_ms": 7.765000000000001,
+   "p95_ms": 25.9825,
+   "cost_per_query": 0.0
+  },
+  {
+   "strategy": "hybrid",
+   "recall@5": 0.8636363636363636,
+   "precision@5": 0.17272727272727273,
+   "mrr": 0.8333333333333333,
+   "ndcg@5": 0.8409090909090909,
+   "p50_ms": 8.75,
+   "p95_ms": 28.166500000000003,
+   "cost_per_query": 0.0
+  },
+  {
+   "strategy": "hybrid + lexical rerank",
+   "recall@5": 0.8636363636363636,
+   "precision@5": 0.17272727272727273,
+   "mrr": 0.8636363636363636,
+   "ndcg@5": 0.8636363636363636,
+   "p50_ms": 8.08,
+   "p95_ms": 26.171000000000003,
+   "cost_per_query": 0.0
+  },
+  {
+   "strategy": "hybrid + rerank + parent-child + corrective",
+   "recall@5": 0.9090909090909091,
+   "precision@5": 0.18181818181818182,
+   "mrr": 0.9090909090909091,
+   "ndcg@5": 0.9090909090909091,
+   "p50_ms": 8.625,
+   "p95_ms": 25.905,
+   "cost_per_query": 0.0
+  },
+  {
+   "strategy": "hybrid + multi-query + graph",
+   "recall@5": 0.9090909090909091,
+   "precision@5": 0.18181818181818182,
+   "mrr": 0.9090909090909091,
+   "ndcg@5": 0.9090909090909091,
+   "p50_ms": 11.09,
+   "p95_ms": 44.58200000000002,
+   "cost_per_query": 0.0
+  }
+ ]
+}

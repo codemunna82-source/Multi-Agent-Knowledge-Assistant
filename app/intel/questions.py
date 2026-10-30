@@ -2,7 +2,6 @@
 (sections, entities, table columns). Spreadsheet questions are phrased so the Pandas agent can answer them."""
 from __future__ import annotations
 
-import re
 
 from ..core import ProviderError
 from ..rag.steps import parse_json

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import delete, select
+from sqlalchemy import select
 
 from ...core import ProviderError
 from ...db import Conversation, Message

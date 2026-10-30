@@ -1,5 +1,4 @@
 import io
-import socket
 
 import pytest
 from fastapi.testclient import TestClient

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from typing import Iterator, Optional
 
 from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, Text, create_engine, event
@@ -12,7 +12,7 @@ from sqlalchemy.pool import StaticPool
 
 
 def now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def new_id() -> str:

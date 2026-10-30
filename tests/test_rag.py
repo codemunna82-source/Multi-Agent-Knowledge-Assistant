@@ -1,4 +1,4 @@
-import pytest
+import json
 
 from app.config import Settings
 from app.rag import MetadataFilter, RAGPipeline, RetrievalOptions, resolve
@@ -168,7 +168,7 @@ def test_corrective_rag_recovers_and_is_bounded(tmp_path):
 
 
 def test_llm_grader_can_veto_irrelevant_hits(tmp_path):
-    llm = FakeLLM(lambda sy, u: '{"relevant": %s}' % str([False] * u.count("<untrusted_data")).lower() if "contains information needed" in sy else None)
+    llm = FakeLLM(lambda sy, u: json.dumps({"relevant": [False] * u.count("<untrusted_data")}) if "contains information needed" in sy else None)
     k, p, s = build(tmp_path, {"a.txt": "The warranty lasts 36 months."}, llm=llm)
     r = p.retrieve(k.store(SCOPE), "warranty months", resolve(s, RetrievalOptions(corrective=True, max_retries=1, compression=False, mode="keyword")))
     assert r.grade == "incorrect" and r.abstain and r.hits == []

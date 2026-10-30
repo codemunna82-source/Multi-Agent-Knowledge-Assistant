@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 
 import bcrypt
 import jwt
@@ -69,7 +69,7 @@ def verify_password(pw: str, hashed: str | None) -> bool:
 
 def create_token(s: Settings, user) -> tuple[str, int]:
     ttl = timedelta(minutes=s.access_token_minutes)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = {"sub": user.id, "tid": user.tenant_id, "role": user.role, "email": user.email,
                "jti": uuid.uuid4().hex, "iat": now, "exp": now + ttl}
     return jwt.encode(payload, s.jwt_key(), algorithm=s.jwt_algorithm), int(ttl.total_seconds())

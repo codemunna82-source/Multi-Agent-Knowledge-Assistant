@@ -19,7 +19,8 @@ def _src(ctx: Ctx, source_id: str) -> dict:
 @router.get("/sources/{source_id}/entities")
 def entities(source_id: str, types: str | None = Query(None, description="comma separated: NAME,ORG,EMAIL,DATE,MONEY,..."), use_llm: bool = True,
              ctx: Ctx = Depends(require("read"))):
-    m, k = _src(ctx, source_id), ctx.svc.knowledge
+    _src(ctx, source_id)
+    k = ctx.svc.knowledge
     units = [u for _, u in k.store(ctx.scope).iter_units([source_id])]
     return extract_source(units, k.llm if use_llm and k.llm.available else None, [t.strip().upper() for t in types.split(",")] if types else None)
 

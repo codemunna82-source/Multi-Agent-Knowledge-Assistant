@@ -1,0 +1,22 @@
+[project]
+name = "multi-agent-knowledge-assistant"
+version = "2.0.0"
+description = "Multi-tenant, multi-agent document intelligence platform (FastAPI, LangGraph, hybrid RAG)"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 200
+target-version = "py312"
+extend-exclude = ["frontend", "data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I", "UP"]
+ignore = ["E501", "E731", "B008", "B904", "UP037", "UP006", "UP035", "UP007", "UP045", "B905", "E741", "I001"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B", "F841", "E402"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore:Payload indexes have no effect:UserWarning"]

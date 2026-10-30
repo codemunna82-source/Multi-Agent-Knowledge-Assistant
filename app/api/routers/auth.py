@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
@@ -73,6 +73,6 @@ def logout(request: Request, p: Principal = Depends(get_principal), svc: Service
     if jti:
         with svc.db.session() as s:
             if not s.get(RevokedToken, jti):
-                s.add(RevokedToken(jti=jti, expires_at=datetime.fromtimestamp(request.state.token_exp, timezone.utc)))
+                s.add(RevokedToken(jti=jti, expires_at=datetime.fromtimestamp(request.state.token_exp, UTC)))
         svc.auditor.record("logout", tenant_id=p.tenant_id, user_id=p.user_id, ip=_ip(request), request_id=request.state.request_id)
     return {"logged_out": True}

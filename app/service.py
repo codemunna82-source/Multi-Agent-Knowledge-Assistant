@@ -5,7 +5,7 @@ import json
 import logging
 import shutil
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import Optional
 
@@ -18,7 +18,7 @@ from .ingestion.chunking import chunk_units
 from .ingestion.loaders import TABULAR_KINDS, extract, kind_for
 from .intel.entities import chunk_entities
 from .intel.language import detect_language
-from .security.files import safe_filename, validate_upload
+from .security.files import validate_upload
 from .security.injection import scan_units
 from .providers import LLM, Embedder, make_embedder, make_llm
 from .storage import Scope, SessionStore, VectorBackend, make_backend, session_lock
@@ -27,7 +27,7 @@ log = logging.getLogger("mka.ingest")
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 class Stats:

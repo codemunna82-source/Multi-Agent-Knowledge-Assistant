@@ -3,7 +3,6 @@ registered tools. Generative agents (semantic, document_search, web, summarize) 
 from __future__ import annotations
 
 import re
-from dataclasses import replace
 from typing import Optional
 
 from .. import web_search
@@ -15,9 +14,8 @@ from ..intel.language import detect_language, language_name
 from ..schemas import Citation
 from ..security.injection import SYSTEM_GUARD, guard_output, scan_text, wrap_untrusted
 from ..tools import tabular as tab
-from ..tools.exact import exact_search
-from .common import NOT_VERIFIED, best_sentences, confidence_from, evidence_citations, excerpt, fmt, hit_to_evidence, result
-from .routing import COMPARE, URL, llm_route, rules_route
+from .common import NOT_VERIFIED, best_sentences, confidence_from, evidence_citations, excerpt, hit_to_evidence, result
+from .routing import URL, llm_route, rules_route
 from .state import AgentState, RunCtx
 from .tools import ToolError
 
@@ -251,7 +249,7 @@ class Agents:
         qs = {stem(t) for t in tokenize(query)}
         scored = sorted(range(len(paras)), key=lambda i: -(float(sims[i]) + 0.5 * len(qs & {stem(t) for t in tokenize(paras[i])}) / max(len(qs), 1)))[:5]
         evidence, flagged = [], 0
-        for n, i in enumerate(scored, 1):
+        for i in scored:
             sus = bool(scan_text(paras[i]))
             flagged += sus
             if sus and s.injection_policy == "exclude":

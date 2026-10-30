@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 from ..core import stem, tokenize
 from ..schemas import Citation

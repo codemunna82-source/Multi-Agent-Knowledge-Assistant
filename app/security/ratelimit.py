@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import threading
 import time
-from typing import Optional
 
 UNITS = {"second": 1, "minute": 60, "hour": 3600}
 

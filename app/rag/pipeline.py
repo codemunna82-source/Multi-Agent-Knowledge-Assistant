@@ -79,7 +79,7 @@ class RAGPipeline:
             if attempt >= opts.max_retries:
                 break
             # --- corrective action (bounded by max_retries)
-            rare = sorted(set(terms(q)), key=lambda t: -idx.bm25.idf.get(t, 0.0))
+            rare = sorted(set(terms(q)), key=lambda t: (-idx.bm25.idf.get(t, 0.0), t))  # tie-break by term: results must not depend on PYTHONHASHSEED
             if res_try.grade == "incorrect":
                 q, how = steps.reformulate(llm, q, attempt + 1, rare)
                 res.trace.append({"step": "corrective-reformulate", "method": how, "query": q, "attempt": attempt})

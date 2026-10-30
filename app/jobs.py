@@ -117,7 +117,7 @@ class JobService:
 
     def work_forever(self, stop: threading.Event, poll: int = 2) -> None:
         assert self.backend == "redis"
-        for raw in self.redis.lrange(PROCESSING, 0, -1):  # crash recovery: re-deliver what a dead worker held
+        for _ in self.redis.lrange(PROCESSING, 0, -1):  # crash recovery: re-deliver what a dead worker held
             self.redis.lmove(PROCESSING, QUEUE, "RIGHT", "LEFT")
         self.requeue_stale()
         log.info("worker started")

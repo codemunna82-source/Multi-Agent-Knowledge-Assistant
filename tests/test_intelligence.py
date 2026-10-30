@@ -1,5 +1,3 @@
-import io
-import json
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,7 +8,7 @@ from app.intel.entities import entities_in
 from app.intel.language import detect_language
 from app.service import Knowledge
 
-from .conftest import ask, make_docx, make_pdf, make_xlsx, upload
+from .conftest import ask, make_docx, make_xlsx, upload
 from .fakes import FakeLLM
 
 H = {"X-Session-ID": "s1"}

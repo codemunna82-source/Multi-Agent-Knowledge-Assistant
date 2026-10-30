@@ -6,7 +6,6 @@ import math
 import threading
 from collections import Counter, OrderedDict
 from datetime import datetime
-from typing import Optional
 
 from ..core import Unit, stem, tokenize
 from ..storage import SessionStore

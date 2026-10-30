@@ -13,7 +13,6 @@ from app.jobs import JobService
 from app.service import Knowledge
 
 from .conftest import ask, make_pdf
-from .fakes import FakeLLM
 
 H = {"X-Session-ID": "w"}
 
@@ -101,7 +100,8 @@ def test_redis_queue_with_separate_worker(tmp_path):
     t = threading.Thread(target=worker.work_forever, args=(stop, 1), daemon=True)
     t.start()
     j = wait_job(api, jid)
-    stop.set(); t.join(timeout=5)
+    stop.set()
+    t.join(timeout=5)
     assert j["status"] == "ready"
     assert ask(api, 'find "separate worker"', session="w")["details"]["count"] == 1
     assert redis.Redis.from_url(url).llen("mka:jobs:processing") == 0

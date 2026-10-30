@@ -113,7 +113,7 @@ class SessionStore:
             meta = json.loads((d / "meta.json").read_text(encoding="utf-8"))
             if visible(meta, principal):
                 out.append(meta)
-        return sorted(out, key=lambda m: m.get("created_at", ""))
+        return sorted(out, key=lambda m: (m.get("created_at", ""), m.get("name", ""), m["id"]))  # name tie-break: same-second ingests must list in a stable order
 
     def get_source(self, source_id: str, principal=None) -> Optional[dict]:
         try:

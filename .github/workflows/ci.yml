@@ -1,0 +1,71 @@
+name: CI
+on:
+  push: { branches: [ main, "claude/**" ] }
+  pull_request:
+permissions: { contents: read }
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres, POSTGRES_DB: mka_test }
+        ports: [ "5432:5432" ]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7
+        ports: [ "6379:6379" ]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      MKA_TEST_PG_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/mka_test
+      MKA_TEST_REDIS_URL: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: sudo apt-get update && sudo apt-get install -y tesseract-ocr
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+      - run: pytest
+      - name: Retrieval/answer evaluation on the synthetic corpus (regression gate is inside the test-suite)
+        run: python -m app.eval run --sample --compare --out eval_report
+      - uses: actions/upload-artifact@v4
+        with: { name: eval-report, path: "eval_report.*" }
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: frontend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: frontend/package-lock.json }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with: { name: dashboard-dist, path: frontend/dist }
+
+  e2e:
+    needs: [ frontend ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: frontend/package-lock.json }
+      - run: pip install -r requirements-dev.txt
+      - run: cd frontend && npm ci && npm run build
+      - run: npm install -g playwright && npx playwright install --with-deps chromium
+      - run: cd frontend && NODE_PATH=$(npm root -g) node e2e/smoke.mjs
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with: { context: ., push: false, tags: mka:ci, cache-from: type=gha, cache-to: "type=gha,mode=max" }
+      - run: POSTGRES_PASSWORD=ci docker compose config -q

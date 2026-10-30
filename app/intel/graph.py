@@ -93,7 +93,7 @@ class KnowledgeGraph:
         for qk in query_keys:
             for c in self.nodes[qk].chunks:
                 scored[c] = scored.get(c, 0.0) + 1.0
-            for nb, w in self.neighbors(qk, 5):
+            for nb, _w in self.neighbors(qk, 5):
                 for c in self.G[qk][nb]["chunks"][:3]:
                     scored[c] = scored.get(c, 0.0) + 0.5
         return [c for c, _ in sorted(scored.items(), key=lambda x: -x[1])][:limit]

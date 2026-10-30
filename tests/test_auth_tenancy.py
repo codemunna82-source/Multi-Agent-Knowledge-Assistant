@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 from app.api import create_app
 from app.config import Settings
 
-from .conftest import make_pdf
 
 PW = "correct horse battery"
 
