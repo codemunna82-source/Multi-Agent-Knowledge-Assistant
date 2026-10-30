@@ -94,7 +94,6 @@ def main():
     from app.rag import resolve
 
     opts = resolve(k.settings)
-    cold, _ = None, None
     _, rt = timed(lambda: [asst.pipeline.retrieve(st, q, opts, ids) for q in qs], 3)
     per = [t / len(qs) for t in rt]
     res["hybrid_retrieval_ms"] = {"p50": round(statistics.median(per)), "p95": round(pct(per, 95)), "note": "includes first-query index load for the first run"}
