@@ -75,11 +75,20 @@ class ToolRegistry:
         t = self.tools.get(name)
         if t is None:
             raise ToolError(f"unknown tool '{name}'")
+        m = self.a.k.obs.metrics.tool_calls
         try:
             parsed = t.args(**args)
         except ValidationError as e:
+            m.labels(name, "error").inc()
             raise ToolError(f"invalid arguments for {name}: {e.errors()[0]['msg']}") from e
-        return t.fn(ctx, parsed)
+        try:
+            with self.a.k.obs.span(f"tool.{name}"):
+                out = t.fn(ctx, parsed)
+        except Exception:
+            m.labels(name, "error").inc()
+            raise
+        m.labels(name, "ok").inc()
+        return out
 
     # ------------------------------------------------------------------ implementations
     def _exact(self, ctx, a: ExactArgs):

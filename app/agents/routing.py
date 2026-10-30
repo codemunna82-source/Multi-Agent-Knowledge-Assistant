@@ -70,6 +70,20 @@ def extract_term(question: str) -> tuple[Optional[str], bool]:
     return None, False
 
 
+QWORD = r"(?:what|which|who|whom|whose|how|where|when|why|find|search|list|show|summari[sz]e|compare|count|calculate|give|tell|extract|is|are|does|do|can)"
+INTENT_SPLIT = re.compile(rf"(?<=\?)\s+(?=\S)|;\s+|\s+(?:and\s+(?:also\s+)?|also\s+|then\s+)(?={QWORD}\b)|,\s+(?:and\s+)?(?={QWORD}\b)", re.I)
+DANGLING = re.compile(r"\b(he|she|it|they|them|his|her|its|their)\b", re.I)
+
+
+def split_intents(question: str, limit: int = 3) -> list[str]:
+    """Compound question -> independent sub-questions (2..limit), or [] when it is a single question.
+    A later part that uses a personal pronoun (he, it, they...) depends on the previous part, so the question is not split."""
+    parts = [p.strip(" ,;") for p in INTENT_SPLIT.split(question.strip()) if p and p.strip(" ,;")]
+    if not 2 <= len(parts) <= limit or any(len(p.split()) < 2 for p in parts) or any(DANGLING.search(p) for p in parts[1:]):
+        return []
+    return [p if p.endswith(("?", ".", "!")) or not question.rstrip().endswith("?") else p + "?" for p in parts]
+
+
 def rules_route(question: str, metas: list[dict], last: Optional[dict], web_enabled: bool) -> dict:
     q = question
     term, quoted = extract_term(q)

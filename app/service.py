@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import shutil
+import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -26,6 +27,7 @@ from .intel.language import detect_language
 from .security.files import validate_upload
 from .security.injection import scan_units
 from .providers import LLM, Embedder, make_embedder, make_llm
+from .observability import Observability
 from .registry import Registry
 from .storage import Scope, SessionStore, VectorBackend, make_backend, session_lock
 
@@ -77,6 +79,7 @@ class Knowledge:
         self.backend = backend or make_backend(settings.vector_store, settings.data_dir, settings)
         self.url_transport = url_transport
         self.stats = Stats()
+        self.obs = Observability(settings)
 
     def store(self, scope: Scope) -> SessionStore:
         return SessionStore(self.settings.data_dir, scope, self.registry)
@@ -128,6 +131,34 @@ class Knowledge:
 
     # ------------------------------------------------------------------ internals
     def _guarded(self, name: str, fn) -> dict:
+        t0 = time.perf_counter()
+        out = self._guarded_inner(name, fn)
+        m = self.obs.metrics
+        m.ingest.labels(out["status"]).inc()
+        m.ingest_seconds.observe(time.perf_counter() - t0)
+        return out
+
+    def _guarded_inner(self, name: str, fn) -> dict:
+        try:
+            meta = fn()
+            self.stats.ingested += 1
+            return {"status": "ready", "name": name, "source": meta, "error": None, "retryable": False}
+        except Duplicate as d:
+            return {"status": "duplicate", "name": name, "source": d.existing, "error": None, "retryable": False, "duplicate_of": d.existing["id"]}
+        except IngestError as e:  # bad input: retrying cannot help
+            self.stats.failed += 1
+            log.warning("ingestion failed for %s: %s", name, e)
+            return {"status": "failed", "name": name, "source": None, "error": str(e), "retryable": False}
+        except ProviderError as e:  # embedding API outage / rate limit: transient
+            self.stats.failed += 1
+            log.warning("ingestion failed for %s: %s", name, e)
+            return {"status": "failed", "name": name, "source": None, "error": str(e), "retryable": True}
+        except Exception as e:  # never leak a stack trace to the client; keep it in logs
+            self.stats.failed += 1
+            log.exception("unexpected ingestion failure for %s", name)
+            return {"status": "failed", "name": name, "source": None, "error": f"Unexpected error during ingestion: {type(e).__name__}", "retryable": True}
+
+    def _guarded_inner(self, name: str, fn) -> dict:
         try:
             meta = fn()
             self.stats.ingested += 1

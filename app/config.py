@@ -12,7 +12,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Docker/Kubernetes secrets: any of these may be supplied as <NAME>_FILE=/run/secrets/xyz instead of the value itself
 FILE_SECRETS = {"jwt_secret": "MKA_JWT_SECRET", "openai_api_key": "OPENAI_API_KEY", "gemini_api_key": "GEMINI_API_KEY", "qdrant_api_key": "MKA_QDRANT_API_KEY",
-                "brave_api_key": "BRAVE_API_KEY", "database_url": "MKA_DATABASE_URL", "redis_url": "MKA_REDIS_URL"}
+                "brave_api_key": "BRAVE_API_KEY", "langsmith_api_key": "LANGSMITH_API_KEY", "metrics_token": "MKA_METRICS_TOKEN", "database_url": "MKA_DATABASE_URL", "redis_url": "MKA_REDIS_URL"}
 
 
 class Settings(BaseSettings):
@@ -102,8 +102,21 @@ class Settings(BaseSettings):
     web_search_url: Optional[str] = None  # SearXNG base URL
     brave_api_key: Optional[SecretStr] = None
     web_fallback: bool = False  # when indexed sources cannot answer, try web search (needs a provider)
+    node_timeout_s: float = Field(default=120.0, ge=0)  # wall-clock limit per agent node (0 = unlimited); the caller gets an honest "timed out" answer
+    node_retries: int = Field(default=1, ge=0, le=3)  # retries of a node after a transient upstream (LLM/embedding provider) error
+    parallel_agents: bool = True  # compound questions ("A, and also B") fan out to several agents in parallel and are merged
     checkpoint_backend: str = "memory"  # memory | sqlite | postgres (postgres uses MKA_DATABASE_URL)
     memory_turns: int = 10
+
+    # --- observability / operations
+    metrics_enabled: bool = True  # GET /metrics (Prometheus). With auth on it needs MKA_METRICS_TOKEN as bearer token or an admin JWT
+    metrics_token: Optional[SecretStr] = None
+    otel_endpoint: str = ""  # OTLP/gRPC collector, e.g. http://otel-collector:4317 ("" = tracing disabled)
+    otel_service_name: str = "multi-agent-knowledge-assistant"
+    langsmith_api_key: Optional[SecretStr] = None  # enables LangSmith tracing via LANGSMITH_* env vars (not tested against the live service)
+    langsmith_project: str = "multi-agent-knowledge-assistant"
+    scheduler_interval_s: int = Field(default=3600, ge=10)  # python -m app.scheduler: how often maintenance tasks run
+    finished_jobs_retention_days: int = Field(default=30, ge=1)
 
     # --- security
     allow_private_urls: bool = False

@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import delete, func, select
 
 from ...db import AuditEvent, Conversation, EvalRun, Job, TenantSettings, User
+from ... import maintenance
 from ...schemas import AuditOut, PurgeRequest, UserCreate, UserOut, UserUpdate
 from ...security.auth import hash_password
 from ..deps import Ctx, page_params, require
@@ -179,3 +180,19 @@ def put_tenant_settings(body: TenantSettingsBody, ctx: Ctx = Depends(require("se
         s.merge(row)
     ctx.audit("update_tenant_settings", ctx.principal.tenant_id, detail=body.model_dump())
     return body.model_copy(update={"web_allowed_domains": domains})
+
+
+class MaintenanceBody(BaseModel):
+    tasks: Optional[list[str]] = Field(default=None, description=f"subset of: {', '.join(maintenance.TASKS)} (default: all)")
+    dry_run: bool = True
+
+
+@router.post("/maintenance/run", summary="Run retention sweeps and housekeeping now (dry run by default). Retention only touches YOUR tenant's data.")
+def run_maintenance(body: MaintenanceBody, ctx: Ctx = Depends(require("purge"))):
+    """Same tasks as the scheduler, restricted to your organisation. Retention periods come from /admin/tenant-settings."""
+    try:
+        res = maintenance.run(ctx.svc.knowledge, body.tasks, body.dry_run, assistant=ctx.svc.assistant, auditor=ctx.svc.auditor, tenant=ctx.principal.tenant_id)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    ctx.audit("maintenance_run", None, detail={"tasks": body.tasks or "all", "dry_run": body.dry_run})
+    return {"dry_run": body.dry_run, "results": res}

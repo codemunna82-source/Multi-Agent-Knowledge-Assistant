@@ -15,6 +15,7 @@ class Citation(BaseModel):
     score: Optional[float] = None
     loc: Optional[dict] = Field(default=None, description="machine-readable location: page / sheet+row / paragraph / line / path ...")
     version: Optional[int] = None
+    origin: str = Field(default="document", description="'document' for your indexed sources, 'web' for external web pages (kept strictly separate)")
 
 
 class AskRequest(BaseModel):

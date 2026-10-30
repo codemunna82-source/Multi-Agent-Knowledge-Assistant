@@ -5,11 +5,13 @@
                                           ^                                           |
                                           +------------------ retry (bounded) -------+
     semantic --(abstained + web fallback enabled)--> web
+    supervisor --(compound question)--> Send x N -> branch (agent + verification, concurrently) -> merge -> final
 
 Conditional edges decide the path; `verify` bounds retries with settings.max_retries."""
 from __future__ import annotations
 
 from langgraph.graph import END, StateGraph
+from langgraph.types import Send
 
 from .nodes import Agents
 from .state import AgentState
@@ -25,10 +27,19 @@ def build_graph(agents: Agents, checkpointer=None):
     g.add_node("supervisor", m(agents.supervisor))
     for name in DETERMINISTIC + GENERATIVE:
         g.add_node(name, m(getattr(agents, name)))
+    g.add_node("branch", agents.branch)  # runs one sub-question through its agent (+ verification); metered per inner node
+    g.add_node("merge", m(agents.merge))
     g.add_node("verify", m(agents.verify))
     g.add_node("final", m(agents.final))
     g.set_entry_point("supervisor")
-    g.add_conditional_edges("supervisor", lambda st: st["route"], {r: r for r in DETERMINISTIC + GENERATIVE})
+    def after_supervisor(st: AgentState):
+        if st["route"] == "parallel":  # compound question: fan out, one branch per sub-question, executed concurrently
+            return [Send("branch", {**st, "branch": {**b, "i": i}}) for i, b in enumerate(st["plan"]["branches"])]
+        return st["route"]
+
+    g.add_conditional_edges("supervisor", after_supervisor, {**{r: r for r in DETERMINISTIC + GENERATIVE}, "branch": "branch"})
+    g.add_edge("branch", "merge")
+    g.add_edge("merge", "final")
     g.add_edge("exact", "final")
     g.add_conditional_edges("data", lambda st: "semantic" if st.get("route") == "semantic" else "final", {"semantic": "semantic", "final": "final"})
 

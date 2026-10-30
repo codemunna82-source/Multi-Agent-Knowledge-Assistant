@@ -19,7 +19,7 @@ from ..jobs import JobService
 from ..security.audit import Auditor
 from ..security.ratelimit import RateLimiter
 from ..service import Knowledge
-from .deps import Ctx, Services, require
+from .deps import Ctx, Services, get_principal, require
 from .routers import admin, analytics, auth, chat, evaluation, intel, jobs, sources
 
 log = logging.getLogger("mka")
@@ -67,7 +67,7 @@ def create_app(settings: Optional[Settings] = None, knowledge: Optional[Knowledg
                    auditor=Auditor(db, settings.audit_enabled))
     svc.jobs = JobService(settings, db, k, svc.auditor, redis_client)
 
-    app = FastAPI(title="Multi-Agent Knowledge Assistant", version="2.0.0",
+    app = FastAPI(title="Multi-Agent Knowledge Assistant", version="3.0.0",
                   description="Multi-tenant document intelligence: upload documents or URLs, ask questions, get cited answers.")
     app.state.svc = svc
     app.state.knowledge, app.state.assistant = k, svc.assistant  # kept for tests / scripts
@@ -86,6 +86,9 @@ def create_app(settings: Optional[Settings] = None, knowledge: Optional[Knowledg
         except Exception:
             log.exception("unhandled error", extra={"request_id": rid, "path": request.url.path})
             resp = JSONResponse({"detail": "Internal server error", "request_id": rid}, status_code=500)
+        route = getattr(request.scope.get("route"), "path", None) or "unmatched"
+        k.obs.metrics.http.labels(request.method, route, str(resp.status_code)).inc()
+        k.obs.metrics.http_seconds.labels(route).observe(time.perf_counter() - t0)
         resp.headers["X-Request-ID"] = rid
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
         resp.headers.setdefault("X-Frame-Options", "DENY")
@@ -95,6 +98,24 @@ def create_app(settings: Optional[Settings] = None, knowledge: Optional[Knowledg
 
     for r in (auth.router, analytics.router, sources.router, jobs.router, chat.router, intel.router, evaluation.router, admin.router):
         app.include_router(r)
+
+    @app.get("/metrics", tags=["system"], include_in_schema=False)
+    def metrics(request: Request):
+        """Prometheus exposition. Open when auth is disabled; otherwise needs `Authorization: Bearer <MKA_METRICS_TOKEN>` or an admin JWT."""
+        import hmac
+
+        from fastapi import HTTPException, Response
+
+        if not settings.metrics_enabled:
+            raise HTTPException(404, "Metrics are disabled")
+        if settings.auth_enabled:
+            tok = request.headers.get("authorization", "").partition(" ")[2]
+            want = settings.secret("metrics_token")
+            if not (want and tok and hmac.compare_digest(tok.encode(), want.encode())):
+                p = get_principal(request, svc)  # raises 401 without a valid JWT
+                if p.role != "admin":
+                    raise HTTPException(403, "Metrics need an admin token or the metrics bearer token")
+        return Response(k.obs.metrics.render(), media_type=k.obs.metrics.content_type)
 
     @app.get("/health", tags=["system"])
     def health():

@@ -70,7 +70,7 @@ def hit_to_evidence(i: int, h) -> dict:
 
 
 def evidence_citations(evidence: list[dict]) -> list[dict]:
-    return [Citation(source_id=e["source_id"], source=e["source"], location=e["location"], excerpt=excerpt(e["text"]), score=e.get("score") or None, loc=e.get("loc")).model_dump()
+    return [Citation(source_id=e["source_id"], source=e["source"], location=e["location"], excerpt=excerpt(e["text"]), score=e.get("score") or None, loc=e.get("loc"), origin="web" if e["source_id"] == "web" else "document").model_dump()
             for e in evidence]
 
 

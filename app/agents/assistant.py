@@ -114,7 +114,9 @@ class Assistant:
     def _finish(self, rid: str, ctx: RunCtx, result: dict) -> AskResponse:
         result["usage"] = ctx.usage.as_dict() if ctx.usage else {}
         result["latency_ms"] = round((time.perf_counter() - ctx.t0) * 1000, 1)
-        return AskResponse(**result)
+        resp = AskResponse(**result)
+        self.k.obs.record_answer(resp)
+        return resp
 
     def ask(self, scope: Scope, req: AskRequest, principal=None, conversation_id: str = "default", history: Optional[list[dict]] = None,
             summary: Optional[str] = None) -> AskResponse:

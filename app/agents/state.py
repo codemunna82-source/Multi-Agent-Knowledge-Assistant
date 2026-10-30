@@ -20,6 +20,8 @@ class AgentState(TypedDict, total=False):
     draft: dict  # answer being built
     verification: dict  # {"status": "pass|retry|fail", "issues": [...]}
     attempt: int
+    branch: dict  # (fan-out) one sub-question with its route, handed to a parallel branch
+    branches: Annotated[list[dict], operator.add]  # (fan-out) results of the parallel branches, merged by the merge node
     trace: Annotated[list[str], operator.add]
     result: dict
     followups: list[str]

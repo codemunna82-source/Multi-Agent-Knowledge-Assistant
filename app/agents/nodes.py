@@ -2,7 +2,11 @@
 registered tools. Generative agents (semantic, document_search, web, summarize) are followed by the Verification Agent."""
 from __future__ import annotations
 
+import contextvars
 import re
+import time
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
 from typing import Optional
 
 from .. import web_search
@@ -13,12 +17,13 @@ from ..providers import track_usage
 from ..intel.language import detect_language, language_name
 from ..schemas import Citation
 from ..security.injection import SYSTEM_GUARD, guard_output, scan_text, wrap_untrusted
+from ..tenant import web_policy
 from ..tools import tabular as tab
 from .citations import validate as validate_citations
 from .common import NOT_VERIFIED, best_sentences, confidence_from, evidence_citations, excerpt, hit_to_evidence, result
 from ..rag.selfrag import grade_passages, should_retrieve
 from ..rag.selfrag import refine as self_refine
-from .routing import CROSS_DOC, URL, llm_route, rules_route
+from .routing import CROSS_DOC, URL, llm_route, rules_route, split_intents
 from .state import AgentState, RunCtx
 from .tools import ToolError
 
@@ -26,6 +31,29 @@ log = logging.getLogger("mka.agent")
 
 ANSWER_SYSTEM = ("Answer the question using ONLY the numbered evidence. Cite evidence inline as [n]. If the evidence does not contain the answer, say you could not verify it. "
                  "Be concise. Do not invent numbers, names or dates.")
+
+
+GENERATIVE_ROUTES = ("semantic", "document_search", "web", "summarize", "compare")
+
+
+class NodeTimeout(Exception):
+    pass
+
+
+_NODE_POOL = ThreadPoolExecutor(max_workers=64, thread_name_prefix="mka-node")
+
+
+def call_with_timeout(fn, timeout: float, *args):
+    """Run fn(*args) and stop WAITING after `timeout` seconds (0 = inline, no limit). Python cannot kill a thread: a timed-out call keeps running
+    in the background until it returns (LLM/HTTP calls have their own client timeouts), but its result is discarded."""
+    if not timeout:
+        return fn(*args)
+    fut = _NODE_POOL.submit(contextvars.copy_context().run, fn, *args)
+    try:
+        return fut.result(timeout=timeout)
+    except FutureTimeout as e:
+        fut.cancel()
+        raise NodeTimeout() from e
 
 
 class Agents:
@@ -38,20 +66,46 @@ class Agents:
         return self.a._ctx[state["rid"]]
 
     def metered(self, fn):
-        """Bind the request's Usage to whatever thread/context the node runs in (token + cost accounting)."""
+        """Wrap a node: bind the request's Usage (token + cost accounting), enforce the per-node timeout, retry transient provider errors,
+        and record metrics and a tracing span. A bug or timeout in one agent degrades to an honest message, never a 500 with a stack trace."""
+        name = fn.__name__
+        s, obs = self.k.settings, self.k.obs
+        m = obs.metrics
+
         def inner(state: AgentState):
-            with track_usage(self.ctx(state).usage):
+            t0 = time.perf_counter()
+            with obs.span(f"agent.{name}", route=state.get("route"), attempt=state.get("attempt", 0)) as sp, track_usage(self.ctx(state).usage):
+                outcome = "ok"
                 try:
-                    return fn(state)
+                    for attempt in range(s.node_retries + 1):
+                        try:
+                            return call_with_timeout(fn, s.node_timeout_s, state)
+                        except ProviderError:
+                            if attempt >= s.node_retries:
+                                raise
+                            log.warning("agent node %s: transient provider error, retry %d", name, attempt + 1)
+                            time.sleep(min(0.2 * 2 ** attempt, 2.0))
                 except (KeyError, ProviderError):
+                    outcome = "error"
                     raise  # unknown source id -> 404, upstream model error -> 502 (handled by the API layer)
-                except Exception as e:  # a bug in one agent must degrade to an honest message, never a 500 with a stack trace
-                    log.exception("agent node %s failed", fn.__name__)
+                except NodeTimeout:
+                    outcome = "timeout"
+                    log.error("agent node %s timed out after %ss", name, s.node_timeout_s)
+                    route = state.get("route") or "semantic"
+                    d = result(route, f"This step ({name}) did not finish within {s.node_timeout_s:g} seconds, so no answer was produced.", limitations=["The step timed out; try a narrower question or fewer documents."])
+                    return {"route": route, "draft": d, "verification": {"status": "fail", "issues": ["timeout"]}, "trace": [f"{name}: timed out after {s.node_timeout_s:g}s"]}
+                except Exception as e:
+                    outcome = "error"
+                    log.exception("agent node %s failed", name)
+                    sp.set_attribute("mka.error", type(e).__name__)
                     route = state.get("route") or "semantic"
                     d = result(route, f"I could not complete this step ({type(e).__name__}). The error has been logged.", limitations=["Internal error while processing the request."])
                     d["abstained"] = False
-                    return {"route": route, "draft": d, "verification": {"status": "fail", "issues": ["internal error"]}, "trace": [f"{fn.__name__}: internal error {type(e).__name__}"]}
-        inner.__name__ = fn.__name__
+                    return {"route": route, "draft": d, "verification": {"status": "fail", "issues": ["internal error"]}, "trace": [f"{name}: internal error {type(e).__name__}"]}
+                finally:
+                    m.node_runs.labels(name, outcome).inc()
+                    m.node_seconds.labels(name).observe(time.perf_counter() - t0)
+        inner.__name__ = name
         return inner
 
     # ================================================================== Supervisor
@@ -65,6 +119,13 @@ class Agents:
         plan = plan or rules_route(state["question"], metas, c.last, s.web_enabled)
         flags = scan_text(state["question"])
         why = plan.get("why", "")
+        parts = split_intents(state["question"]) if s.parallel_agents and plan["route"] != "web" else []
+        if parts:
+            subs = [rules_route(p, metas, c.last, s.web_enabled) for p in parts]
+            if not any(sp["route"] == "exact" and not sp.get("term") for sp in subs):  # an unanswerable part would need a clarifying question: keep the single-agent path
+                branches = [{"route": sp["route"], "question": p, "term": sp.get("term"), "quoted": sp.get("quoted", False), "sub": sp.get("sub")} for p, sp in zip(parts, subs)]
+                return {"route": "parallel", "plan": {"method": method, "why": f"compound question ({len(parts)} parts)", "branches": branches, "question_flags": flags},
+                        "trace": [f"supervisor: parallel fan-out to {', '.join(b['route'] for b in branches)}"]}
         return {"route": plan["route"], "term": plan.get("term"), "quoted": plan.get("quoted", False),
                 "plan": {"method": method, "why": why, "sub": plan.get("sub"), "question_flags": flags},
                 "trace": [f"supervisor: route={plan['route']}{'/' + plan['sub'] if plan.get('sub') else ''} via {method} ({why})"]}
@@ -279,6 +340,9 @@ class Agents:
     def web(self, state: AgentState) -> dict:
         c, s = self.ctx(state), self.k.settings
         q = state["question"]
+        policy = web_policy(self.k.db, c.principal.tenant_id)
+        if not policy.allowed:
+            return {"draft": result("web", "Web research is disabled for your organisation.", limitations=["An administrator turned web access off (Settings → Web research)."]), "trace": ["web: disabled by tenant policy"]}
         urls = list(dict.fromkeys(u.rstrip(".,;") for u in URL.findall(q)))[:3]
         lim: list[str] = ["External web content: not part of your indexed documents."]
         pages: list[tuple[str, str, list]] = []  # (url, title, units)
@@ -287,11 +351,19 @@ class Agents:
                 found = web_search.search(s, URL.sub("", q), 4, self.k.url_transport)
             except ProviderError as e:
                 return {"draft": result("web", f"Web search is unavailable: {e}", limitations=["Configure MKA_WEB_SEARCH_PROVIDER to enable web search."]), "trace": ["web: no provider"]}
-            urls = [f["url"] for f in found][:3]
+            urls = [f["url"] for f in found][:6]
             lim.append("Pages were found through the configured search provider.")
+        blocked = [u for u in urls if not policy.permits(u)]
+        if blocked:
+            urls = [u for u in urls if u not in blocked]
+            lim.append(f"Skipped {len(blocked)} page(s) outside your organisation's approved web sources: " + ", ".join(blocked[:3]))
+        urls = urls[:3]
         for u in urls:
             try:
                 final, ex = self.tools.call("fetch_url", c, url=u)
+                if not policy.permits(final):  # a redirect led outside the approved sources
+                    lim.append(f"Discarded {u}: it redirected to {final}, outside your organisation's approved web sources.")
+                    continue
                 pages.append((final, ex.title or final, ex.units))
             except (IngestError, ToolError) as e:
                 lim.append(f"Could not read {u}: {e}")
@@ -354,6 +426,67 @@ class Agents:
         from .summarize import run_summarize
 
         return run_summarize(self, state)
+
+    # ================================================================== Parallel fan-out / merge
+    LABELS = {"exact": "Exact search", "data": "Data analysis", "semantic": "Document answer", "document_search": "Document search", "summarize": "Summary",
+              "compare": "Comparison", "web": "Web research (external, not from your documents)"}
+
+    def branch(self, state: AgentState) -> dict:
+        """One parallel branch: run the sub-question through its agent and, for generative agents, one verification pass (no retry loop:
+        a failed verification goes straight to the strict verbatim fallback). Failures stay inside the branch."""
+        b = state["branch"]
+        sub = {**state, "question": b["question"], "query": b["question"], "route": b["route"], "term": b.get("term"), "quoted": b.get("quoted", False), "attempt": 0, "evidence": [], "draft": None,
+               "plan": {"sub": b.get("sub"), "method": "parallel-branch"}, "trace": []}
+        trace: list[str] = []
+        try:
+            out = self.metered(getattr(self, b["route"]))(sub)
+            if out.get("route") == "semantic" and b["route"] == "data" and "draft" not in out:  # data agent handed the question over
+                trace += out.get("trace", [])
+                sub["route"] = "semantic"
+                out = self.metered(self.semantic)(sub)
+            trace += out.get("trace", [])
+            sub.update({k: v for k, v in out.items() if k != "trace"})
+            if sub["route"] in GENERATIVE_ROUTES and sub.get("draft"):
+                v = self.metered(self.verify)({**sub, "attempt": self.ctx(state).opts.max_retries})
+                trace += v.get("trace", [])
+                sub.update({k: x for k, x in v.items() if k != "trace"})
+        except (KeyError, ProviderError):
+            raise
+        draft = sub.get("draft") or result(b["route"], "No answer was produced for this part.")
+        self._check_citations(self.ctx(state), draft)
+        return {"branches": [{"i": b["i"], "route": b["route"], "question": b["question"], "draft": draft, "verification": sub.get("verification") or {}}],
+                "trace": [f"branch[{b['i']}] {b['route']}: " + (trace[-1] if trace else "done")]}
+
+    def merge(self, state: AgentState) -> dict:
+        rank = {"none": 0, "low": 1, "medium": 2, "high": 3}
+        brs = sorted(state.get("branches") or [], key=lambda x: x["i"])
+        parts, cites, lim, seen = [], [], [], set()
+        check = {"total": 0, "checked": 0, "valid": 0, "invalid": [], "unchecked": 0, "accuracy": None}
+        for b in brs:
+            d, label = b["draft"], self.LABELS.get(b["route"], b["route"])
+            parts.append(f"### {label}: {b['question']}\n{d['answer']}")
+            for c in d.get("citations", []):
+                key = (c["source_id"], c["location"], c["excerpt"][:60])
+                if key not in seen:
+                    seen.add(key)
+                    cites.append(c)
+            lim += [f"{label}: {x}" for x in d.get("limitations", [])]
+            ck = d.get("details", {}).get("citation_check")
+            if ck:
+                for f in ("total", "checked", "valid", "unchecked"):
+                    check[f] += ck[f]
+                check["invalid"] += ck["invalid"]
+        check["accuracy"] = round(check["valid"] / check["checked"], 4) if check["checked"] else None
+        drafts = [b["draft"] for b in brs]
+        conf = min((d.get("confidence", "none") for d in drafts), key=lambda x: rank.get(x, 0), default="none")
+        merged = result("parallel", "\n\n".join(parts), confidence=conf, verified=all(d.get("verified", False) for d in drafts), citations=cites, limitations=lim,
+                        needs_input=any(d.get("needs_input") for d in drafts),
+                        details={"branches": [{"route": b["route"], "question": b["question"], "answer": b["draft"]["answer"], "confidence": b["draft"].get("confidence"),
+                                               "verified": b["draft"].get("verified"), "citations": len(b["draft"].get("citations", [])), "details": b["draft"].get("details", {})} for b in brs],
+                                 "citation_check": check})
+        if any(c.get("origin") == "web" for c in cites):
+            merged["limitations"].append("Web sources are external and listed separately from your documents (citation origin = web).")
+        return {"draft": merged, "route": "parallel", "verification": {"status": "pass", "issues": []}, "trace": [f"merge: {len(brs)} branch result(s)"]}
 
     # ================================================================== Comparison Agent (documents, versions, contradictions)
     def compare(self, state: AgentState) -> dict:
@@ -427,6 +560,14 @@ class Agents:
             return None
         return j.get("supported") if isinstance(j, dict) and isinstance(j.get("supported"), bool) else None
 
+    def _check_citations(self, c: RunCtx, d: dict) -> None:
+        """Validate citations of drafts that skipped the verify node (deterministic routes: exact, data)."""
+        det = d.setdefault("details", {})
+        if d.get("citations") and "citation_check" not in det:
+            d["citations"], det["citation_check"] = validate_citations(self.k.store(c.scope), c.principal, d["citations"])
+            if det["citation_check"]["invalid"]:
+                d.setdefault("limitations", []).append(f"{len(det['citation_check']['invalid'])} citation(s) were removed because they could not be verified against the stored text.")
+
     # ================================================================== Final Response Agent
     def final(self, state: AgentState) -> dict:
         from .followups import suggest_followups
@@ -438,10 +579,7 @@ class Agents:
         abstained = d.pop("abstained", False)
         ver = state.get("verification") or {}
         det = d.setdefault("details", {})
-        if d.get("citations") and "citation_check" not in det:  # deterministic routes (exact, data) skip the verify node
-            d["citations"], det["citation_check"] = validate_citations(self.k.store(c.scope), c.principal, d["citations"])
-            if det["citation_check"]["invalid"]:
-                d.setdefault("limitations", []).append(f"{len(det['citation_check']['invalid'])} citation(s) were removed because they could not be verified against the stored text.")
+        self._check_citations(c, d)
         det["plan"] = state.get("plan", {})
         det["verification"] = ver
         det["trace"] = state.get("trace", [])
