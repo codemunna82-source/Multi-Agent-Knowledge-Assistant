@@ -3,7 +3,7 @@
  "info": {
   "title": "Multi-Agent Knowledge Assistant",
   "description": "Multi-tenant document intelligence: upload documents or URLs, ask questions, get cited answers.",
-  "version": "2.0.0"
+  "version": "3.0.0"
  },
  "paths": {
   "/auth/signup": {
@@ -89,6 +89,91 @@
     }
    }
   },
+  "/auth/refresh": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Refresh",
+    "description": "Exchange a refresh token (body or httpOnly cookie) for a new access token; the refresh token rotates on every use.\n`optional=true` (used by the browser on page load): a missing or invalid token answers 200 {\"authenticated\": false} instead of 401, so signed-out visits stay quiet.",
+    "operationId": "refresh_auth_refresh_post",
+    "parameters": [
+     {
+      "name": "optional",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": false,
+       "title": "Optional"
+      }
+     },
+     {
+      "name": "mka_refresh",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Mka Refresh"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "$ref": "#/components/schemas/RefreshRequest"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Body"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "anyOf": [
+          {
+           "$ref": "#/components/schemas/TokenResponse"
+          },
+          {
+           "$ref": "#/components/schemas/NoSession"
+          }
+         ],
+         "title": "Response Refresh Auth Refresh Post"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/auth/me": {
    "get": {
     "tags": [
@@ -116,13 +201,1450 @@
      "auth"
     ],
     "summary": "Logout",
+    "description": "Revokes the access token and the whole refresh-token family of this login.",
     "operationId": "logout_auth_logout_post",
+    "parameters": [
+     {
+      "name": "mka_refresh",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Mka Refresh"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "$ref": "#/components/schemas/RefreshRequest"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Body"
+       }
+      }
+     }
+    },
     "responses": {
      "200": {
       "description": "Successful Response",
       "content": {
        "application/json": {
         "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/search/exact": {
+   "post": {
+    "tags": [
+     "search & analysis"
+    ],
+    "summary": "Literal name / phrase / ID search over the COMPLETE extracted text: counts per document, pages, paginated matches",
+    "operationId": "exact_search_exact_post",
+    "parameters": [
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 200,
+       "minimum": 1,
+       "description": "page size",
+       "default": 50,
+       "title": "Limit"
+      },
+      "description": "page size"
+     },
+     {
+      "name": "offset",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 0,
+       "default": 0,
+       "title": "Offset"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ExactBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/summaries": {
+   "post": {
+    "tags": [
+     "search & analysis"
+    ],
+    "summary": "Summaries of whole documents: short, detailed, executive, chapter, section",
+    "operationId": "summaries_summaries_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SummaryBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/compare": {
+   "post": {
+    "tags": [
+     "search & analysis"
+    ],
+    "summary": "Compare two documents (sentence-level diff) or find contradictions between 2-6 documents",
+    "operationId": "compare_compare_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CompareBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/sources/{source_id}/changes": {
+   "get": {
+    "tags": [
+     "search & analysis"
+    ],
+    "summary": "What changed between a document version and its predecessor (or a chosen version)",
+    "operationId": "changes_sources__source_id__changes_get",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Source Id"
+      }
+     },
+     {
+      "name": "against",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Against"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/web/research": {
+   "post": {
+    "tags": [
+     "search & analysis"
+    ],
+    "summary": "Web research (approved sources only). Answers cite web pages with origin=web, kept apart from your documents",
+    "operationId": "web_research_web_research_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WebBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AskResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/memory/preferences": {
+   "get": {
+    "tags": [
+     "memory"
+    ],
+    "summary": "Get Preferences",
+    "operationId": "get_preferences_memory_preferences_get",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PrefsOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "put": {
+    "tags": [
+     "memory"
+    ],
+    "summary": "Put Preferences",
+    "operationId": "put_preferences_memory_preferences_put",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PrefsBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PrefsOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/memory/facts": {
+   "get": {
+    "tags": [
+     "memory"
+    ],
+    "summary": "List Facts",
+    "operationId": "list_facts_memory_facts_get",
+    "parameters": [
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 200,
+       "minimum": 1,
+       "default": 50,
+       "title": "Limit"
+      }
+     },
+     {
+      "name": "offset",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 0,
+       "default": 0,
+       "title": "Offset"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/FactOut"
+         },
+         "title": "Response List Facts Memory Facts Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "memory"
+    ],
+    "summary": "Create Fact",
+    "description": "Save a note you explicitly want remembered. Notes that look like secrets, card/ID numbers, e-mail addresses or phone numbers are refused.",
+    "operationId": "create_fact_memory_facts_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FactBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FactOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/memory/facts/{fact_id}": {
+   "delete": {
+    "tags": [
+     "memory"
+    ],
+    "summary": "Delete Fact",
+    "operationId": "delete_fact_memory_facts__fact_id__delete",
+    "parameters": [
+     {
+      "name": "fact_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Fact Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/memory": {
+   "delete": {
+    "tags": [
+     "memory"
+    ],
+    "summary": "Reset memory: delete all saved notes and the rolling summaries of your conversations (optionally the conversations too)",
+    "operationId": "reset_memory_memory_delete",
+    "parameters": [
+     {
+      "name": "conversations",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "description": "also delete all your conversations and their messages",
+       "default": false,
+       "title": "Conversations"
+      },
+      "description": "also delete all your conversations and their messages"
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/reports": {
+   "post": {
+    "tags": [
+     "reports"
+    ],
+    "summary": "Generate a report from your documents (synchronous; large documents can take a while)",
+    "operationId": "create_report_reports_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ReportBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ReportOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "get": {
+    "tags": [
+     "reports"
+    ],
+    "summary": "Your reports (admins see the whole organisation)",
+    "operationId": "list_reports_reports_get",
+    "parameters": [
+     {
+      "name": "kind",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Kind"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 200,
+       "minimum": 1,
+       "description": "page size",
+       "default": 50,
+       "title": "Limit"
+      },
+      "description": "page size"
+     },
+     {
+      "name": "offset",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 0,
+       "default": 0,
+       "title": "Offset"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/ReportOut"
+         },
+         "title": "Response List Reports Reports Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/reports/{report_id}": {
+   "get": {
+    "tags": [
+     "reports"
+    ],
+    "summary": "Get Report",
+    "operationId": "get_report_reports__report_id__get",
+    "parameters": [
+     {
+      "name": "report_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Report Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ReportOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "reports"
+    ],
+    "summary": "Delete Report",
+    "operationId": "delete_report_reports__report_id__delete",
+    "parameters": [
+     {
+      "name": "report_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Report Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/reports/{report_id}/download": {
+   "get": {
+    "tags": [
+     "reports"
+    ],
+    "summary": "Download",
+    "operationId": "download_reports__report_id__download_get",
+    "parameters": [
+     {
+      "name": "report_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Report Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/analytics/tables": {
+   "get": {
+    "tags": [
+     "analytics"
+    ],
+    "summary": "Tabular sources with their sheets and the SQL schema that /analytics/sql accepts",
+    "operationId": "tables_analytics_tables_get",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/analytics/profile": {
+   "get": {
+    "tags": [
+     "analytics"
+    ],
+    "summary": "Column types, missing values, statistics, duplicate rows",
+    "operationId": "profile_analytics_profile_get",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Source Id"
+      }
+     },
+     {
+      "name": "sheet",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Sheet"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/analytics/anomalies": {
+   "get": {
+    "tags": [
+     "analytics"
+    ],
+    "summary": "Outliers in a numeric column (IQR or z-score)",
+    "operationId": "anomalies_analytics_anomalies_get",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Source Id"
+      }
+     },
+     {
+      "name": "column",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Column"
+      }
+     },
+     {
+      "name": "sheet",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Sheet"
+      }
+     },
+     {
+      "name": "method",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "enum": [
+        "iqr",
+        "zscore"
+       ],
+       "type": "string",
+       "default": "iqr",
+       "title": "Method"
+      }
+     },
+     {
+      "name": "threshold",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "number",
+         "maximum": 100,
+         "exclusiveMinimum": 0
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Threshold"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/analytics/trend": {
+   "get": {
+    "tags": [
+     "analytics"
+    ],
+    "summary": "Value per month / quarter / year with change, year-over-year and direction",
+    "operationId": "trend_analytics_trend_get",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Source Id"
+      }
+     },
+     {
+      "name": "date_column",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Date Column"
+      }
+     },
+     {
+      "name": "sheet",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Sheet"
+      }
+     },
+     {
+      "name": "value_column",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Value Column"
+      }
+     },
+     {
+      "name": "freq",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "enum": [
+        "M",
+        "Q",
+        "Y"
+       ],
+       "type": "string",
+       "default": "M",
+       "title": "Freq"
+      }
+     },
+     {
+      "name": "agg",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "enum": [
+        "sum",
+        "mean",
+        "count",
+        "min",
+        "max",
+        "median"
+       ],
+       "type": "string",
+       "default": "sum",
+       "title": "Agg"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/analytics/sql": {
+   "post": {
+    "tags": [
+     "analytics"
+    ],
+    "summary": "Run one validated read-only SELECT over the uploaded tables (sandboxed)",
+    "operationId": "run_sql_analytics_sql_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SqlBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/analytics/ask": {
+   "post": {
+    "tags": [
+     "analytics"
+    ],
+    "summary": "Natural-language question over the tables (fixed operations; a model-written validated SQL query when a model is configured)",
+    "operationId": "ask_analytics_ask_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AskBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/analytics/chart": {
+   "post": {
+    "tags": [
+     "analytics"
+    ],
+    "summary": "Render a chart specification to PNG (for reports and downloads)",
+    "operationId": "chart_png_analytics_chart_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ChartBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
        }
       }
      }
@@ -135,7 +1657,7 @@
      "sources"
     ],
     "summary": "Upload",
-    "description": "Multi-file upload. Default: synchronous (validated, extracted, embedded and indexed before the response).\nWith ?async=true: files are queued for background workers and 202 + job ids are returned.",
+    "description": "Multi-file upload. Default: synchronous (validated, extracted, embedded and indexed before the response).\nWith ?async=true: files are queued for background workers and 202 + job ids are returned.\nAn identical file already indexed in the workspace is reported as `duplicate` (unless allow_duplicate); a file with the same name but\ndifferent content becomes a new VERSION of that document (older versions stay available for comparison but are not searched).",
     "operationId": "upload_sources_upload_post",
     "parameters": [
      {
@@ -282,8 +1804,76 @@
      "sources"
     ],
     "summary": "List Sources",
+    "description": "Documents visible to you (current versions; include_versions=true adds superseded ones). Paginated: limit/offset, total in X-Total-Count.",
     "operationId": "list_sources_sources_get",
     "parameters": [
+     {
+      "name": "include_versions",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": false,
+       "title": "Include Versions"
+      }
+     },
+     {
+      "name": "kind",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Kind"
+      }
+     },
+     {
+      "name": "q",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Q"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 200,
+       "minimum": 1,
+       "description": "page size",
+       "default": 50,
+       "title": "Limit"
+      },
+      "description": "page size"
+     },
+     {
+      "name": "offset",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 0,
+       "default": 0,
+       "title": "Offset"
+      }
+     },
      {
       "name": "x-session-id",
       "in": "header",
@@ -379,6 +1969,7 @@
      "sources"
     ],
     "summary": "Delete Source",
+    "description": "Deletes text, chunks, vectors and the original file. Deleting the current version restores the newest older one; all_versions=true removes the document entirely.",
     "operationId": "delete_source_sources__source_id__delete",
     "parameters": [
      {
@@ -388,6 +1979,16 @@
       "schema": {
        "type": "string",
        "title": "Source Id"
+      }
+     },
+     {
+      "name": "all_versions",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": false,
+       "title": "All Versions"
       }
      },
      {
@@ -484,6 +2085,344 @@
     }
    }
   },
+  "/sources/{source_id}/classification": {
+   "get": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Classification",
+    "description": "Document type from a closed taxonomy (contract, invoice, policy, report, ...) with confidence and method (keywords | structure | llm).",
+    "operationId": "classification_sources__source_id__classification_get",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Source Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/sources/{source_id}/timeline": {
+   "get": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Timeline",
+    "description": "Chronological list of dated events (the sentence around every date) with citations.",
+    "operationId": "timeline_sources__source_id__timeline_get",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Source Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/sources/{source_id}/passage": {
+   "get": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Passage",
+    "description": "The extracted text at a citation location (+ the neighbouring passages) - used by the dashboard to preview a cited passage.",
+    "operationId": "passage_sources__source_id__passage_get",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Source Id"
+      }
+     },
+     {
+      "name": "page",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Page"
+      }
+     },
+     {
+      "name": "row",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Row"
+      }
+     },
+     {
+      "name": "sheet",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Sheet"
+      }
+     },
+     {
+      "name": "paragraph",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Paragraph"
+      }
+     },
+     {
+      "name": "line",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Line"
+      }
+     },
+     {
+      "name": "table",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Table"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/sources/{source_id}/pages/{page}/image": {
+   "get": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Page Image",
+    "description": "PNG of a PDF page with the cited text highlighted (PDF sources only; needs PyMuPDF).",
+    "operationId": "page_image_sources__source_id__pages__page__image_get",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Source Id"
+      }
+     },
+     {
+      "name": "page",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Page"
+      }
+     },
+     {
+      "name": "highlight",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 300
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Highlight"
+      }
+     },
+     {
+      "name": "zoom",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "number",
+       "maximum": 3.0,
+       "minimum": 0.5,
+       "default": 1.4,
+       "title": "Zoom"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/sources/{source_id}/reindex": {
    "post": {
     "tags": [
@@ -536,6 +2475,224 @@
     }
    }
   },
+  "/sources/{source_id}/versions": {
+   "get": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Versions",
+    "operationId": "versions_sources__source_id__versions_get",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Source Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/SourceInfo"
+         },
+         "title": "Response Versions Sources  Source Id  Versions Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/sources/{source_id}/make-current": {
+   "post": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Make Current",
+    "description": "Roll back / forward: make this version the searchable one.",
+    "operationId": "make_current_sources__source_id__make_current_post",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Source Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourceInfo"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/sources/{source_id}/sharing": {
+   "get": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Get Sharing",
+    "operationId": "get_sharing_sources__source_id__sharing_get",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Source Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "put": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Set Sharing",
+    "description": "Document-level permissions: 'tenant' (everyone in the organisation), 'private' (owner + admins) or 'restricted' (owner + the listed users/roles + admins).",
+    "operationId": "set_sharing_sources__source_id__sharing_put",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Source Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SharingBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/jobs": {
    "get": {
     "tags": [
@@ -551,8 +2708,20 @@
       "schema": {
        "type": "integer",
        "maximum": 200,
+       "minimum": 1,
        "default": 50,
        "title": "Limit"
+      }
+     },
+     {
+      "name": "offset",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 0,
+       "default": 0,
+       "title": "Offset"
       }
      },
      {
@@ -724,8 +2893,20 @@
       "schema": {
        "type": "integer",
        "maximum": 200,
+       "minimum": 1,
        "default": 50,
        "title": "Limit"
+      }
+     },
+     {
+      "name": "offset",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 0,
+       "default": 0,
+       "title": "Offset"
       }
      },
      {
@@ -808,6 +2989,116 @@
     }
    }
   },
+  "/conversations/{conv_id}": {
+   "patch": {
+    "tags": [
+     "chat"
+    ],
+    "summary": "Patch Conversation",
+    "operationId": "patch_conversation_conversations__conv_id__patch",
+    "parameters": [
+     {
+      "name": "conv_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Conv Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ConversationPatch"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ConversationOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "chat"
+    ],
+    "summary": "Delete Conversation",
+    "operationId": "delete_conversation_conversations__conv_id__delete",
+    "parameters": [
+     {
+      "name": "conv_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Conv Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/conversations/{conv_id}/messages": {
    "get": {
     "tags": [
@@ -848,56 +3139,6 @@
          },
          "title": "Response Messages Conversations  Conv Id  Messages Get"
         }
-       }
-      }
-     },
-     "422": {
-      "description": "Validation Error",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
-        }
-       }
-      }
-     }
-    }
-   }
-  },
-  "/conversations/{conv_id}": {
-   "delete": {
-    "tags": [
-     "chat"
-    ],
-    "summary": "Delete Conversation",
-    "operationId": "delete_conversation_conversations__conv_id__delete",
-    "parameters": [
-     {
-      "name": "conv_id",
-      "in": "path",
-      "required": true,
-      "schema": {
-       "type": "string",
-       "title": "Conv Id"
-      }
-     },
-     {
-      "name": "x-session-id",
-      "in": "header",
-      "required": false,
-      "schema": {
-       "type": "string",
-       "default": "default",
-       "title": "X-Session-Id"
-      }
-     }
-    ],
-    "responses": {
-     "200": {
-      "description": "Successful Response",
-      "content": {
-       "application/json": {
-        "schema": {}
        }
       }
      },
@@ -1362,8 +3603,20 @@
       "schema": {
        "type": "integer",
        "maximum": 100,
+       "minimum": 1,
        "default": 20,
        "title": "Limit"
+      }
+     },
+     {
+      "name": "offset",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 0,
+       "default": 0,
+       "title": "Offset"
       }
      },
      {
@@ -1553,6 +3806,65 @@
     }
    }
   },
+  "/eval/runs/{run_id}/report.{fmt}": {
+   "get": {
+    "tags": [
+     "evaluation"
+    ],
+    "summary": "Evaluation report as PDF, DOCX or XLSX (with the evaluated sources and generation time)",
+    "operationId": "report_file_eval_runs__run_id__report__fmt__get",
+    "parameters": [
+     {
+      "name": "run_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Run Id"
+      }
+     },
+     {
+      "name": "fmt",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Fmt"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/admin/users": {
    "get": {
     "tags": [
@@ -1561,6 +3873,31 @@
     "summary": "Users",
     "operationId": "users_admin_users_get",
     "parameters": [
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 200,
+       "minimum": 1,
+       "description": "page size",
+       "default": 50,
+       "title": "Limit"
+      },
+      "description": "page size"
+     },
+     {
+      "name": "offset",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 0,
+       "default": 0,
+       "title": "Offset"
+      }
+     },
      {
       "name": "x-session-id",
       "in": "header",
@@ -1786,14 +4123,42 @@
       }
      },
      {
+      "name": "outcome",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Outcome"
+      }
+     },
+     {
       "name": "limit",
       "in": "query",
       "required": false,
       "schema": {
        "type": "integer",
        "maximum": 1000,
+       "minimum": 1,
        "default": 100,
        "title": "Limit"
+      }
+     },
+     {
+      "name": "offset",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 0,
+       "default": 0,
+       "title": "Offset"
       }
      },
      {
@@ -1929,6 +4294,153 @@
     }
    }
   },
+  "/admin/tenant-settings": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Tenant Settings",
+    "operationId": "tenant_settings_admin_tenant_settings_get",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TenantSettingsBody"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "put": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Put Tenant Settings",
+    "description": "Retention periods, approved web domains and message redaction for the whole organisation.",
+    "operationId": "put_tenant_settings_admin_tenant_settings_put",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TenantSettingsBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TenantSettingsBody"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/admin/maintenance/run": {
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Run retention sweeps and housekeeping now (dry run by default). Retention only touches YOUR tenant's data.",
+    "description": "Same tasks as the scheduler, restricted to your organisation. Retention periods come from /admin/tenant-settings.",
+    "operationId": "run_maintenance_admin_maintenance_run_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MaintenanceBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/health": {
    "get": {
     "tags": [
@@ -1993,6 +4505,36 @@
  },
  "components": {
   "schemas": {
+   "AskBody": {
+    "properties": {
+     "question": {
+      "type": "string",
+      "maxLength": 2000,
+      "minLength": 1,
+      "title": "Question"
+     },
+     "source_ids": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array",
+        "maxItems": 20
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Ids"
+     }
+    },
+    "type": "object",
+    "required": [
+     "question"
+    ],
+    "title": "AskBody"
+   },
    "AskRequest": {
     "properties": {
      "question": {
@@ -2062,6 +4604,33 @@
        }
       ],
       "description": "Per-request RAG strategy overrides (mode, rewrite, multi_query, hyde, rerank, filters, ...)"
+     },
+     "incognito": {
+      "type": "boolean",
+      "title": "Incognito",
+      "description": "Private question: no history is read, nothing is stored (no conversation, no messages, no memory notes used)",
+      "default": false
+     },
+     "force_route": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "exact",
+         "data",
+         "semantic",
+         "document_search",
+         "summarize",
+         "compare",
+         "web"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Force Route",
+      "description": "Skip routing and use this agent"
      }
     },
     "type": "object",
@@ -2300,6 +4869,11 @@
       "type": "string",
       "title": "Visibility",
       "default": "tenant"
+     },
+     "allow_duplicate": {
+      "type": "boolean",
+      "title": "Allow Duplicate",
+      "default": false
      }
     },
     "type": "object",
@@ -2307,6 +4881,61 @@
      "files"
     ],
     "title": "Body_upload_sources_upload_post"
+   },
+   "ChartBody": {
+    "properties": {
+     "type": {
+      "type": "string",
+      "enum": [
+       "bar",
+       "line"
+      ],
+      "title": "Type"
+     },
+     "title": {
+      "type": "string",
+      "maxLength": 200,
+      "title": "Title",
+      "default": ""
+     },
+     "x_label": {
+      "type": "string",
+      "maxLength": 100,
+      "title": "X Label",
+      "default": ""
+     },
+     "y_label": {
+      "type": "string",
+      "maxLength": 100,
+      "title": "Y Label",
+      "default": ""
+     },
+     "labels": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 60,
+      "title": "Labels"
+     },
+     "series": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "type": "array",
+      "maxItems": 6,
+      "minItems": 1,
+      "title": "Series"
+     }
+    },
+    "type": "object",
+    "required": [
+     "type",
+     "labels",
+     "series"
+    ],
+    "title": "ChartBody"
    },
    "Citation": {
     "properties": {
@@ -2336,6 +4965,36 @@
        }
       ],
       "title": "Score"
+     },
+     "loc": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Loc",
+      "description": "machine-readable location: page / sheet+row / paragraph / line / path ..."
+     },
+     "version": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Version"
+     },
+     "origin": {
+      "type": "string",
+      "title": "Origin",
+      "description": "'document' for your indexed sources, 'web' for external web pages (kept strictly separate)",
+      "default": "document"
      }
     },
     "type": "object",
@@ -2346,6 +5005,33 @@
      "excerpt"
     ],
     "title": "Citation"
+   },
+   "CompareBody": {
+    "properties": {
+     "source_ids": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 6,
+      "minItems": 2,
+      "title": "Source Ids"
+     },
+     "mode": {
+      "type": "string",
+      "enum": [
+       "diff",
+       "contradictions"
+      ],
+      "title": "Mode",
+      "default": "diff"
+     }
+    },
+    "type": "object",
+    "required": [
+     "source_ids"
+    ],
+    "title": "CompareBody"
    },
    "ConversationOut": {
     "properties": {
@@ -2364,6 +5050,11 @@
      "updated_at": {
       "type": "string",
       "title": "Updated At"
+     },
+     "memory_enabled": {
+      "type": "boolean",
+      "title": "Memory Enabled",
+      "default": true
      }
     },
     "type": "object",
@@ -2374,6 +5065,37 @@
      "updated_at"
     ],
     "title": "ConversationOut"
+   },
+   "ConversationPatch": {
+    "properties": {
+     "title": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 200,
+        "minLength": 1
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Title"
+     },
+     "memory_enabled": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Memory Enabled",
+      "description": "False = private conversation: nothing is read from or stored in it from now on"
+     }
+    },
+    "type": "object",
+    "title": "ConversationPatch"
    },
    "EvalCase": {
     "properties": {
@@ -2394,7 +5116,12 @@
        "exact",
        "data",
        "abstain",
-       "intel"
+       "intel",
+       "hindi",
+       "compare",
+       "contradiction",
+       "analytics",
+       "parallel"
       ],
       "title": "Type",
       "default": "semantic"
@@ -2448,6 +5175,22 @@
       ],
       "title": "Expected Value"
      },
+     "expected_sources": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Expected Sources",
+      "default": []
+     },
+     "forbidden_keywords": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Forbidden Keywords",
+      "default": []
+     },
      "answerable": {
       "type": "boolean",
       "title": "Answerable",
@@ -2498,6 +5241,12 @@
       "description": "Evaluate the built-in synthetic corpus in a throw-away workspace instead of your own documents",
       "default": false
      },
+     "extended": {
+      "type": "boolean",
+      "title": "Extended",
+      "description": "with sample=true: the v3 corpus (versions, comparison, contradictions, Hindi, analytics, parallel agents)",
+      "default": false
+     },
      "dataset": {
       "anyOf": [
        {
@@ -2533,6 +5282,84 @@
     "type": "object",
     "title": "EvalRequest"
    },
+   "ExactBody": {
+    "properties": {
+     "term": {
+      "type": "string",
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Term"
+     },
+     "source_ids": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array",
+        "maxItems": 50
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Ids"
+     },
+     "case_sensitive": {
+      "type": "boolean",
+      "title": "Case Sensitive",
+      "default": false
+     },
+     "whole_word": {
+      "type": "boolean",
+      "title": "Whole Word",
+      "default": true
+     }
+    },
+    "type": "object",
+    "required": [
+     "term"
+    ],
+    "title": "ExactBody"
+   },
+   "FactBody": {
+    "properties": {
+     "text": {
+      "type": "string",
+      "maxLength": 600,
+      "minLength": 1,
+      "title": "Text"
+     }
+    },
+    "type": "object",
+    "required": [
+     "text"
+    ],
+    "title": "FactBody"
+   },
+   "FactOut": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "text": {
+      "type": "string",
+      "title": "Text"
+     },
+     "created_at": {
+      "type": "string",
+      "title": "Created At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "text",
+     "created_at"
+    ],
+    "title": "FactOut"
+   },
    "HTTPValidationError": {
     "properties": {
      "detail": {
@@ -2551,6 +5378,17 @@
      "status": {
       "type": "string",
       "title": "Status"
+     },
+     "duplicate_of": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Duplicate Of"
      },
      "name": {
       "type": "string",
@@ -2690,6 +5528,32 @@
      "password"
     ],
     "title": "LoginRequest"
+   },
+   "MaintenanceBody": {
+    "properties": {
+     "tasks": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Tasks",
+      "description": "subset of: retention_documents, retention_conversations, retention_audit, retention_reports, cleanup_jobs, cleanup_tokens (default: all)"
+     },
+     "dry_run": {
+      "type": "boolean",
+      "title": "Dry Run",
+      "default": true
+     }
+    },
+    "type": "object",
+    "title": "MaintenanceBody"
    },
    "MessageOut": {
     "properties": {
@@ -2835,6 +5699,65 @@
     "type": "object",
     "title": "MetadataFilter"
    },
+   "NoSession": {
+    "properties": {
+     "authenticated": {
+      "type": "boolean",
+      "title": "Authenticated",
+      "default": false
+     }
+    },
+    "type": "object",
+    "title": "NoSession"
+   },
+   "PrefsBody": {
+    "properties": {
+     "memory_enabled": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Memory Enabled",
+      "description": "False = every question is private: no history is read, nothing is stored"
+     },
+     "long_term_memory": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Long Term Memory",
+      "description": "True = saved notes relevant to a question are given to the model as context (never as evidence)"
+     }
+    },
+    "type": "object",
+    "title": "PrefsBody"
+   },
+   "PrefsOut": {
+    "properties": {
+     "memory_enabled": {
+      "type": "boolean",
+      "title": "Memory Enabled"
+     },
+     "long_term_memory": {
+      "type": "boolean",
+      "title": "Long Term Memory"
+     }
+    },
+    "type": "object",
+    "required": [
+     "memory_enabled",
+     "long_term_memory"
+    ],
+    "title": "PrefsOut"
+   },
    "PurgeRequest": {
     "properties": {
      "confirm": {
@@ -2847,6 +5770,24 @@
      "confirm"
     ],
     "title": "PurgeRequest"
+   },
+   "RefreshRequest": {
+    "properties": {
+     "refresh_token": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 200
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Refresh Token"
+     }
+    },
+    "type": "object",
+    "title": "RefreshRequest"
    },
    "RelevantRef": {
     "properties": {
@@ -2895,6 +5836,136 @@
     ],
     "title": "RelevantRef",
     "description": "A gold passage: the source file and (optionally) page / sheet / row and a phrase the passage must contain."
+   },
+   "ReportBody": {
+    "properties": {
+     "kind": {
+      "type": "string",
+      "enum": [
+       "summary",
+       "executive",
+       "comparison",
+       "research",
+       "analytics",
+       "exact_search"
+      ],
+      "title": "Kind"
+     },
+     "format": {
+      "type": "string",
+      "enum": [
+       "pdf",
+       "docx",
+       "xlsx"
+      ],
+      "title": "Format",
+      "default": "pdf"
+     },
+     "source_ids": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array",
+        "maxItems": 20
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Ids",
+      "description": "documents to include (default: all accessible, up to 20)"
+     },
+     "params": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Params",
+      "description": "kind-specific: style/section (summary), mode (comparison: diff|contradictions), questions[] (research), term (exact_search), sheet/date_column/value_column/queries[] (analytics)"
+     },
+     "title": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 200
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Title"
+     }
+    },
+    "type": "object",
+    "required": [
+     "kind"
+    ],
+    "title": "ReportBody"
+   },
+   "ReportOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "kind": {
+      "type": "string",
+      "title": "Kind"
+     },
+     "format": {
+      "type": "string",
+      "title": "Format"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "size_bytes": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Size Bytes"
+     },
+     "created_at": {
+      "type": "string",
+      "title": "Created At"
+     },
+     "workspace": {
+      "type": "string",
+      "title": "Workspace"
+     },
+     "owner_id": {
+      "type": "string",
+      "title": "Owner Id"
+     },
+     "download_url": {
+      "type": "string",
+      "title": "Download Url"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "kind",
+     "format",
+     "title",
+     "status",
+     "size_bytes",
+     "created_at",
+     "workspace",
+     "owner_id",
+     "download_url"
+    ],
+    "title": "ReportOut"
    },
    "RetrievalOptions": {
     "properties": {
@@ -3032,6 +6103,18 @@
       ],
       "title": "Cross Lingual"
      },
+     "self_rag": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Self Rag",
+      "description": "Self-RAG loop: retrieve-or-not, passage relevance grading, sentence-level support critique with bounded regeneration"
+     },
      "max_retries": {
       "anyOf": [
        {
@@ -3059,6 +6142,36 @@
     "type": "object",
     "title": "RetrievalOptions",
     "description": "Per-request overrides; anything left unset falls back to the server defaults (MKA_*)."
+   },
+   "SharingBody": {
+    "properties": {
+     "visibility": {
+      "type": "string",
+      "pattern": "^(tenant|private|restricted)$",
+      "title": "Visibility"
+     },
+     "users": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 100,
+      "title": "Users"
+     },
+     "roles": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 3,
+      "title": "Roles"
+     }
+    },
+    "type": "object",
+    "required": [
+     "visibility"
+    ],
+    "title": "SharingBody"
    },
    "SignupRequest": {
     "properties": {
@@ -3257,6 +6370,84 @@
       "type": "string",
       "title": "Visibility",
       "default": "tenant"
+     },
+     "doc_key": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Doc Key"
+     },
+     "version": {
+      "type": "integer",
+      "title": "Version",
+      "default": 1
+     },
+     "is_current": {
+      "type": "boolean",
+      "title": "Is Current",
+      "default": true
+     },
+     "classification": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Classification"
+     },
+     "language": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Language"
+     },
+     "properties": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Properties"
+     },
+     "engine": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Engine"
+     },
+     "content_hash": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Content Hash"
      }
     },
     "type": "object",
@@ -3268,6 +6459,165 @@
      "created_at"
     ],
     "title": "SourceInfo"
+   },
+   "SqlBody": {
+    "properties": {
+     "sql": {
+      "type": "string",
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Sql"
+     },
+     "source_ids": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array",
+        "maxItems": 20
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Ids"
+     },
+     "max_rows": {
+      "type": "integer",
+      "maximum": 2000.0,
+      "minimum": 1.0,
+      "title": "Max Rows",
+      "default": 200
+     }
+    },
+    "type": "object",
+    "required": [
+     "sql"
+    ],
+    "title": "SqlBody"
+   },
+   "SummaryBody": {
+    "properties": {
+     "source_ids": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 10,
+      "minItems": 1,
+      "title": "Source Ids"
+     },
+     "style": {
+      "type": "string",
+      "enum": [
+       "short",
+       "detailed",
+       "executive",
+       "chapter",
+       "section"
+      ],
+      "title": "Style",
+      "default": "detailed"
+     },
+     "section": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 200
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Section",
+      "description": "title (or part of it) for style=section"
+     }
+    },
+    "type": "object",
+    "required": [
+     "source_ids"
+    ],
+    "title": "SummaryBody"
+   },
+   "TenantSettingsBody": {
+    "properties": {
+     "retention_days_documents": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 36500.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Retention Days Documents",
+      "description": "delete documents older than N days (null = keep)"
+     },
+     "retention_days_conversations": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 36500.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Retention Days Conversations"
+     },
+     "retention_days_audit": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 36500.0,
+        "minimum": 30.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Retention Days Audit",
+      "description": "audit trail is never kept for less than 30 days"
+     },
+     "retention_days_reports": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 36500.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Retention Days Reports"
+     },
+     "web_allowed": {
+      "type": "boolean",
+      "title": "Web Allowed",
+      "default": true
+     },
+     "web_allowed_domains": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 200,
+      "title": "Web Allowed Domains",
+      "description": "empty = any public domain; otherwise only these domains (and sub-domains)"
+     },
+     "redact_stored_messages": {
+      "type": "boolean",
+      "title": "Redact Stored Messages",
+      "default": false
+     }
+    },
+    "type": "object",
+    "title": "TenantSettingsBody"
    },
    "TokenResponse": {
     "properties": {
@@ -3283,6 +6633,18 @@
      "expires_in": {
       "type": "integer",
       "title": "Expires In"
+     },
+     "refresh_token": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Refresh Token",
+      "description": "Also set as an httpOnly cookie for browsers; API clients may store it"
      },
      "user": {
       "$ref": "#/components/schemas/UserOut"
@@ -3327,7 +6689,7 @@
      "role": {
       "type": "string",
       "title": "Role",
-      "default": "viewer"
+      "default": "user"
      }
     },
     "type": "object",
@@ -3450,6 +6812,22 @@
      "type"
     ],
     "title": "ValidationError"
+   },
+   "WebBody": {
+    "properties": {
+     "query": {
+      "type": "string",
+      "maxLength": 1000,
+      "minLength": 3,
+      "title": "Query",
+      "description": "question; may contain URLs to read. Without a URL the configured search provider is used"
+     }
+    },
+    "type": "object",
+    "required": [
+     "query"
+    ],
+    "title": "WebBody"
    }
   }
  }

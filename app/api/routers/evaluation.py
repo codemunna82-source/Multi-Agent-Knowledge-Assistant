@@ -29,6 +29,7 @@ STRATEGIES = {
 class EvalRequest(BaseModel):
     name: str = Field(default="", max_length=200)
     sample: bool = Field(default=False, description="Evaluate the built-in synthetic corpus in a throw-away workspace instead of your own documents")
+    extended: bool = Field(default=False, description="with sample=true: the v3 corpus (versions, comparison, contradictions, Hindi, analytics, parallel agents)")
     dataset: Optional[EvalDataset] = Field(default=None, description="Your questions + gold passages (required unless sample=true); evaluated against the current workspace")
     retrieval: Optional[RetrievalOptions] = None
     compare_strategies: bool = False
@@ -50,18 +51,27 @@ def run(body: EvalRequest, ctx: Ctx = Depends(require("evaluate"))):
     if not body.sample and not body.dataset:
         raise HTTPException(422, "Provide `dataset` or set sample=true")
     if body.sample:
-        from ...eval.sample import corpus, dataset
-
         scope = Scope(ctx.principal.tenant_id, f"eval-{Path(tempfile.mktemp()).name[-8:]}")
-        ds = dataset()
         try:
             with tempfile.TemporaryDirectory() as td:
-                for fname, data in corpus().items():
-                    p = Path(td) / fname
-                    p.write_bytes(data)
-                    r = k.ingest_file(scope, p, fname, owner_id=ctx.principal.user_id)
-                    if r["status"] != "ready":
-                        raise HTTPException(500, f"Sample ingestion failed for {fname}: {r['error']}")
+                if body.extended:
+                    from ...eval import extended as ext
+
+                    ds = ext.dataset()
+                    try:
+                        ext.ingest(k, scope, Path(td), ctx.principal.user_id)
+                    except RuntimeError as e:
+                        raise HTTPException(500, str(e))
+                else:
+                    from ...eval.sample import corpus, dataset
+
+                    ds = dataset()
+                    for fname, data in corpus().items():
+                        p = Path(td) / fname
+                        p.write_bytes(data)
+                        r = k.ingest_file(scope, p, fname, owner_id=ctx.principal.user_id)
+                        if r["status"] != "ready":
+                            raise HTTPException(500, f"Sample ingestion failed for {fname}: {r['error']}")
                 rep = run_eval(a, scope, ctx.principal, ds, body.retrieval, None, body.use_llm_judge, body.name)
                 if body.compare_strategies:
                     rep["comparison"] = compare_strategies(a, scope, ctx.principal, ds, STRATEGIES)["comparison"]
@@ -119,3 +129,16 @@ def report_html(run_id: str, ctx: Ctx = Depends(require("evaluate"))):
 @router.get("/runs/{run_id}/report.md", response_class=PlainTextResponse)
 def report_md(run_id: str, ctx: Ctx = Depends(require("evaluate"))):
     return PlainTextResponse(markdown(_get(ctx, run_id)))
+
+
+@router.get("/runs/{run_id}/report.{fmt}", summary="Evaluation report as PDF, DOCX or XLSX (with the evaluated sources and generation time)")
+def report_file(run_id: str, fmt: str, ctx: Ctx = Depends(require("evaluate"))):
+    from ...eval.report import to_doc
+    from ...reports.render import MIME, render
+
+    if fmt not in MIME:
+        raise HTTPException(404, "Formats: html, md, pdf, docx, xlsx")
+    rep = _get(ctx, run_id)
+    doc = to_doc(rep)
+    doc.generated_by = ctx.principal.email or ctx.principal.user_id
+    return Response(render(doc, fmt, ctx.svc.settings.report_font), media_type=MIME[fmt], headers={"Content-Disposition": f'attachment; filename="evaluation_{run_id[:8]}.{fmt}"', "Cache-Control": "no-store"})

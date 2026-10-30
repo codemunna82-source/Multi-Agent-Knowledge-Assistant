@@ -16,8 +16,11 @@ from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, 
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "Multi_Agent_Knowledge_Assistant_Updated_BRD_v2.pdf"
 rep = json.loads((HERE / "eval" / "eval_report.json").read_text())
+ext = json.loads((HERE / "eval" / "eval_report_extended.json").read_text())
+perf = json.loads((HERE / "perf.json").read_text())
 facts = json.loads((HERE / "facts.json").read_text())
 M = rep["metrics"]
+X = ext["metrics"]
 
 ss = getSampleStyleSheet()
 BODY = ParagraphStyle("body", parent=ss["BodyText"], fontName="Helvetica", fontSize=9.2, leading=12.4, alignment=TA_LEFT, spaceAfter=4)
@@ -91,58 +94,91 @@ def _arrow(d, pts, label=None, dashed=False):
         d.add(String(lx, ly, label[0], fontSize=6.5, fillColor=colors.HexColor("#374151")))
 
 
+def _box(d, x, y, w, h, title, sub, fill, fs=7.2):
+    d.add(Rect(x, y, w, h, rx=4, ry=4, fillColor=colors.HexColor(fill), strokeColor=colors.HexColor("#4a5a8a"), strokeWidth=0.7))
+    d.add(String(x + w / 2, y + h - 10.5, title, fontSize=fs, fontName="Helvetica-Bold", textAnchor="middle", fillColor=colors.HexColor("#111827")))
+    for i, ln in enumerate(sub.split("\n")):
+        d.add(String(x + w / 2, y + h - 19.5 - i * 7.6, ln, fontSize=fs - 0.8, textAnchor="middle", fillColor=colors.HexColor("#111827")))
+
+
+def system_diagram():
+    B, G, O, V = "#e8eefc", "#e5f4ea", "#fdf0dc", "#f1e8fb"
+    d = Drawing(520, 250)
+    d.add(String(5, 238, "System context - API tier is stateless; state lives in PostgreSQL, Redis, the vector store and the data volume", fontSize=7.8, fillColor=colors.HexColor("#1f3a93"), fontName="Helvetica-Bold"))
+    _box(d, 5, 150, 92, 58, "React + TypeScript", "14 screens, light/dark\nSSE streaming, charts\ntoken in memory only", B)
+    _box(d, 135, 118, 170, 112, "FastAPI application", "auth - RBAC - tenants - rate limits - audit\nrouters: sources, chat, exact search, summaries,\ncompare, analytics, web, reports, memory,\neval, admin  |  LangGraph agents\n/metrics - OpenTelemetry - request IDs", G)
+    _box(d, 345, 178, 80, 38, "PostgreSQL 16", "users, documents+ACL,\njobs, audit, checkpoints", O)
+    _box(d, 436, 178, 80, 38, "Redis 7", "queue, rate limits,\nscheduler lock", O)
+    _box(d, 345, 128, 80, 38, "Qdrant / Chroma", "vectors (tenant filter\nis mandatory)", O)
+    _box(d, 436, 128, 80, 38, "Data volume", "originals, units, chunks,\ntables, graph, reports", O)
+    _box(d, 135, 36, 80, 40, "Ingestion worker", "python -m app.worker\nOCR, extract, embed", V)
+    _box(d, 225, 36, 80, 40, "Scheduler", "python -m app.scheduler\nretention, housekeeping", V)
+    _box(d, 345, 36, 171, 40, "Optional external services", "OpenAI / Gemini - approved web domains - OTLP collector\nPrometheus - LangSmith (env wiring only)", R_)
+    _arrow(d, [(97, 180), (135, 180)], ("HTTPS", 100, 184))
+    for y in (197, 147):
+        _arrow(d, [(305, y), (345, y)])
+    _arrow(d, [(305, 160), (436, 160), (436, 166)], None)
+    _arrow(d, [(175, 76), (175, 118)])
+    _arrow(d, [(265, 76), (265, 118)])
+    _arrow(d, [(305, 128), (345, 70)], None, dashed=True)
+    return d
+
+
+R_ = "#fbe7e7"
+
+
 def agent_diagram():
     B, G, O, R = "#e8eefc", "#e5f4ea", "#fdf0dc", "#fbe7e7"
-    d = Drawing(520, 262)
-    d.add(String(5, 248, "LangGraph StateGraph - typed, checkpointed state (memory | SQLite | PostgreSQL)", fontSize=8, fillColor=colors.HexColor("#1f3a93"), fontName="Helvetica-Bold"))
-
-    def box(x, y, w, h, title, sub, fill):
-        d.add(Rect(x, y, w, h, rx=4, ry=4, fillColor=colors.HexColor(fill), strokeColor=colors.HexColor("#4a5a8a"), strokeWidth=0.7))
-        d.add(String(x + w / 2, y + h - 11, title, fontSize=7.4, fontName="Helvetica-Bold", textAnchor="middle", fillColor=colors.HexColor("#111827")))
-        for i, ln in enumerate(sub.split("\n")):
-            d.add(String(x + w / 2, y + h - 20 - i * 8, ln, fontSize=6.6, textAnchor="middle", fillColor=colors.HexColor("#111827")))
-
-    box(5, 100, 86, 40, "Supervisor", "rules | LLM tool-call\n(closed route set)", B)
-    ys = {"exact": 205, "semantic": 172, "doc": 139, "data": 106, "sum": 73, "web": 40}
-    agents = [("exact", "Exact Search Agent", "regex over full corpus"), ("semantic", "Semantic Retrieval Agent", "advanced RAG + answer"), ("doc", "Document Search Agent", "exact + semantic, listings"),
-              ("data", "SQL / Pandas Agent", "controlled table ops"), ("sum", "Summarization Agent", "summary, compare, intel"), ("web", "Web Agent", "SSRF-guarded fetch / search")]
-    for k, t, sub in agents:
-        box(125, ys[k], 110, 28, t, sub, G)
-    box(290, 106, 98, 40, "Verification Agent", "citations, numbers,\nsupport, judge, guard", O)
-    box(425, 106, 90, 40, "Final Response", "format, follow-ups,\nlanguage, usage", B)
-    box(290, 36, 98, 30, "retry (bounded)", "re-run same agent,\nstrict extractive", R)
+    d = Drawing(520, 280)
+    d.add(String(5, 268, "LangGraph StateGraph - typed, checkpointed state; every node has timeout, retry, metrics and a trace span", fontSize=7.8, fillColor=colors.HexColor("#1f3a93"), fontName="Helvetica-Bold"))
+    _box(d, 5, 118, 84, 44, "Supervisor", "rules | LLM tool-call\nintent splitting", B)
+    ys = {"exact": 228, "data": 196, "semantic": 164, "doc": 132, "sum": 100, "cmp": 68, "web": 36}
+    names = {"exact": ("Exact Search", "regex, full corpus"), "data": ("Data Analyst", "pandas | SQL | charts"), "semantic": ("Document Agent", "advanced RAG + Self-RAG"), "doc": ("Document Search", "exact + semantic"),
+             "sum": ("Summary Agent", "short/detailed/executive/chapter"), "cmp": ("Comparison Agent", "diff, versions, contradictions"), "web": ("Web Research", "approved sources only")}
+    for k, (t, sub) in names.items():
+        _box(d, 122, ys[k], 118, 28, t, sub, G, 7)
+    _box(d, 290, 118, 100, 44, "Verification", "numbers, citations vs stored\ntext, judge, widen+retry", O)
+    _box(d, 430, 118, 84, 44, "Final Response", "follow-ups, language,\ntrace, usage", B)
+    _box(d, 290, 36, 100, 38, "Parallel branches", "Send x N -> agent +\nverification -> Merge", R)
     for k in ys:
-        _arrow(d, [(91, 120), (125, ys[k] + 14)])
-    for k in ("semantic", "doc", "sum", "web"):
-        _arrow(d, [(235, ys[k] + 14), (290, 126)])
-    _arrow(d, [(388, 126), (425, 126)], ("pass / fail", 389, 131))
-    _arrow(d, [(339, 106), (339, 66)], ("retry", 343, 84), dashed=True)
-    _arrow(d, [(235, ys["exact"] + 14), (470, ys["exact"] + 14), (470, 146)], ("exact: deterministic, no verification needed", 250, ys["exact"] + 18))
-    _arrow(d, [(235, ys["data"] + 14), (262, ys["data"] + 14), (262, 18), (470, 18), (470, 106)], ("data", 400, 21))
-    d.add(String(5, 4, "semantic -> Web Agent when abstained and web fallback is enabled;   data -> Semantic Agent when the question is not about the tables", fontSize=6.4, fillColor=colors.HexColor("#374151")))
+        _arrow(d, [(89, 140), (122, ys[k] + 14)])
+    for k in ("semantic", "doc", "sum", "cmp", "web"):
+        _arrow(d, [(240, ys[k] + 14), (290, 140)])
+    _arrow(d, [(390, 140), (430, 140)], ("pass / fail", 392, 145))
+    _arrow(d, [(340, 118), (340, 74)], ("compound question", 344, 98), dashed=True)
+    _arrow(d, [(240, ys["exact"] + 14), (472, ys["exact"] + 14), (472, 162)])
+    _arrow(d, [(240, ys["data"] + 14), (262, ys["data"] + 14), (262, 188), (455, 188), (455, 162)])
+    _arrow(d, [(390, 55), (472, 55), (472, 118)])
+    d.add(String(5, 6, "semantic -> Web when abstained and fallback is on; data -> Document Agent when the question is not about the tables; verify retry: 1st widened retrieval, then strict extraction", fontSize=6.2, fillColor=colors.HexColor("#374151")))
     return d
 
 
 def rag_diagram():
     B, G, O = "#e8eefc", "#e5f4ea", "#fdf0dc"
-    names = [("Query", "rewrite\n(LLM | merge)", B), ("Variants", "multi-query\nHyDE, x-lingual", B), ("Retrieve", "vector + BM25\nmeta filters", G), ("Fuse", "RRF\n+ graph", G), ("Gate", "relevance\n+ injection", O),
+    names = [("Query", "rewrite\n(LLM | merge)", B), ("Variants", "multi-query\nHyDE, x-lingual", B), ("Retrieve", "vector + BM25\nACL + filters", G), ("Fuse", "RRF\n+ graph", G), ("Gate", "relevance\n+ injection", O),
              ("Parents", "parent-child\nde-dupe", G), ("Rerank", "lexical | LLM\ncross-enc.", G), ("Compress", "verbatim\nsentences", G), ("Grade", "correct | weak\n| incorrect", O)]
-    d = Drawing(500, 112)
+    d = Drawing(500, 150)
     w, h, gap = 48, 38, 7
     for i, (t, sub, c) in enumerate(names):
         x = 3 + i * (w + gap)
-        d.add(Rect(x, 62, w, h, rx=4, ry=4, fillColor=colors.HexColor(c), strokeColor=colors.HexColor("#4a5a8a"), strokeWidth=0.7))
-        d.add(String(x + w / 2, 62 + h - 11, t, fontSize=6.8, fontName="Helvetica-Bold", textAnchor="middle", fillColor=colors.HexColor("#111827")))
+        d.add(Rect(x, 100, w, h, rx=4, ry=4, fillColor=colors.HexColor(c), strokeColor=colors.HexColor("#4a5a8a"), strokeWidth=0.7))
+        d.add(String(x + w / 2, 100 + h - 11, t, fontSize=6.8, fontName="Helvetica-Bold", textAnchor="middle", fillColor=colors.HexColor("#111827")))
         for j, ln in enumerate(sub.split("\n")):
-            d.add(String(x + w / 2, 62 + h - 21 - j * 7.5, ln, fontSize=5.7, textAnchor="middle", fillColor=colors.HexColor("#111827")))
+            d.add(String(x + w / 2, 100 + h - 21 - j * 7.5, ln, fontSize=5.7, textAnchor="middle", fillColor=colors.HexColor("#111827")))
         if i:
-            _arrow(d, [(x - gap, 81), (x, 81)])
-    d.add(Rect(110, 6, 280, 26, rx=4, ry=4, fillColor=colors.HexColor("#fbe7e7"), strokeColor=colors.HexColor("#4a5a8a"), strokeWidth=0.7))
-    d.add(String(250, 21, "Corrective loop (bounded by MAX_RETRIES)", fontSize=6.8, fontName="Helvetica-Bold", textAnchor="middle", fillColor=colors.HexColor("#111827")))
-    d.add(String(250, 12, "weak/incorrect -> reformulate or broaden, retry; still incorrect -> abstain or web fallback", fontSize=5.7, textAnchor="middle", fillColor=colors.HexColor("#111827")))
+            _arrow(d, [(x - gap, 119), (x, 119)])
     last = 3 + 8 * (w + gap) + w / 2
-    _arrow(d, [(last, 62), (last, 19), (390, 19)])
-    _arrow(d, [(110, 19), (27, 19), (27, 62)])
+    d.add(Rect(60, 44, 200, 26, rx=4, ry=4, fillColor=colors.HexColor("#fbe7e7"), strokeColor=colors.HexColor("#4a5a8a"), strokeWidth=0.7))
+    d.add(String(160, 59, "Corrective loop (bounded by MAX_RETRIES)", fontSize=6.8, fontName="Helvetica-Bold", textAnchor="middle", fillColor=colors.HexColor("#111827")))
+    d.add(String(160, 50, "weak/incorrect -> reformulate or broaden, retry", fontSize=5.7, textAnchor="middle", fillColor=colors.HexColor("#111827")))
+    _arrow(d, [(last, 100), (last, 57), (260, 57)])
+    _arrow(d, [(60, 57), (27, 57), (27, 100)])
+    d.add(Rect(290, 8, 210, 40, rx=4, ry=4, fillColor=colors.HexColor("#f1e8fb"), strokeColor=colors.HexColor("#4a5a8a"), strokeWidth=0.7))
+    d.add(String(395, 37, "Self-RAG (optional, per request)", fontSize=6.8, fontName="Helvetica-Bold", textAnchor="middle", fillColor=colors.HexColor("#111827")))
+    d.add(String(395, 28, "retrieve-or-not -> passage relevance -> answer", fontSize=5.7, textAnchor="middle", fillColor=colors.HexColor("#111827")))
+    d.add(String(395, 20, "-> sentence-level support critique -> bounded regeneration", fontSize=5.7, textAnchor="middle", fillColor=colors.HexColor("#111827")))
+    d.add(String(395, 12, "-> drop unsupported statements | verbatim fallback", fontSize=5.7, textAnchor="middle", fillColor=colors.HexColor("#111827")))
+    _arrow(d, [(last, 57), (last, 48), (440, 48)], None, dashed=True)
     return d
 
 
@@ -150,303 +186,237 @@ def header_footer(canvas, doc):
     canvas.saveState()
     canvas.setFont("Helvetica", 7.5)
     canvas.setFillColor(colors.HexColor("#6b7280"))
-    canvas.drawString(18 * mm, 10 * mm, "Multi-Agent Knowledge Assistant - Business Requirements Document v2.0")
+    canvas.drawString(18 * mm, 10 * mm, "Multi-Agent Knowledge Assistant - Business Requirements Document v2.1 (supersedes v2.0)")
     canvas.drawRightString(A4[0] - 18 * mm, 10 * mm, f"Page {doc.page}")
     canvas.restoreState()
 
 
+def ms(v):
+    return "n/a" if v is None else f"{v:,.0f} ms"
+
+
+pf, cv = perf["pdf"], perf["csv"]
+A, AG = M["answers"], X["agents"]
 S: list = []
-S += [Spacer(1, 40 * mm), p("BUSINESS REQUIREMENTS DOCUMENT", ParagraphStyle("k", parent=BODY, fontSize=10, textColor=colors.HexColor("#6b7280"))), p("Multi-Agent Knowledge Assistant", TITLE),
-      p("Enterprise-grade Multi-Agent Knowledge Intelligence Platform", ParagraphStyle("st", parent=BODY, fontSize=13, leading=17, textColor=colors.HexColor("#243b6b"))), Spacer(1, 8 * mm),
-      p("<b>Version 2.0</b> (supersedes v1.0 of 29 October 2026) &nbsp;|&nbsp; <b>Date:</b> 30 October 2026"),
-      p("<b>Technology:</b> Python 3.12, FastAPI, LangGraph, LangChain-compatible tooling, OpenAI / Gemini (optional), PostgreSQL, Qdrant (production) / ChromaDB (development), Redis, React + TypeScript, Docker"), Spacer(1, 6 * mm),
-      table([["Document purpose", "Define the business goals, users, scope, functional and non-functional requirements, architecture, security, evaluation and acceptance criteria for the upgraded platform, and record - honestly - which requirements are implemented, how they were verified, and what remains."],
-             ["How to read the status labels", f'{status("T")}: implemented and covered by automated tests that were executed. {status("P")}: implemented, but a dependency (live LLM API, GPU model, container runtime, external server) was not available in the verification environment, so only the stated part was tested. {status("N")}: not implemented.']],
-            [38, 132], header=False, zebra=False),
-      Spacer(1, 6 * mm), p("<b>Revision history</b>"), table([["Version", "Date", "Change"], ["1.0", "29 Oct 2026", "Initial BRD: PDF/CSV/XLSX/DOCX/TXT/MD/JSON/URL ingestion, hybrid search, exact counts, table analysis, LangGraph routing."],
-                                                              ["2.0", "30 Oct 2026", "Enterprise upgrade: multi-tenant auth and RBAC, PostgreSQL/Qdrant/Redis architecture, background workers, advanced RAG, 8-agent supervisor graph with verification, document intelligence, knowledge graph, evaluation framework, React dashboard, security hardening, Docker/CI."]], [18, 24, 128]),
+# ------------------------------------------------------------------ cover
+S += [Spacer(1, 38 * mm), p("BUSINESS REQUIREMENTS DOCUMENT", ParagraphStyle("k", parent=BODY, fontSize=10, textColor=colors.HexColor("#6b7280"))), p("Multi-Agent Knowledge Assistant", TITLE),
+      p("Enterprise AI Knowledge &amp; Research Platform", ParagraphStyle("st", parent=BODY, fontSize=13, leading=17, textColor=colors.HexColor("#243b6b"))), Spacer(1, 7 * mm),
+      p("<b>Version 2.1</b> (supersedes v2.0 of 30 October 2026 and v1.0 of 29 October 2026) &nbsp;|&nbsp; <b>Date:</b> 30 October 2026"),
+      p("<b>Technology:</b> Python 3.12, FastAPI, LangGraph, SQLAlchemy + Alembic, PyMuPDF, pandas, PostgreSQL 16, Redis 7, Qdrant / ChromaDB, OpenAI / Gemini (optional), React + TypeScript, Prometheus, OpenTelemetry"), Spacer(1, 5 * mm),
+      table([["Purpose", "Define goals, users, scope, requirements, architecture, security, evaluation and acceptance criteria of the platform, and record - requirement by requirement - what is implemented, how it was verified and what is not."],
+             ["Status labels", f'{status("T")}: implemented and covered by automated tests that were executed. {status("P")}: implemented, but a dependency (live LLM API, model download, container runtime, external server) was not available in the verification environment, so only the stated part was tested. {status("N")}: not implemented.'],
+             ["What changed in v2.1", "Alembic migrations and a PostgreSQL document registry (versions, ACL); PyMuPDF engine, XLS/HTML, duplicate detection and versioning; classification, timeline, page previews; data-analyst toolkit with a sandboxed SQL engine and charts; Comparison Agent, contradiction detection, Self-RAG, citation validation; parallel agents, timeouts, metrics, tracing, retention scheduler; reports in PDF/DOCX/XLSX; user-controlled memory; refresh tokens and roles user/manager/admin; full 14-screen UI; extended evaluation and performance measurements."]],
+            [30, 140], header=False, zebra=False),
+      Spacer(1, 5 * mm), p("<b>Revision history</b>"), table([["Version", "Date", "Change"], ["1.0", "29 Oct 2026", "Initial BRD: multi-format ingestion, hybrid search, exact counts, table analysis, LangGraph routing."],
+                                                              ["2.0", "30 Oct 2026", "Multi-tenant auth and RBAC, PostgreSQL/Qdrant/Redis, background workers, advanced RAG, 8-agent graph with verification, evaluation harness, React dashboard, Docker/CI."],
+                                                              ["2.1", "30 Oct 2026", "Enterprise research platform upgrade (this document). Requirements are traced to code and tests in docs/REQUIREMENTS_TRACE.md."]], [16, 24, 130]),
       PageBreak()]
 
-# ------------------------------------------------------------------ 1. Executive summary
+# ------------------------------------------------------------------ 1 executive summary + verification
 S += [p("1. Executive Summary", H1),
-      p("The Multi-Agent Knowledge Assistant lets people upload large, mixed-format document collections (or point at public web pages), ask questions in natural language and receive concise answers backed by verifiable evidence - file, page, sheet and row, section, or URL. "
-        "Version 1 delivered the core: multi-format ingestion, hybrid retrieval, exact full-corpus search with occurrence counts, controlled spreadsheet analysis and a LangGraph router. Version 2 turns it into a multi-tenant platform: "
-        "authenticated users with roles, isolated tenants, durable background ingestion, a production data tier, an advanced retrieval pipeline, a supervisor with eight cooperating agents and a verification step, document intelligence, a measurable evaluation harness and a dashboard."),
-      p("<b>Design principles that shape every requirement</b>")] + bullets([
-    "<b>Evidence or abstention.</b> Every answer cites its sources; when evidence is insufficient the system says so instead of guessing.",
-    "<b>Code computes, models explain.</b> Occurrence counts and spreadsheet figures are produced by deterministic code over the complete data; an LLM, when configured, only phrases grounded answers and may never execute code or SQL.",
-    "<b>Documents are data, never instructions.</b> Retrieved text is fenced, scanned and filtered; tools are a closed whitelist.",
-    "<b>Isolation by construction.</b> Tenant and workspace are part of every storage address; access control is enforced below the API layer.",
-    "<b>Measure, don't assume.</b> Retrieval and answer quality, latency, tokens and cost are measured by a built-in evaluation harness.",
-    "<b>Honest status.</b> This document distinguishes implemented-and-tested from untested and pending."])
-S += [p("<b>Verification summary (executed on 30 Oct 2026)</b>", H2), table([["Suite", "Result", "Scope"],
-      ["Backend (pytest)", f'{facts["pytest_passed"]} passed, 0 failed', "ingestion, OCR, security, auth/RBAC/tenancy, RAG pipeline, agents, data ops, intelligence, evaluation, PostgreSQL, Redis, Qdrant (embedded), ChromaDB"],
-      ["Frontend (Vitest)", f'{facts["vitest_passed"]} passed', "API client (incl. SSE), chat, documents, login, role gating, report view, XSS escaping"],
-      ["End-to-end (Playwright)", f'{facts["e2e_steps"]} / {facts["e2e_steps"]} steps passed', "real server + built React app + headless Chromium: sign-up, upload, ask (semantic/exact/table), filters, history, evaluation, admin, viewer role"],
-      ["Production-shaped smoke", f'{facts["prod_smoke_steps"]} / {facts["prod_smoke_steps"]} checks passed', "separate API and worker processes, PostgreSQL (data + LangGraph checkpoints), Redis queue, CLI tenant bootstrap, production-mode config validation"],
-      ["Static checks", "ruff clean; tsc strict clean", "backend lint; frontend type-check and production build"]], [38, 38, 94]),
-      p("Not verifiable in the build environment (see Appendix A): live OpenAI/Gemini calls, a Qdrant <i>server</i> (embedded mode was tested), the Docker build, GitHub Actions execution, RAGAS, a cross-encoder model.", SMALL), PageBreak()]
+      p("The platform lets people upload large, mixed-format document collections (or point at approved web pages), ask questions in natural language and receive answers backed by verifiable evidence - file, version, page, sheet and row, section or URL. "
+        "Version 2.1 adds what an enterprise research workflow needs on top of v2.0: a document registry with versions and sharing, deeper ingestion (PyMuPDF, XLS, HTML, duplicates, classification, timelines), a data-analyst toolkit with a sandboxed SQL engine, "
+        "document comparison with change and contradiction detection, a Self-RAG loop and citation validation, parallel multi-agent answers, report generation in PDF/DOCX/XLSX, user-controlled memory, retention and observability."),
+      p("<b>Design principles</b>")] + bullets([
+    "<b>Evidence or abstention.</b> Answers cite their sources; every citation is re-checked against the stored text (page/row exists, excerpt is there). Insufficient evidence yields an explicit 'could not verify'.",
+    "<b>Code computes, models explain.</b> Counts and figures come from deterministic code (pandas, a read-only SQL sandbox) over the complete data. No generated code or SQL is ever executed outside the sandbox's authorizer.",
+    "<b>Documents are data, never instructions.</b> Retrieved text is fenced and scanned; the tool set is closed; HyDE text is never evidence; web evidence is kept apart from document evidence.",
+    "<b>Isolation by construction.</b> Tenant, workspace and document ACL are enforced below the API layer; hidden documents are indistinguishable from missing ones.",
+    "<b>Measure, then claim.</b> Quality, latency, cost, citation accuracy, agent success and tool failures are measured; limits are documented with numbers.",
+    "<b>Honest status.</b> Implemented-and-tested, partly tested and pending are labelled per requirement."])
+S += [p("<b>Verification summary (executed 30 Oct 2026 in the build environment)</b>", H2), table([["Suite", "Result", "Scope"],
+      ["Backend (pytest)", f'{facts["pytest_passed"]} passed, 0 failed ({facts["pytest_skipped"]} skipped)', "ingestion incl. a 1,000-page PDF, OCR, migrations, registry/versions/ACL, auth/refresh/roles, RAG, agents, analytics + SQL sandbox, comparison, Self-RAG, reports, memory, metrics/tracing, scheduler, evaluation; real PostgreSQL 16 and Redis 7"],
+      ["Frontend (Vitest)", f'{facts["vitest_passed"]} passed', "all screens with mocked HTTP: dashboard, library, exact search, comparison, analyst + charts, reports, history, settings, preview, SSE, token refresh, XSS escaping"],
+      ["End-to-end (Playwright)", f'{facts["e2e_steps"]} / {facts["e2e_steps"]} steps', "real server + built app + headless Chromium: sign-up, silent refresh, upload, duplicate and version flow, cited answers, exact search with PDF page preview, parallel answer, incognito, comparison, analyst, PDF report download, theme persistence, admin, role gating"],
+      ["Production-shaped smoke", f'{facts["prod_smoke_steps"]} / {facts["prod_smoke_steps"]} checks', "separate API and worker processes, PostgreSQL (data + checkpoints), Redis, CLI tenant bootstrap, production-mode validation, Alembic migrations at start"],
+      ["Static checks", "ruff clean; tsc --strict clean; alembic check clean", "lint, type-check, production bundle, migrations match the models"],
+      ["Backup / restore", "executed", "pg_dump + data volume -> empty database -> restore -> login and question answered"]], [34, 42, 94]),
+      p("Not verifiable here (Appendix A): live OpenAI/Gemini calls, a Qdrant <i>server</i>, the Docker build and Compose run, GitHub Actions, RAGAS, a cross-encoder model, LangSmith, delivery of spans to an OTLP collector.", SMALL), PageBreak()]
 
-# ------------------------------------------------------------------ 2-5
-S += [p("2. Business Problem and Opportunity", H1)] + bullets([
-    "Large files hold hundreds or thousands of pages; manual review is slow and error-prone.",
-    "Teams need one search across different formats (PDF, spreadsheets, Word, web) without opening each file.",
-    "Purely semantic search misses exact names, IDs, dates and cannot count occurrences; spreadsheet questions need calculation, not similarity.",
-    "Answers are only useful if users can verify where they came from; unverifiable answers are a compliance and trust risk.",
-    "Enterprises require identity, role-based access, tenant isolation, audit trails, rate limiting and data deletion before they can adopt AI search on confidential documents.",
-    "Operators need to know quality, latency and cost - and to detect regressions when models or settings change."])
-S += [p("3. Business Objectives", H1)] + bullets([
-    "<b>BO-1</b> Answer plain-language questions over large mixed-format collections with citations (file, page, sheet/row, section, URL).",
-    "<b>BO-2</b> Provide reliable exact search with complete occurrence counts and page/row locations over the entire extracted corpus.",
-    "<b>BO-3</b> Provide correct, controlled calculations on CSV/Excel (filter, sort, group, aggregate, duplicates, comparison) without executing generated code.",
-    "<b>BO-4</b> Deliver document intelligence: summaries, cross-document comparison, entity and table extraction, question generation, follow-ups, multilingual retrieval, knowledge graph.",
-    "<b>BO-5</b> Operate as a secure multi-tenant service: JWT authentication, RBAC, document-level access control, audit logging, rate limiting, deletion.",
-    "<b>BO-6</b> Scale ingestion and search through background workers, PostgreSQL, Redis and Qdrant.",
-    "<b>BO-7</b> Make quality measurable (Recall@K, Precision@K, MRR, faithfulness, answer relevancy, latency, tokens, cost) and expose it in a dashboard.",
-    "<b>BO-8</b> Make uncertainty and missing evidence visible: confidence levels, limitations, and explicit 'could not verify' responses."])
-S += [p("4. Stakeholders and Users", H1), table([["Stakeholder / role", "Needs", "Platform role"],
-      ["End user / analyst", "Ask questions, check evidence, export findings", "viewer (ask, read) or editor (also upload, re-index, delete own)"],
-      ["Knowledge manager", "Curate sources, share or restrict documents, evaluate quality", "editor; document visibility 'organisation' or 'private'"],
-      ["Tenant administrator", "Manage users and roles, review audit log, settings, erase data", "admin"],
-      ["Platform operator / developer", "Deploy, configure providers and stores, monitor, upgrade", "environment configuration, CLI, worker, CI/CD"],
-      ["Security / compliance reviewer", "Review isolation, audit trail, retention and deletion, injection and SSRF defences", "read-only review of this BRD, audit log, security tests"],
-      ["Business owner", "Priorities, acceptable cost, success measures", "evaluation dashboard (accuracy, latency, cost/query)"]], [40, 70, 60])]
-S += [p("5. Scope", H1), p("<b>5.1 In scope (v2)</b>", H2)] + bullets([
-    "Multi-format ingestion with OCR; background ingestion jobs with progress; re-index and delete.", "Advanced RAG, eight-agent LangGraph workflow, verification and bounded retries, conversational memory, streaming.",
-    "Structured data analysis; document intelligence; knowledge graph and Graph RAG; image files via OCR and optional vision captions; voice queries.",
-    "Authentication, RBAC, multi-tenancy, audit, rate limiting, data deletion; PostgreSQL, Redis, Qdrant/ChromaDB; Docker and CI/CD; React dashboard; evaluation harness and reports."])
-S += [p("<b>5.2 Out of scope / explicitly not claimed</b>", H2)] + bullets([
-    "Guaranteed accuracy of OCR on poor scans or handwriting; understanding of images embedded inside PDFs (only standalone image files are indexed).", "Autonomous execution of code, SQL or actions found in documents or prompts (permanently excluded).",
-    "SSO / OIDC / SAML, MFA, password-reset e-mail, SCIM; legal or certification-level compliance guarantees (SOC 2, ISO 27001, GDPR attestations).", "Relation-type extraction for the knowledge graph (edges are sentence-level co-mentions); real-time collaborative editing.",
-    "Horizontal scaling of document storage without a shared volume or object store (see Risks)."]) + [PageBreak()]
+# ------------------------------------------------------------------ 2-5 business
+S += [p("2. Business Problem and Objectives", H1)] + bullets([
+    "Collections reach hundreds or thousands of pages; manual review is slow, and keyword search alone cannot count, compare or reason across files.",
+    "Semantic search misses exact names and IDs; spreadsheets need calculation, not similarity; contracts and policies change between versions and teams need to see exactly what changed.",
+    "Answers are only useful when verifiable; unverifiable answers are a compliance and trust risk.",
+    "Enterprises need identity, roles, tenant isolation, document-level sharing, audit, retention and deletion before adopting AI search on confidential material."])
+S += [p("<b>Objectives</b>", H2)] + bullets([
+    "<b>BO-1</b> Cited answers over large mixed-format collections.", "<b>BO-2</b> Exact search with complete counts and page/row locations.", "<b>BO-3</b> Reliable calculations on tables (pandas, read-only SQL, charts, trends, anomalies).",
+    "<b>BO-4</b> Document intelligence: summaries, comparison and change detection, contradictions, classification, timelines, entities, tables, multilingual (incl. Hindi) retrieval.",
+    "<b>BO-5</b> Secure multi-tenant service: JWT + refresh tokens, roles, document ACL, audit, rate limits, retention and deletion.",
+    "<b>BO-6</b> Scalable operation: background ingestion, PostgreSQL, Redis, Qdrant, scheduler, metrics and tracing.",
+    "<b>BO-7</b> Measurable quality: Recall@K, Precision@K, MRR, citation accuracy, agent success, failed tool calls, latency, tokens, cost.", "<b>BO-8</b> Reports people can share (PDF/DOCX/XLSX) with sources and timestamps."])
+S += [p("3. Stakeholders and Roles", H1), table([["Role", "Needs", "Platform permissions"],
+      ["User", "Ask, search, summarise, compare, analyse data, generate reports, manage own memory", "ask, read, search, summarize, compare, analytics, web, report, memory"],
+      ["Manager", "Curate sources, share documents, run evaluations", "user + ingest (upload, URL, re-index, versions), share, delete own, evaluate"],
+      ["Administrator", "Users and roles, audit, organisation policy (retention, web allow-list, redaction), erase data", "manager + manage users, audit, settings, purge, delete any"],
+      ["Operator", "Deploy, monitor, back up, upgrade", "environment configuration, CLI, worker, scheduler, /metrics"],
+      ["Security / compliance", "Isolation, audit, retention, injection and SSRF defences", "review this BRD, audit log, security tests"]], [28, 72, 70])]
+S += [p("4. Scope", H1), p("<b>4.1 In scope</b>", H2)] + bullets([
+    "Ingestion of PDF, DOCX, TXT, MD, CSV, XLSX, XLS, JSON, HTML files, URLs and image files (OCR); duplicates, versions, re-index, delete.", "Advanced RAG with Self-RAG option; supervisor with Exact, Document, Data Analyst, Summary, Comparison, Web and Verification agents; parallel execution.",
+    "Reports (PDF/DOCX/XLSX); user-controlled memory; roles, refresh tokens, document sharing; retention; metrics, tracing; React UI; evaluation harness; operations documentation."])
+S += [p("<b>4.2 Out of scope / not claimed</b>", H2)] + bullets([
+    "Execution of code or SQL found in documents or prompts (permanently excluded).", "SSO / OIDC / SAML, MFA, SCIM; compliance certifications.", "Reading values out of chart images; understanding images embedded inside PDFs; relation-type extraction for the knowledge graph (edges are co-mentions).",
+    "Neo4j or another graph database; native object storage (a shared volume is used); Celery (the built-in Redis queue is used - decision D1); PaddleOCR (Tesseract is used - D3).",
+    "Correct PDF layout of Hindi/Arabic text in generated PDF reports (use DOCX/XLSX)."]) + [PageBreak()]
 
-# ------------------------------------------------------------------ 6 input formats
-S += [p("6. Input Formats", H1), p("Every extracted unit carries a location so that citations, filters and exact-search results can point to the original source."),
+# ------------------------------------------------------------------ 5 inputs
+S += [p("5. Input Formats", H1), p("Every extracted unit carries a location so citations, filters and exact-search results point to the source. Content is validated before parsing (extension allow-list, magic bytes, zip-bomb and macro checks, size and page limits)."),
       table([["Format", "Handling", "Evidence preserved", "Status"],
-             ["PDF", "Per-page text (pypdf); OCR fallback for scanned pages (Tesseract, MKA_OCR_ENABLED); bookmarks become section metadata; ruled tables extracted structurally (pdfplumber); page cap.", "file name, document ID, page, section (when bookmarks exist)", status("T", "OCR tested with a generated scanned PDF")],
-             ["CSV / Excel (.xlsx)", "Row units for search; full table kept for analysis; header = first non-empty row; encodings and delimiters sniffed.", "file name, sheet, spreadsheet row number, column names", status("T")],
-             ["DOCX", "Paragraphs and tables in document order; headings tracked as sections; macros rejected.", "file name, paragraph / table + row, section", status("T")],
-             ["TXT / Markdown", "Paragraph blocks; Markdown headings tracked.", "file name, line, section", status("T")],
-             ["JSON", "Leaf values flattened to JSON paths.", "file name, JSON path", status("T")],
-             ["Public web URL", "SSRF-guarded fetch (resolve once, connect by IP, verified SNI), readable-text extraction, HTML tables, canonical URL kept.", "URL, title, section", status("T", "TLS pinning tested with a local TLS server")],
-             ["Images (PNG/JPEG/TIFF/WebP)", "OCR text; optional caption from a vision-capable LLM (MKA_VISION_CAPTIONS).", "file name, 'image (OCR)' / 'image caption'", status("P", "OCR tested; captions tested with a scripted model only")]],
-            [28, 74, 40, 28]),
-      p("<b>Validation before parsing</b>: extension allow-list, magic-byte / container checks (PDF header, OOXML structure, image signatures, no binary data in text formats), zip-bomb limits, macro rejection, size limit, PDF page limit, filename sanitisation.", SMALL), PageBreak()]
+             ["PDF", "PyMuPDF (unclipped text so off-page glyphs are kept) with pypdf/pdfplumber fallback; bookmarks or font-size headings as sections; ruled tables; OCR for scanned pages; document properties.", "file, version, page, section", status("T", "1,000 pages tested")],
+             ["CSV / XLSX / XLS", "Typed pandas tables for analysis, row units for search; header detection; encodings sniffed.", "file, sheet, row, column names", status("T")],
+             ["DOCX", "Paragraphs and tables in order, headings as sections, macros rejected, properties.", "paragraph / table + row, section", status("T")],
+             ["HTML files, URLs", "Readable text and tables; SSRF-guarded fetch with pinned IP and SNI.", "URL or paragraph, title, section", status("T")],
+             ["TXT / MD / JSON", "Paragraphs / headings / flattened JSON paths; BOM, UTF-8, charset detection, cp1252 fallback.", "line, section, JSON path", status("T")],
+             ["Images", "Tesseract OCR; optional vision caption.", "'image (OCR)' / 'image caption'", status("P", "captions: scripted model only")]], [26, 74, 42, 28]),
+      p("Identity: the sha256 of the file decides. An identical file is refused (existing document returned, unless explicitly allowed); the same name with new content becomes version N+1; older versions are kept for comparison and rollback but are not searched.", SMALL), PageBreak()]
 
-# ------------------------------------------------------------------ 7 functional requirements
+# ------------------------------------------------------------------ 6 functional requirements
 FR = [
-    ("FR-01", "File upload", "Accept supported files, validate type/size, return per-file ingestion status; multi-file; synchronous or queued.", "T", "Must"),
-    ("FR-02", "Web ingestion", "Public HTTP(S) URL with canonical URL retained; private/local/redirect-to-private targets blocked; DNS-rebinding-safe.", "T", "Must"),
-    ("FR-03", "Content extraction & metadata", "Pages, sheets/rows, sections, URLs, document IDs preserved for every unit; tables extracted as structured data.", "T", "Must"),
-    ("FR-04", "Chunking & indexing", "Chunks never cross page/sheet/table/section boundaries; embeddings stored in the configured vector store with tenant/workspace scope.", "T", "Must"),
-    ("FR-05", "Exact search", "Literal name/ID/phrase search over the complete extracted corpus; documented matching rules; total count, file, page numbers, excerpts; not top-K limited.", "T", "Must"),
-    ("FR-06", "Semantic search", "Vector retrieval of conceptually relevant passages with source excerpts.", "T", "Must"),
-    ("FR-07", "Structured data analysis", "Controlled pandas operations: filter, sort/top-N, group, sum, mean, median, min/max, distinct, duplicates, two-table comparison; never executes generated code.", "T", "Must"),
-    ("FR-08", "Multi-agent routing", "Supervisor routes to Exact, Semantic, Document Search, Web, SQL/Pandas, Summarization agents; rules by default, optional validated LLM tool-calling.", "T", "Must"),
-    ("FR-09", "Evidence-based answers", "Answers carry citations and excerpts; insufficient evidence yields an explicit 'could not verify' (verified=false).", "T", "Must"),
-    ("FR-10", "Cross-source questions", "Per-source retrieval and side-by-side comparison; LLM match/conflict analysis when configured.", "P", "Should"),
-    ("FR-11", "Conversation context", "Per-conversation memory (window + rolling summary), follow-up resolution, isolation between users.", "T", "Should"),
-    ("FR-12", "Error handling", "Clear errors for unsupported/corrupt/empty files, invalid URLs, provider errors, indexing failures; no partial ingestion.", "T", "Must"),
-    ("FR-13", "Re-ingestion and removal", "Re-index and delete a source; text, chunks, vectors and original removed consistently.", "T", "Should"),
-    ("FR-14", "API access", "Documented FastAPI endpoints (OpenAPI), typed schemas, request IDs.", "T", "Must"),
-    ("FR-15", "Advanced RAG", "Semantic, BM25 and hybrid search; query rewriting; multi-query; HyDE; metadata filtering; parent-child retrieval; contextual compression; reranking; corrective RAG - each configurable globally and per request.", "P", "Must"),
-    ("FR-16", "Supervisor and agents", "LangGraph StateGraph with typed state, conditional edges, tool registry (validated arguments), checkpointing, bounded retries, session memory; eight agents including Verification and Final Response.", "T", "Must"),
-    ("FR-17", "Verification", "Citation-marker, number-grounding, lexical-support and optional LLM-judge checks; bounded retries; verbatim fallback; output guard against prompt leaks and exfiltration URLs.", "T", "Must"),
-    ("FR-18", "OCR", "Scanned PDF pages and image files read with Tesseract; OCR'd pages are flagged in warnings.", "T", "Must"),
-    ("FR-19", "Document intelligence", "Summaries (map-reduce), entity extraction (heuristic + verbatim-validated LLM), table extraction, question generation, follow-up suggestions, language detection, multilingual answering and cross-lingual retrieval.", "P", "Should"),
-    ("FR-20", "Knowledge graph / Graph RAG", "Sentence-level entity co-occurrence graph per accessible documents; neighbour/path queries; optional retrieval expansion.", "T", "Could"),
-    ("FR-21", "Multimodal and voice", "Image OCR/captions; voice via browser speech recognition or server-side transcription.", "P", "Could"),
-    ("FR-22", "Streaming", "Server-Sent Events: real graph progress steps, answer pieces, final structured response.", "P", "Should"),
-    ("FR-23", "Background ingestion", "Durable jobs with progress, idempotent claim, bounded retries for transient failures, in-process or Redis workers.", "T", "Must"),
-    ("FR-24", "Authentication & RBAC", "JWT (bcrypt passwords, revocation), roles viewer/editor/admin, role changes effective immediately, last-admin protection.", "T", "Must"),
-    ("FR-25", "Multi-tenancy & document ACL", "Tenant+workspace isolation at storage, vector and graph level; 'private' documents visible to owner and admins only.", "T", "Must"),
-    ("FR-26", "Audit logging", "Append-only audit events with request ID, user, IP, outcome; question text never stored (hash + length only).", "T", "Must"),
-    ("FR-27", "Rate limiting", "Per-user/IP limits for ask, ingest, auth; shared across replicas via Redis; 429 with Retry-After.", "T", "Must"),
-    ("FR-28", "Data deletion", "Delete source, conversation, workspace; admin purge of all tenant data with typed confirmation.", "T", "Must"),
-    ("FR-29", "Evaluation", "Recall@K, Precision@K, nDCG, MRR, routing/count/data/abstention accuracy, faithfulness and relevancy (proxy and LLM-judge), RAGAS adapter, latency, tokens, cost; dashboard and reports; strategy comparison.", "P", "Must"),
-    ("FR-30", "Web dashboard", "React + TypeScript: login, multi-upload with progress, document management, chat with citations and filters, history, evaluation dashboard, admin.", "T", "Must"),
+    ("Ingestion", [
+        ("FR-01", "Formats", "PDF, DOCX, TXT, MD, CSV, XLSX, XLS, JSON, HTML, URLs, scanned PDF and PNG/JPG with OCR.", "T"),
+        ("FR-02", "Large documents", "1,000+ page PDFs ingest in the background with progress; counts stay exact.", "T"),
+        ("FR-03", "Duplicates and versions", "Content hash duplicate refusal; versions; make-current rollback; change detection between versions.", "T"),
+        ("FR-04", "Resilience", "Corrupt, truncated, empty, binary, wrong-extension files fail cleanly with a reason; nothing partial is stored.", "T"),
+        ("FR-05", "Metadata", "Page, sheet, row, paragraph, section, URL, properties, language, classification, content hash.", "T"),
+        ("FR-06", "Delete and re-index", "Delete removes text, chunks, vectors, original; optional all versions; re-index in place.", "T")]),
+    ("Document intelligence", [
+        ("FR-10", "Exact search", "Full-corpus literal search: counts per document, pages, excerpts, pagination; documented matching rules; CJK/Thai substring rules.", "T"),
+        ("FR-11", "Summaries", "Short, detailed, executive, chapter-by-chapter and named-section summaries over the whole document.", "T"),
+        ("FR-12", "Comparison and change detection", "Sentence alignment with number changes between documents and between versions.", "T"),
+        ("FR-13", "Contradiction detection", "Numeric / negation / antonym candidates across documents; LLM confirmation when configured.", "P"),
+        ("FR-14", "Entities, classification, timeline, tables", "Heuristic entities (+ verbatim-validated LLM), closed-taxonomy classification, chronological events with citations, structured table extraction.", "T"),
+        ("FR-15", "Cross-document QA", "Evidence from every relevant document is included; no multi-hop reasoning.", "P"),
+        ("FR-16", "Multilingual / Hindi", "Unicode tokenisation, Hindi stop-words and routing keywords, Hindi table questions, Hindi summaries; PDF reports do not shape Devanagari.", "P"),
+        ("FR-17", "Reports", "Summary, executive, comparison, research, analytics, exact-search and evaluation reports as PDF/DOCX/XLSX with sources and timestamps.", "T")]),
+    ("Retrieval", [
+        ("FR-20", "Hybrid retrieval", "Semantic, BM25, hybrid (RRF); rewrite; multi-query; HyDE (never evidence); metadata filters; parent-child; compression; reranking; corrective loop.", "T"),
+        ("FR-21", "Self-RAG", "Retrieve-or-not, passage relevance, sentence-level support critique, bounded regeneration, removal of unsupported statements.", "T"),
+        ("FR-22", "Cross-encoder reranking", "Optional local model; code path only.", "P"),
+        ("FR-23", "Vector stores", "Qdrant (production) and ChromaDB (development); Qdrant tested in embedded mode only.", "P"),
+        ("FR-24", "Graph RAG", "Entity co-mention graph, neighbour/path queries, retrieval expansion.", "T")]),
+    ("Agents", [
+        ("FR-30", "Supervisor", "Rules or LLM routing; compound questions fan out in parallel (LangGraph Send) and are merged.", "T"),
+        ("FR-31", "Data Analyst", "Pandas operations, profile, duplicates, IQR/z-score anomalies, monthly/quarterly/yearly trends with YoY, top-N, charts; read-only SQL sandbox; NL-to-SQL validated by the sandbox.", "T"),
+        ("FR-32", "Comparison Agent", "Documents, versions, topics, contradictions.", "T"),
+        ("FR-33", "Web Research", "Per-tenant approved domains, redirect check, separate web evidence (origin=web); a real search provider was not called.", "P"),
+        ("FR-34", "Verification", "Number grounding, citation validation against stored text (page/row/excerpt), judge, widened-retrieval retry, strict fallback.", "T"),
+        ("FR-35", "Reliability", "Typed state, checkpoints, retry limits, per-node timeouts, transient-error retries, failure isolation per branch.", "T")]),
+    ("Memory", [("FR-40", "Conversation memory", "Window + rolling summary, per-user isolation.", "T"), ("FR-41", "User-controlled memory", "Opt-in notes recalled as context (never evidence), incognito, private conversations, reset, delete, sensitive-data refusal, optional redaction.", "T")]),
+    ("Security and governance", [
+        ("FR-50", "Authentication", "JWT access token (15 min) + rotating refresh token in an httpOnly cookie with reuse detection.", "T"),
+        ("FR-51", "Authorisation", "Roles user / manager / admin; tenant and workspace isolation; document-level sharing (organisation / private / users and roles).", "T"),
+        ("FR-52", "Protection", "Upload validation, rate limits, audit trail, prompt-injection defences, SSRF protection, SQL authorizer, spreadsheet formula neutralisation.", "T"),
+        ("FR-53", "Retention and deletion", "Per-tenant retention enforced by a scheduler (dry run available); erase document, user, memory, tenant.", "T"),
+        ("FR-54", "SSO / MFA", "Not implemented.", "N")]),
+    ("Platform", [
+        ("FR-60", "Database", "PostgreSQL with Alembic migrations and indexes; SQLite for development.", "T"),
+        ("FR-61", "Background processing", "Redis-backed queue with status, retries, progress; scheduled tasks.", "T"),
+        ("FR-62", "API", "Groups: auth, users/roles, documents, jobs, chat + streaming, exact search, summaries, comparison, analytics, web, reports, memory, evaluation, admin/audit; pagination; OpenAPI (75 operations).", "T"),
+        ("FR-63", "User interface", "14 screens, light/dark, streaming, charts, filters, citation navigation with PDF page preview.", "T"),
+        ("FR-64", "Observability", "Prometheus metrics, OpenTelemetry spans; LangSmith via environment variables (not verified live).", "P"),
+        ("FR-65", "Deployment", "Dockerfile, Compose, CI definitions, backup and restore scripts; image/Compose/CI not executed.", "P")]),
 ]
-NOTES = {
-    "FR-10": "LLM conflict analysis tested with a scripted model; side-by-side evidence tested for real.", "FR-15": "All techniques tested; LLM-dependent ones (HyDE, LLM rerank/compress/grade) with a scripted model; cross-encoder not installed.",
-    "FR-19": "LLM paths tested with a scripted model; heuristic entity extraction covers Latin-script names only.", "FR-21": "Whisper transcription mock-tested; captions scripted; images inside PDFs not indexed.",
-    "FR-22": "Answer text is streamed after generation; provider token streaming not implemented."}
-S += [p("7. Functional Requirements", H1), p("Priority uses MoSCoW. FR-01 to FR-14 carry over from v1 (strengthened); FR-15 to FR-30 are new in v2."),
-      table([["ID", "Requirement", "Description", "Pri.", "Status"]] + [[i, t, d, pr, status(s, NOTES.get(i, ""))] for i, t, d, s, pr in FR], [12, 28, 83, 9, 38]), PageBreak()]
+S += [p("6. Functional Requirements", H1)]
+for grp, rows in FR:
+    S += [p(grp, H2), table([["ID", "Requirement", "Description", "Status"]] + [[i, t, d, status(s)] for i, t, d, s in rows], [14, 34, 92, 30])]
+S += [PageBreak()]
 
-# ------------------------------------------------------------------ 8 NFR
-S += [p("8. Non-Functional Requirements", H1), table([["ID", "Area", "Requirement", "How it is met / verified"],
-      ["NFR-1", "Accuracy", "Answers grounded in retrieved or calculated evidence; exact counts scan the full relevant corpus; abstain when unverifiable.", "Exact search is regex over all units (test: 40-page PDF count); verification agent; evaluation: exact-count accuracy 100% on the sample set."],
-      ["NFR-2", "Performance", "Targets set per deployment from measurement, not assumed.", f'Sample corpus (offline, no LLM): p50 {M["latency_ms"]["p50"]:.0f} ms, p95 {M["latency_ms"]["p95"]:.0f} ms end-to-end. LLM-backed latency depends on the provider and was not measured.'],
-      ["NFR-3", "Scalability", "Batch processing; never place a whole large file in one prompt; asynchronous ingestion.", "Chunking, map-reduce summaries, queue + workers (tested with Redis and a separate worker). BM25 index is rebuilt in memory per workspace - suited to tens of thousands of chunks; larger corpora need a search engine (Risk R-4)."],
-      ["NFR-4", "Security", "See section 13.", "Automated tests per control."],
-      ["NFR-5", "Privacy", "No cross-tenant or cross-user exposure; retention and deletion controls; no document text in logs or audit.", "Isolation tests across tenants, workspaces, private documents, conversations, graph; purge test."],
-      ["NFR-6", "Reliability", "Failures visible and retryable where safe; partial ingestion never shown as complete.", "Atomic stage-and-rename commit; job retry policy; idempotent job claim; tests for outage/retry."],
-      ["NFR-7", "Maintainability", "Modular adapters, typed schemas, tests, configuration-driven providers and stores.", "Pydantic everywhere; ruff clean; strict TypeScript; provider/vector/queue/checkpoint backends behind interfaces."],
-      ["NFR-8", "Observability", "Structured logs, request IDs, usage and cost tracking, audit trail.", "JSON logs with request ID; per-request token/cost metering; /health usage counters; audit API."],
-      ["NFR-9", "Portability", "Run locally without external services; run in containers with PostgreSQL, Redis, Qdrant.", "Defaults need no keys (SQLite, local vectors, hash embedder). Compose file validated syntactically; image build not executed (no container runtime)."],
-      ["NFR-10", "Usability", "Accessible, responsive dashboard; clear errors; no HTML injection from documents.", "ARIA labels, responsive CSS; XSS test; keyboard-operable upload."]], [14, 25, 58, 73]), PageBreak()]
+# ------------------------------------------------------------------ 7 architecture
+S += [p("7. Architecture", H1), system_diagram(), Spacer(1, 3 * mm), p("<b>Agent graph.</b> The supervisor routes each question; compound questions (\"count X, and what is the highest Y?\") fan out to parallel branches that each run an agent and a verification pass, then merge into one sectioned answer. "
+                                                                         "Generative agents pass through Verification; exact and data answers are deterministic and have their citations validated in the final step."), agent_diagram(), PageBreak(),
+      p("<b>Retrieval pipeline.</b> Every step is configurable per request; LLM-dependent steps degrade to deterministic fallbacks.", BODY), rag_diagram(), Spacer(1, 3 * mm),
+      p("<b>Data tier.</b> PostgreSQL holds identities, tenants, one row per document <i>version</i> (hash, visibility, metadata), document permissions, jobs, conversations, memory notes, reports, audit events and LangGraph checkpoints. "
+        "Content (originals, units, chunks, tables, graphs, reports) lives on the data volume; vectors in Qdrant/Chroma/local. Migrations: 0001 baseline, 0002 registry/versions/ACL/roles/refresh tokens/memory/reports; <font name='Courier'>alembic check</font> proves they match the models."),
+      p("<b>Key decisions and trade-offs</b>", H2), table([["Decision", "Rationale", "Trade-off"],
+      ["Keep the built-in Redis queue instead of Celery (D1)", "Tested idempotent claim, bounded retries, crash re-delivery; same capability", "No Celery ecosystem tooling (Flower, beat); scheduler is a small dedicated process"],
+      ["PyMuPDF with pypdf fallback (D2)", "10-20x faster, headings, page images; unclipped text avoids dropped glyphs", "AGPL-3.0 / commercial licence - operators must decide; pinned below 2.0"],
+      ["Tesseract, not PaddleOCR (D3)", "No large model downloads", "Lower accuracy on difficult scans"],
+      ["NetworkX graph (D6)", "No extra service; independently testable", "Not for very large graphs; edges are co-mentions"],
+      ["SQL via SQLite authorizer sandbox (D7)", "Real SQL semantics, whitelisted operations, time/row limits", "SQLite dialect; spreadsheets are copied in memory per request (cached parse)"],
+      ["Citation validation against stored text", "A citation must exist and contain its excerpt", "Spreadsheet cells are re-formatted, so rows use a looser coverage threshold"],
+      ["Heuristic contradictions + optional LLM judge", "Works offline; candidates are labelled as such", "False positives/negatives without a model"]], [52, 62, 56]), PageBreak()]
 
-# ------------------------------------------------------------------ 9 agent architecture
-S += [p("9. Multi-Agent Architecture", H1),
-      p("A LangGraph <b>StateGraph</b> coordinates specialised agents. State is typed and JSON-serialisable so it can be <b>checkpointed</b> (memory, SQLite or PostgreSQL) per conversation thread; heavy objects (principal, stores) live in a per-request context, never in the checkpoint."),
-      agent_diagram(), Spacer(1, 3),
-      table([["Agent", "Responsibility", "Tools it may use", "Verified"],
-             ["Supervisor", "Chooses the route from the question and available sources (rules; optional LLM tool-calling restricted to a closed set, with rules as fallback).", "routing rules / closed route set", "route table test; LLM mode: valid, invalid and disallowed choices"],
-             ["Exact Search Agent", "Literal name/ID/phrase search over the whole extracted corpus; count, files, pages, excerpts; asks for the term when missing.", "exact_search", "count/page tests; evaluation 100%"],
-             ["Semantic Retrieval Agent", "Runs the advanced RAG pipeline, builds a grounded answer (LLM or verbatim extraction), abstains when evidence is missing.", "hybrid_search", "recall/MRR on sample set; abstention"],
-             ["Document Search Agent", "Which documents mention X, clause lookups, document listing; combines exact and semantic evidence.", "exact_search, hybrid_search, list_sources", "clause 8 vs 80 vs 8.1 tests"],
-             ["SQL / Pandas Agent", "Turns a question into a whitelisted plan (heuristic or validated LLM JSON) and executes it with pandas; asks for clarification when ambiguous; hands over when the question is not about the tables.", "table_query", "aggregate tests vs manual calculation"],
-             ["Summarization Agent", "Map-reduce summaries; cross-document comparison; entity, table and question extraction; knowledge-graph questions.", "summarize, hybrid_search", "summary/compare/entity/graph tests"],
-             ["Web Agent", "Reads URLs given in the question or search results (SSRF-guarded); transient evidence, never auto-indexed; optional fallback when documents cannot answer.", "fetch_url, web search provider", "mock-transport tests; SSRF tests"],
-             ["Verification Agent", "Checks citations, numbers, lexical support, optional LLM judge, output guard; decides pass / retry (bounded) / fail (verbatim fallback).", "-", "retry, exhaustion, judge, guard tests"],
-             ["Final Response Agent", "Assembles the response: citations, limitations, confidence, follow-up questions, language, trace, usage.", "-", "API/e2e tests"]], [32, 76, 32, 30]),
-      p("<b>Other behaviour</b>: bounded retries (MAX_RETRIES) in both corrective RAG and verification; session memory = last N turns plus a rolling summary of older turns; every node degrades to an honest message on internal error instead of a 500; tool arguments are validated (Pydantic) and there is no tool that executes code, SQL or shell commands.", SMALL), PageBreak()]
+# ------------------------------------------------------------------ 8 security
+S += [p("8. Security, Privacy and Data Lifecycle", H1), table([["Layer", "Controls (all exercised by tests unless noted)"],
+      ["Identity", "bcrypt; 15-min JWT (memory only in the browser); rotating 14-day refresh token (httpOnly, SameSite=Strict, hashed in DB, family revoked on reuse); roles user/manager/admin; legacy roles migrated."],
+      ["Isolation", "tenant + workspace in every storage address; mandatory Qdrant filters; document ACL (organisation / private / restricted to users or roles); hidden = missing."],
+      ["Input", "size, magic bytes, zip-bomb, macros; SSRF-safe fetch with pinned IP + SNI; prompt-injection scan, data fences, closed tool registry."],
+      ["Execution", "no generated code executed; SQL = one SELECT under an authorizer (function/table whitelist, no PRAGMA/ATTACH/DDL/DML/recursion), length/time/row limits."],
+      ["Output", "output guard; citation validation; XLSX formulas neutralised; CSP (self, data:, blob: images); no secrets in logs or audit."],
+      ["Data lifecycle", "per-tenant retention (documents, conversations, audit >= 30 days, reports) by scheduler with dry run; erase user / tenant / memory; optional masking of e-mail, phone, card (Luhn), ID numbers and secrets in stored messages (pattern-based, not a guarantee)."],
+      ["Operations", "Redis-shared rate limits; append-only audit (hashes, never text); secrets from env or *_FILE (no vault integration); production start-up validator."]], [28, 142]),
+      p("<b>Residual risks.</b> Heuristic injection detection can be bypassed; PDF/OCR extraction can be wrong; PyMuPDF licence; a shared volume is a single point of failure and a scaling limit; no SSO/MFA; no penetration test was performed; masking is pattern-based.", SMALL), PageBreak()]
 
-# ------------------------------------------------------------------ 10 RAG
-S += [p("10. Advanced RAG Architecture", H1), p("The pipeline is configurable globally (environment) and per request (<font face='Courier'>retrieval</font> object). Every step is recorded in a trace for debugging and evaluation."), rag_diagram(), Spacer(1, 3),
-      table([["Technique", "How it works here", "Config key", "Default", "Without an LLM"],
-             ["Semantic search", "Cosine over embeddings (local, Chroma or Qdrant); tenant/workspace filter mandatory.", "RETRIEVAL_MODE", "hybrid", "hash embedder is lexical, not semantic"],
-             ["BM25 / keyword", "Okapi BM25 with inverted index; fuzzy prefix expansion on corrective passes.", "RETRIEVAL_MODE", "hybrid", "works"],
-             ["Hybrid", "Reciprocal-rank fusion of every (query variant x channel) ranking.", "RETRIEVAL_MODE", "hybrid", "works"],
-             ["Query rewriting", "LLM standalone-query rewrite from conversation; otherwise follow-up merge with previous question.", "QUERY_REWRITE", "on", "context merge"],
-             ["Multi-query", "LLM paraphrases (incl. other languages); otherwise keyword-only variant.", "MULTI_QUERY", "off", "keyword variant"],
-             ["HyDE", "Embeds an LLM-written hypothetical answer for vector search (never shown).", "HYDE", "off", "skipped (reported in trace)"],
-             ["Metadata filtering", "kinds, name, page range, sheet, section, ingestion date; applied before ranking.", "retrieval.filters", "none", "works"],
-             ["Parent-child", "Small chunks are matched; their page/section parent is returned; siblings de-duplicated.", "PARENT_CHILD", "on", "works"],
-             ["Contextual compression", "Keep only query-relevant sentences, verbatim (LLM choices must literally occur in the source).", "COMPRESSION", "on", "extractive"],
-             ["Reranking", "Lexical (coverage, BM25, phrase), LLM scoring, or optional cross-encoder.", "RERANKER", "lexical", "lexical"],
-             ["Corrective RAG", "Grade evidence; on weak/no evidence reformulate or broaden and retry (bounded), else abstain or web fallback.", "CORRECTIVE, MAX_RETRIES", "on, 2", "heuristic grading"],
-             ["Graph RAG", "Adds chunks linked to query entities and their strongest neighbours.", "GRAPH_RAG", "off", "works"],
-             ["Cross-lingual", "LLM translates the question into the languages of the indexed documents.", "CROSS_LINGUAL", "on", "skipped"]], [26, 60, 36, 14, 34]),
-      p("<b>Safety in the pipeline</b>: passages sent to an LLM are fenced as untrusted data with neutralised control markup; suspected injections are flagged (or excluded with INJECTION_POLICY=exclude); every LLM output is validated and failures fall back to deterministic behaviour.", SMALL), PageBreak()]
-
-# ------------------------------------------------------------------ 11 platform architecture
-S += [p("11. Platform and Data Architecture", H1), table([["Component", "Role", "Notes"],
-      ["FastAPI", "REST + SSE API, OpenAPI docs, static React dashboard", "request IDs, JSON logs, security headers, CORS allow-list"],
-      ["PostgreSQL", "Tenants, users, revoked tokens, audit events, jobs, conversations/messages, evaluation runs; LangGraph checkpoints", "SQLite for development; schema created at start (no migration tool yet - Risk R-6)"],
-      ["Qdrant (production) / ChromaDB (dev) / local", "Vector index. Qdrant: one collection per embedding dimension; tenant, workspace and source in the payload; mandatory filters on every search and delete", "server mode not tested here; embedded mode and the isolation contract were"],
-      ["Redis", "Shared rate limiting; ingestion job queue (reliable move to a processing list, crash re-delivery)", "falls back to in-process when not configured"],
-      ["Worker", "<font face='Courier'>python -m app.worker</font>: executes ingestion jobs; shares the data volume with the API", "atomic claim makes duplicate delivery harmless"],
-      ["Document store", "Per source: original file, units, chunks, vectors (local mode), tables, graph, metadata; staged then atomically renamed", "filesystem volume; object storage is future work (Risk R-3)"],
-      ["Tenancy", "Address = tenant / workspace / source; no API crosses tenants; private documents filtered below the API", "X-Session-ID selects the workspace within the tenant"],
-      ["React dashboard", "Single-page app served by the API", "JWT kept in sessionStorage (Risk R-7)"]], [32, 88, 50]), PageBreak()]
-
-# ------------------------------------------------------------------ 12 API
-S += [p("12. API Requirements", H1), p("Full reference: <font face='Courier'>docs/API.md</font> (generated from the application), interactive Swagger UI at <font face='Courier'>/docs</font>. Conventions: bearer JWT, <font face='Courier'>X-Session-ID</font> workspace header, <font face='Courier'>X-Request-ID</font> correlation, JSON errors, <font face='Courier'>429</font> with <font face='Courier'>Retry-After</font>."),
-      table([["Area", "Endpoints", "Minimum role"],
-             ["System", "GET /health", "public"], ["Auth", "POST /auth/signup (dev only), /auth/login, /auth/logout; GET /auth/me", "public / any"],
-             ["Sources", "POST /sources/upload[?async=true], /sources/url, /sources/{id}/reindex; GET /sources, /sources/{id}, /sources/{id}/tables|entities|questions; DELETE /sources/{id}", "viewer read; editor write; owner/admin modify"],
-             ["Jobs", "GET /jobs, /jobs/{id}", "editor"],
-             ["Chat", "POST /ask, /ask/stream (SSE); GET/POST /conversations, GET /conversations/{id}/messages|trace; DELETE /conversations/{id}; POST /transcribe", "viewer"],
-             ["Intelligence", "GET /graph (top entities, neighbours, path)", "viewer"],
-             ["Evaluation", "POST /eval/run; GET /eval/runs, /eval/runs/{id}, /report.html, /report.md", "editor"],
-             ["Admin", "GET/POST /admin/users, PATCH/DELETE /admin/users/{id}; GET /admin/audit, /admin/settings; DELETE /admin/data, /session", "admin"]], [24, 112, 34]),
-      p("<b>/ask response</b>: answer, route, confidence (high|medium|low|none), verified, citations[{source, location, excerpt, score}], limitations, needs_input, follow-up questions, language, usage (tokens, cost), latency, details (plan, verification, retrieval trace, counts, table results).", SMALL), Spacer(1, 4)]
-
-# ------------------------------------------------------------------ 13 security
-SEC = [
-    ("Prompt injection in documents or questions", "Ingestion-time scan; fenced untrusted data with neutralised markup; closed tool registry (no code/SQL/shell); output guard (prompt-leak, exfiltration URLs); optional exclude policy; LLM numbers/citations verified", "tests: pattern detection and false-positive set, fence forgery, guard, injected document end-to-end", "T"),
-    ("SSRF and DNS rebinding", "Scheme/credential checks; resolve once; reject non-public addresses (incl. IPv4-mapped IPv6); connect by vetted IP with verified SNI; every redirect re-validated; size/time/type limits", "tests: private ranges, metadata endpoint, redirect-to-private, rebinding with a local TLS server and wrong-certificate rejection", "T"),
-    ("Malicious or malformed files", "Extension allow-list; magic bytes; OOXML structure; zip-bomb and macro rejection; binary-in-text detection; size and page limits; safe filenames", "tests for each rejection", "T"),
-    ("Authentication", "bcrypt, constant-time-ish login, JWT with required claims, revocation list, disabled-account and role changes effective immediately, `alg=none`/forged/expired tokens rejected", "auth test-suite", "T"),
-    ("Authorisation and tenant isolation", "RBAC per route; tenant+workspace addressing; mandatory Qdrant filters; ACL-filtered graph and retrieval; hidden documents look missing", "cross-tenant, private-document, conversation, job, graph and evaluation isolation tests", "T"),
-    ("Abuse / DoS", "Per-identity rate limits (memory or Redis); upload and PDF page limits; bounded retries; request timeouts", "rate-limit tests incl. two replicas via Redis", "T"),
-    ("Secrets", "Keys only from environment; SecretStr; masked admin settings; production start-up validator rejects insecure config", "config validation and masking tests; production smoke", "T"),
-    ("Auditability", "Append-only events with request ID, user, IP, outcome; no document or question text", "audit content/privacy tests", "T"),
-    ("Data deletion / retention", "Delete source/conversation/workspace; tenant purge; no automated retention schedule yet", "deletion and purge tests", "P"),
-    ("XSS in the dashboard", "All document/answer text rendered as text; CSP and security headers", "Vitest injection test, Playwright run with no console errors", "T")]
-S += [p("13. Security Requirements", H1), table([["Threat", "Controls", "Verification", "Status"]] + [[a, b, c, status(s)] for a, b, c, s in SEC], [34, 78, 38, 20]),
-      p("<b>Residual risks</b>: no SSO/MFA; JWT in browser sessionStorage; rate limiting trusts the direct client address unless a proxy sets it; heuristic injection scanning cannot catch every phrasing (defence in depth, not a guarantee); 'X-Forwarded-For' is not trusted by default.", SMALL), PageBreak()]
-
-# ------------------------------------------------------------------ 14 evaluation
-r, a, lat = M["retrieval"], M["answers"], M["latency_ms"]
-S += [p("14. Evaluation Metrics", H1), p("The harness (<font face='Courier'>python -m app.eval</font>, <font face='Courier'>POST /eval/run</font>, dashboard tab) runs a labelled dataset through the real pipeline and agents and reports:"),
-      table([["Metric", "Definition"], ["Recall@K", "share of gold passages found in the top K retrieved (K = 1, 3, 5)"], ["Precision@K", "relevant results in the top K divided by K"], ["MRR", "mean of 1/rank of the first relevant result"], ["nDCG@K", "binary-relevance discounted gain"],
-             ["Faithfulness", "<i>proxy</i>: share of answer sentences whose content words and numbers occur in the cited evidence; LLM-judge variant when an LLM is configured; RAGAS adapter available"],
-             ["Answer relevancy", "<i>proxy</i>: cosine(question, answer) under the configured embedder; LLM-judge variant when configured"], ["Routing / count / data accuracy", "expected route, exact occurrence count, numeric result match"], ["Abstention accuracy", "unanswerable questions must return verified=false (or low confidence, reported separately)"],
-             ["Latency", "end-to-end per question: mean, p50, p95; retrieval-only p50/p95"], ["Tokens and cost", "provider-reported when available else ~4 chars/token; USD from MKA_PRICE_TABLE"]], [40, 130]),
-      p(f'<b>Measured on the built-in synthetic corpus</b> ({M["cases"]} questions over 8 mixed-format documents; offline: hash embedder, no LLM; run {rep["created"]}):', H2),
+# ------------------------------------------------------------------ 9 evaluation and performance
+S += [p("9. Evaluation and Performance (measured)", H1),
+      p(f"<b>Synthetic corpus</b> ({M['cases']} questions over PDF, DOCX, XLSX, CSV, MD, TXT, JSON; offline hash embedder, no LLM). The set is small and synthetic: it detects regressions and compares strategies; it is <b>not</b> a real-world accuracy benchmark. Hard paraphrases fail with the offline embedder and are listed in the report."),
       table([["Metric", "Value", "Metric", "Value"],
-             ["Recall@1 / @3 / @5", f'{pct(r["recall@1"])} / {pct(r["recall@3"])} / {pct(r["recall@5"])}', "Routing accuracy", pct(a["route_accuracy"])],
-             ["Precision@1 / @3 / @5", f'{pct(r["precision@1"])} / {pct(r["precision@3"])} / {pct(r["precision@5"])}', "Exact-count accuracy", pct(a["exact_count_accuracy"])],
-             ["MRR", f'{r["mrr"]:.3f}', "Data (table) accuracy", pct(a["data_accuracy"])],
-             ["Faithfulness (proxy)", pct(a["faithfulness_lexical (proxy)"]), "Abstention accuracy (strict)", pct(a["abstention_accuracy"])],
-             ["Answer relevancy (proxy)", pct(a["answer_relevancy_embedding (proxy)"]), "Keyword correctness (semantic)", pct(a["keyword_accuracy"])],
-             ["Latency p50 / p95", f'{lat["p50"]:.0f} / {lat["p95"]:.0f} ms', "Tokens / cost per query", f'{M["tokens"]["per_query"]:.0f} / ${M["cost_usd"]["per_query"]:.5f}']], [42, 43, 45, 40]), Spacer(1, 3)]
-cmp_rows = [["Strategy", "Recall@5", "MRR", "nDCG@5", "p50 ms"]] + [[c["strategy"], pct(c["recall@5"]), f'{c["mrr"]:.3f}', f'{c["ndcg@5"]:.3f}', f'{c["p50_ms"]:.1f}'] for c in rep["comparison"]]
-S += [p("<b>Strategy comparison</b> (same corpus):", BODY), table(cmp_rows, [78, 24, 24, 24, 20]),
-      p("<b>How to read these numbers.</b> The corpus is small and synthetic; it detects regressions and compares settings, it is <u>not</u> a benchmark of real-world accuracy. With the offline hash embedder the semantic and keyword channels are both lexical, so the hybrid advantage appears only with a real embedding model. "
-        "Hard paraphrases with no word overlap (e.g. 'vacation time' vs 'annual leave') fail by design and are listed in the report's failures. The proxy metrics are not RAGAS; LLM-judge and RAGAS values require a configured model and were not measured here.", SMALL), PageBreak()]
+             ["Recall@5", pct(M["retrieval"]["recall@5"]), "Route accuracy", pct(A["route_accuracy"])],
+             ["Precision@5", pct(M["retrieval"]["precision@5"]), "Exact-count accuracy", pct(A["exact_count_accuracy"])],
+             ["MRR", f'{M["retrieval"]["mrr"]:.3f}', "Spreadsheet-value accuracy", pct(A["data_accuracy"])],
+             ["nDCG@5", f'{M["retrieval"]["ndcg@5"]:.3f}', "Abstained / flagged unanswerable", pct(A["abstained_or_flagged_low_confidence"])],
+             ["Citation accuracy", pct(A["citation_accuracy"]), "Faithfulness (lexical proxy)", pct(A["faithfulness_lexical (proxy)"])],
+             ["Agent execution success", pct(M["agents"]["execution_success_rate"]), "Failed tool calls", f'{M["agents"]["failed_tool_calls"]} of {M["agents"]["tool_calls"]}'],
+             ["Latency p50 / p95", f'{M["latency_ms"]["p50"]:.0f} / {M["latency_ms"]["p95"]:.0f} ms', "Tokens / cost per query", "0 (offline)"]], [38, 28, 62, 42]),
+      p(f"<b>Extended corpus</b> ({X['cases']} questions): versions, comparison, contradictions, Hindi (exact, retrieval, table, summary), analytics (trend, outliers), parallel agents, abstention. "
+        f"Route accuracy {pct(X['answers']['route_accuracy'])}, keyword accuracy {pct(X['answers']['keyword_accuracy'])}, exact counts {pct(X['answers']['exact_count_accuracy'])}, data values {pct(X['answers']['data_accuracy'])}, required sources cited {pct(X['answers']['required_sources_cited'])}, "
+        f"stale (superseded-version) content absent {pct(X['answers']['stale_or_forbidden_content_absent'])}, citation accuracy {pct(X['answers']['citation_accuracy'])}, agent success {pct(AG['execution_success_rate'])}, failed tool calls {AG['failed_tool_calls']}. "
+        "Faithfulness and relevancy shown by the harness are lexical/embedding <i>proxies</i>; LLM-judge values and RAGAS need a configured model and the ragas package (not measured here)."),
+      p("<b>Performance on this machine</b> (4 vCPU, offline configuration; see docs/PERFORMANCE.md)", H2),
+      table([["Workload", "Result"],
+             [f"{perf['pages']:,}-page PDF ({pf['mb']} MB, {pf['chunks']:,} chunks)", f"ingest {pf['ingest_s']} s ({pf['pages_per_s']} pages/s) - exact search {perf['exact_search']['ms_p50']} ms with the correct count ({perf['exact_search']['term_count']}) - complete /ask p50 {perf['ask_end_to_end_ms']['p50']} ms"],
+             [f"{perf['rows']:,}-row CSV ({cv['mb']} MB)", f"ingest {cv['ingest_s']} s - tables loaded in {cv['load_tables_cold_ms']} ms (then {cv['load_tables_warm_ms']} ms cached) - profile {cv['profile_ms']} ms - monthly trend {cv['trend_ms']} ms - SQL GROUP BY {cv['sql_group_by_ms']} ms"],
+             ["Reports", f"summary of the whole {perf['pages']:,}-page document built in {perf['summary_report_s']['build']} s; rendering PDF {perf['summary_report_s']['pdf']} s, DOCX {perf['summary_report_s']['docx']} s, XLSX {perf['summary_report_s']['xlsx']} s"],
+             ["Peak memory", f"{perf['peak_rss_mb']} MB for the whole benchmark process"]], [60, 110]), PageBreak()]
 
-# ------------------------------------------------------------------ 15 acceptance
-AC = [
-    ("AC-1", "A text PDF is ingested and searched; returned matches carry the correct page numbers.", "T"),
-    ("AC-2", "A scanned PDF is rejected with a clear message without OCR and indexed with OCR; OCR'd pages are flagged.", "T"),
-    ("AC-3", "CSV/XLSX aggregates (sum, mean, median, max, min, group, filter, sort, duplicates, comparison) equal a trusted manual calculation; ambiguous questions trigger a clarification instead of a guess.", "T"),
-    ("AC-4", "An exact-name query returns the total count, file names, page numbers and excerpts over the complete corpus (40-page test), with documented rules (case, whole word, clause 8 vs 8.1 vs 80).", "T"),
-    ("AC-5", "A public page is ingested and cited by URL; private, local, metadata-service and redirect-to-private URLs are rejected; DNS rebinding cannot redirect the connection.", "T"),
-    ("AC-6", "A semantic question returns relevant passages with citations; an unrelated question returns an explicit 'could not verify' (verified=false).", "T"),
-    ("AC-7", "A generated answer containing an invented number or no citations is retried (bounded) and finally replaced by verbatim evidence.", "T"),
-    ("AC-8", "Users of tenant A cannot list, read, search, cite, graph or delete anything of tenant B; private documents are invisible to other users in the same tenant; role limits are enforced.", "T"),
-    ("AC-9", "Ingestion runs in the background with visible progress; transient failures are retried at most N times; invalid input is not retried; a separate Redis worker processes jobs.", "T"),
-    ("AC-10", "Rate limits return 429 with Retry-After and are shared by multiple API replicas through Redis.", "T"),
-    ("AC-11", "The audit log records ingest, ask, login, permission denials and deletions without storing question or document text.", "T"),
-    ("AC-12", "Deleting a source or purging a tenant removes files, chunks and vectors; deleted material is no longer retrievable.", "T"),
-    ("AC-13", "The evaluation harness reports Recall@K, Precision@K, MRR, faithfulness, relevancy, latency, tokens and cost, and fails CI when retrieval quality drops below the regression thresholds.", "T"),
-    ("AC-14", "The dashboard supports multi-upload with progress, document management, chat with citations and filters, history, evaluation, admin; document text cannot inject HTML.", "T"),
-    ("AC-15", "With a real LLM and embedding provider, answer quality, faithfulness (judge/RAGAS) and cost meet targets agreed with the business owner on a representative corpus.", "N"),
-    ("AC-16", "The container images build and the compose stack starts with PostgreSQL, Redis and a Qdrant server; Qdrant server mode passes the vector-backend contract tests.", "N")]
-S += [p("15. Acceptance Criteria", H1), table([["ID", "Criterion", "Status"]] + [[i, c, status(s)] for i, c, s in AC], [14, 128, 28]), PageBreak()]
+# ------------------------------------------------------------------ 10 UI and API
+S += [p("10. User Interface and API", H1), table([["Screen", "Purpose"],
+      ["Sign-in / registration", "JWT login; silent refresh from the httpOnly cookie after a reload"], ["Dashboard", "document and job counts, library mix by type and class, problems needing attention, quick actions"],
+      ["Library + upload + ingestion progress", "drag-and-drop, URLs, per-file progress, duplicate notice with 'upload anyway', search/filter/paginate, versions and what-changed, sharing, class, entities, timeline, re-index, delete"],
+      ["Chat", "streaming answers, confidence, citation validity, citations with 'view in context', filters, Self-RAG and incognito toggles, charts, follow-ups, voice"],
+      ["Citation preview", "PDF page image with the cited text highlighted and page navigation; passage with neighbours for other formats; web citations marked"],
+      ["Exact search", "term, case/whole-word, document filter; totals per document, clickable page numbers, paginated matches"],
+      ["Comparison", "two documents, versions of one document, contradiction scan"], ["Data analyst", "ask in words, profile, outliers, trends with YoY, read-only SQL with schema, charts with PNG download"],
+      ["Reports", "choose type/format/documents, generate, list, download, delete"], ["History", "search, read, rename, make private, delete conversations"],
+      ["Users and roles / Admin", "create, change role, disable, delete; audit log; platform settings; erase tenant data"], ["Settings", "theme (system/light/dark), memory preferences and notes, organisation policy (retention, web allow-list, redaction), retention sweep preview/run"],
+      ["Evaluation", "run sample or extended evaluation, strategy comparison, export PDF/DOCX/XLSX"]], [48, 122]),
+      p("<b>API groups</b> (75 operations, pagination via limit/offset and X-Total-Count, OpenAPI at /openapi.json and docs/openapi.json): auth, sources (upload, URL, versions, sharing, previews, timeline, classification), jobs, chat (ask, stream, conversations), search/exact, summaries, compare, analytics (tables, profile, anomalies, trend, sql, ask, chart), web/research, reports, memory, eval, admin (users, audit, settings, tenant-settings, maintenance, purge), health, metrics.", BODY), PageBreak()]
 
-# ------------------------------------------------------------------ 16 roadmap
-S += [p("16. Development Roadmap", H1), table([["Phase", "Deliverables", "Exit condition", "State"],
-      ["1 Platform foundation", "PostgreSQL model, JWT auth, RBAC, tenant-scoped storage, document ACL, rate limiting, audit, purge, production config validation", "isolation and RBAC tests pass (incl. PostgreSQL, Redis)", status("T")],
-      ["2 Ingestion", "File validation, OCR, PDF sections/tables, images, DNS-rebinding-safe fetch, background jobs, Qdrant backend", "format, security and job tests pass", status("T")],
-      ["3 Advanced RAG", "Hybrid, rewrite, multi-query, HyDE, filters, parent-child, compression, rerank, corrective", "technique tests and trace assertions pass", status("T")],
-      ["4 Agents", "Supervisor + 8 agents, tool registry, checkpointing, verification, memory, streaming", "routing, verification, memory, checkpoint tests pass", status("T")],
-      ["5 Intelligence", "Data ops, entities, tables, questions, multilingual, knowledge graph, voice", "operation and isolation tests pass", status("T")],
-      ["6 Evaluation", "Metrics, harness, reports, dashboard API, regression thresholds", "sample evaluation within thresholds", status("T")],
-      ["7 Frontend", "React dashboard, unit and end-to-end tests", "e2e smoke passes against the real server", status("T")],
-      ["8 Delivery", "Docker, compose, CI workflow, documentation, this BRD", "documents produced; container build pending", status("P", "image build and CI run not executed here")],
-      ["Next A", "Validate with real providers: embeddings, LLM, RAGAS, cross-encoder; tune thresholds; cost budget", "AC-15", status("N")],
-      ["Next B", "Run on the container runtime and Qdrant server; Alembic migrations; object storage; OIDC/SSO and MFA; refresh tokens; retention scheduler; provider token streaming", "AC-16 and hardening backlog", status("N")]], [28, 78, 40, 24])]
+# ------------------------------------------------------------------ 11 risks
+S += [p("11. Risks, Limitations and Trade-offs", H1), table([["Risk / limitation", "Impact", "Mitigation / status"],
+      ["Offline hash embedder is lexical", "paraphrase queries miss", "configure a real embedder; hard cases are listed in the evaluation report"],
+      ["Heuristic contradictions", "false positives/negatives", "labelled 'candidate'; LLM judge when configured; manual review"],
+      ["PyMuPDF is AGPL/commercial", "licence obligations", "MKA_PDF_ENGINE=pypdf avoids it (slower, no page images)"],
+      ["PDF tables only where ruled lines exist", "borderless tables not structured", "text remains searchable"],
+      ["Hindi in PDF reports not shaped", "unreadable conjuncts in PDF", "use DOCX/XLSX; text is Unicode"],
+      ["Shared data volume", "scaling and single point of failure", "network filesystem now; object storage is future work"],
+      ["Node timeouts cannot kill threads", "timed-out work finishes in the background", "client timeouts on providers; result discarded"],
+      ["No SSO/MFA; no penetration test", "enterprise onboarding gaps", "planned; hardening documented"],
+      ["Docker/Compose/CI not executed here", "first run may need fixes", "files validated statically; process-level smoke test executed"],
+      ["Single-node tested only", "multi-replica behaviour", "advisory locks and Redis lock designed for replicas; not load tested"]], [52, 44, 74]), PageBreak()]
 
-# ------------------------------------------------------------------ 17 risks
-S += [p("17. Risks and Dependencies", H1), table([["ID", "Risk", "Impact", "Mitigation / status"],
-      ["R-1", "Offline default embedder is lexical; paraphrase recall is limited", "missed passages on conceptual questions", "configure OpenAI/Gemini embeddings; evaluation reports failures; hard cases tracked"],
-      ["R-2", "LLM-dependent features were tested with scripted models only", "unknown real-world quality/cost", "AC-15; evaluation harness with LLM judge and RAGAS; verification agent bounds damage"],
-      ["R-3", "Documents live on a filesystem volume shared by API and worker", "horizontal scaling and DR need shared storage", "volume today; object storage on the roadmap"],
-      ["R-4", "BM25 index is built in memory per workspace", "memory/latency on very large corpora", "OpenSearch / PostgreSQL full-text search planned"],
-      ["R-5", "OCR quality depends on scans; images inside PDFs not indexed", "missed content", "OCR flagged in warnings; roadmap item"],
-      ["R-6", "No migration tool (schema created at start)", "upgrades need manual care", "adopt Alembic before first production upgrade"],
-      ["R-7", "JWT in sessionStorage; no SSO/MFA", "token theft if XSS ever occurs", "strict CSP, text-only rendering, short token life; OIDC + httpOnly cookies planned"],
-      ["R-8", "Heuristic prompt-injection detection is evadable", "residual injection risk", "defence in depth: data fences, closed tools, output guard, verification, exclude policy"],
-      ["R-9", "Embedding/LLM usage cost", "operating cost", "per-request token/cost metering, rate limits, price table, evaluation of cost per query"],
-      ["R-10", "Web pages change or block extraction", "stale or missing web evidence", "URL and ingestion time retained; re-index re-fetches"],
-      ["R-11", "Qdrant server, Docker build and CI were not executed in the build environment", "integration surprises", "AC-16; compose file validated; embedded Qdrant passes the same contract tests"]], [12, 58, 40, 60]),
-      p("<b>Dependencies</b>: Python 3.12, PostgreSQL 16, Redis 7, Qdrant (production), Tesseract OCR binary, LLM/embedding provider credentials supplied through the environment, Node 22 for the dashboard build.", BODY), PageBreak()]
+# ------------------------------------------------------------------ 12 acceptance
+AC = [("AC-01", "A 1,000+ page PDF ingests and an exact name search returns the exact count with pages", "T", "test_large_documents.py"), ("AC-02", "Max sales from an Excel sheet is computed with row citations", "T", "test_tabular.py"),
+      ("AC-03", "Semantic question answered with validated citations; missing evidence yields 'could not verify'", "T", "test_agents.py, test_verification_selfrag.py"), ("AC-04", "Two documents / two versions compared; changes with numbers reported", "T", "test_compare.py"),
+      ("AC-05", "PDF tables, OCR, DOCX, XLSX, XLS, HTML handled; corrupted files fail cleanly", "T", "test_ingestion_v3.py, test_phase2_ingestion.py"), ("AC-06", "Tenant isolation and unauthorised access are enforced", "T", "test_auth_tenancy.py, test_foundation.py"),
+      ("AC-07", "Agent failures and timeouts degrade to honest answers; branches isolated", "T", "test_operations.py"), ("AC-08", "Reports are generated as PDF, DOCX and XLSX with sources and timestamps", "T", "test_reports_memory.py"),
+      ("AC-09", "Retention sweeps and erasure work per tenant", "T", "test_operations.py, test_reports_memory.py"), ("AC-10", "Migrations apply to an empty PostgreSQL and match the models; backup/restore works", "T", "test_foundation.py, scripts/backup.sh"),
+      ("AC-11", "Full UI flow works in a real browser", "T", "frontend/e2e/smoke.mjs"), ("AC-12", "Quality measured: citation accuracy, agent success, failed tool calls, latency", "T", "test_evaluation.py"),
+      ("AC-13", "Live provider behaviour (OpenAI/Gemini), RAGAS, cross-encoder, Qdrant server", "N", "not executed - needs credentials / downloads / services"),
+      ("AC-14", "Docker build, Compose stack, GitHub Actions run", "N", "not executed - no container runtime or CI available"), ("AC-15", "Accuracy on a real customer corpus with real models", "N", "pending")]
+S += [p("12. Acceptance Criteria", H1), table([["ID", "Criterion", "Status", "Evidence"]] + [[i, c, status(s), e] for i, c, s, e in AC], [14, 78, 30, 48]), Spacer(1, 4 * mm),
+      p("<b>Appendix A - What could not be verified, and why</b>", H2)] + bullets([
+    "Live OpenAI / Gemini: no credentials or network egress to the providers. All LLM-dependent behaviour was tested with scripted test doubles (orchestration, validation, fallbacks), not model quality.",
+    "Qdrant server: starting the binary was not permitted; the embedded client was tested. Hugging Face is unreachable, so no cross-encoder or multilingual embedding model was run.",
+    "Docker / Compose / GitHub Actions: no daemon or runner. The workflow, Dockerfile and compose file are written and statically validated only.",
+    "RAGAS and LangSmith: packages / network unavailable; the RAGAS adapter was tested with a stub module and LangSmith is configured through environment variables only.",
+    "OTLP delivery: spans were verified with an in-memory exporter, not against a collector.",
+    "Mobile layouts: CSS breakpoints exist but the UI was only exercised at desktop width."])
+S += [p("<b>Appendix B - Documents shipped with the source</b>", H2)] + bullets([
+    "README.md (quick start, usage, status) - docs/ARCHITECTURE.md (diagrams) - docs/OPERATIONS.md (deployment, monitoring, backup/recovery, retention, upgrades)",
+    "docs/PERFORMANCE.md and docs/perf.json - docs/REQUIREMENTS_TRACE.md - docs/API.md and docs/openapi.json - docs/eval/ (sample and extended evaluation reports in JSON, Markdown, HTML, PDF, DOCX, XLSX) - docs/PLAN_v3.md"])
 
-# ------------------------------------------------------------------ appendices
-S += [p("Appendix A - Verification limits (what was NOT tested)", H1)] + bullets([
-    "Live OpenAI / Gemini calls (chat, embeddings, vision, transcription): no credentials in the build environment. LLM-dependent code paths were exercised with scripted test doubles that verify orchestration, validation and fallbacks - not model quality.",
-    "RAGAS: adapter plumbing tested against a stub module only. Cross-encoder reranker: dependency not installed; the fallback path is tested.",
-    "Qdrant server mode: the server binary could not be executed in the sandbox; embedded mode passes the vector-backend contract and tenant-filter tests.",
-    "Docker image build and docker compose start-up: no container daemon; the compose file parses and validates. GitHub Actions workflow: syntax-valid but not run; each command in it was run locally.",
-    "Browser speech recognition and microphone capture; server-side Whisper (HTTP mocked).",
-    "Load, soak and penetration testing; behaviour on corpora larger than the evaluation set."])
-S += [p("Appendix B - Traceability from BRD v1", H1), table([["v1 requirement", "v2 treatment", "State"],
-      ["FR-01 File upload", "FR-01 + validation, async jobs, visibility", status("T")], ["FR-02 Web ingestion", "FR-02 + DNS-rebinding-safe connect-by-IP", status("T")], ["FR-03 Extraction", "FR-03 + sections, tables, OCR", status("T")],
-      ["FR-04 Chunking/indexing", "FR-04 + parent spans, tenant-scoped vectors", status("T")], ["FR-05 Exact search", "FR-05 unchanged semantics; page lists added", status("T")], ["FR-06 Semantic search", "FR-06 + FR-15 advanced RAG", status("T")],
-      ["FR-07 Structured data", "FR-07 extended (sort, median, distinct, duplicates, comparison)", status("T")], ["FR-08 Routing", "FR-08 + FR-16 eight-agent supervisor", status("T")], ["FR-09 Evidence-based answers", "FR-09 + FR-17 verification", status("T")],
-      ["FR-10 Cross-source", "FR-10", status("P", "conflict analysis needs an LLM")], ["FR-11 Conversation context", "FR-11 + persistent memory with rolling summary", status("T")], ["FR-12 Error handling", "FR-12", status("T")],
-      ["FR-13 Re-ingestion/removal", "FR-13 + purge", status("T")], ["FR-14 API access", "FR-14 + OpenAPI + SSE", status("T")]], [48, 90, 32])]
-S += [p("Appendix C - Configuration reference", H1), p("All settings are environment variables (prefix <font face='Courier'>MKA_</font>; provider keys <font face='Courier'>OPENAI_API_KEY</font>, <font face='Courier'>GEMINI_API_KEY</font>, <font face='Courier'>BRAVE_API_KEY</font>). The complete annotated list is in <font face='Courier'>.env.example</font>. "
-                                                          "Production mode (<font face='Courier'>MKA_ENV=production</font>) refuses to start unless authentication is enabled, a 32+ character JWT secret is set, self-service signup and private-URL fetching are off, CORS has no wildcard and the database is PostgreSQL."),
-      p("Appendix D - Delivered artefacts", H1)] + bullets(["Source code: <font face='Courier'>app/</font> (API, agents, RAG, ingestion, security, intelligence, evaluation), <font face='Courier'>frontend/</font> (React + TypeScript), <font face='Courier'>tests/</font>, <font face='Courier'>scripts/</font>.",
-                                                            "Deployment: <font face='Courier'>Dockerfile</font>, <font face='Courier'>docker-compose.yml</font>, <font face='Courier'>.github/workflows/ci.yml</font>, <font face='Courier'>.env.example</font>.",
-                                                            "Documentation: <font face='Courier'>README.md</font>, <font face='Courier'>docs/API.md</font>, <font face='Courier'>docs/openapi.json</font>, <font face='Courier'>docs/eval/</font> (latest evaluation report in JSON, Markdown and HTML)."])
-
-doc = SimpleDocTemplate(str(OUT), pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=16 * mm, bottomMargin=18 * mm, title="Multi-Agent Knowledge Assistant - Updated BRD v2",
-                        author="Multi-Agent Knowledge Assistant project", subject="Business Requirements Document v2.0")
+doc = SimpleDocTemplate(str(OUT), pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=16 * mm, bottomMargin=18 * mm, title="Multi-Agent Knowledge Assistant - BRD v2.1",
+                        author="Multi-Agent Knowledge Assistant project", subject="Business Requirements Document")
 doc.build(S, onFirstPage=header_footer, onLaterPages=header_footer)
-print("wrote", OUT, OUT.stat().st_size // 1024, "KB")
+print("wrote", OUT, OUT.stat().st_size, "bytes")

@@ -147,7 +147,8 @@ export const api = {
 
   evalRuns: () => req<EvalSummary[]>("/eval/runs"),
   evalRun: (id: string) => req<EvalReport>(`/eval/runs/${id}`),
-  runEval: (body: { sample: boolean; name?: string; compare_strategies?: boolean }) => req<EvalReport>("/eval/run", { method: "POST", body }),
+  runEval: (body: { sample: boolean; extended?: boolean; name?: string; compare_strategies?: boolean }) => req<EvalReport>("/eval/run", { method: "POST", body }),
+  evalExport: (id: string, fmt: "pdf" | "docx" | "xlsx" | "html" | "md") => blob(`/eval/runs/${id}/report.${fmt}`),
 
   users: () => req<User[]>("/admin/users"),
   createUser: (email: string, password: string, role: string) => req<User>("/admin/users", { method: "POST", body: { email, password, role } }),

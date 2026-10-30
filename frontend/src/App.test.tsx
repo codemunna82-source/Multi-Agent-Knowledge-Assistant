@@ -74,7 +74,8 @@ describe("Evaluation report", () => {
       id: "r1", name: "Sample", dataset: "synthetic", created: "2026-01-01", duration_s: 1, config: { embedder: "hash:v1:1024", llm: "none", vector_store: "local" },
       metrics: {
         cases: 42, retrieval: { "recall@1": 0.9, "recall@3": 0.9, "recall@5": 0.909, "precision@1": 0.9, "precision@3": 0.3, "precision@5": 0.18, "ndcg@1": 0.9, "ndcg@3": 0.9, "ndcg@5": 0.9, mrr: 0.909 },
-        answers: { route_accuracy: 1, "faithfulness_lexical (proxy)": 0.89, "answer_relevancy_embedding (proxy)": 0.26 }, latency_ms: { p50: 10, p95: 29 },
+        answers: { route_accuracy: 1, "faithfulness_lexical (proxy)": 0.89, "answer_relevancy_embedding (proxy)": 0.26, citation_accuracy: 0.97 }, latency_ms: { p50: 10, p95: 29 },
+        agents: { execution_success_rate: 1, cases_with_agent_failure: 0, verified_rate: 0.9, tool_calls: 41, failed_tool_calls: 2, failed_tool_call_rate: 0.049, cases_with_invalid_citations: 0 },
         tokens: { prompt: 0, completion: 0, embedding: 0, per_query: 0, estimated: false }, cost_usd: { total: 0, per_query: 0 },
         by_type: { semantic: { cases: 21, correct: 0.9, "recall@5": 0.9, mrr: 0.9, route_accuracy: 1, latency_p50_ms: 9 } },
       },
@@ -86,6 +87,9 @@ describe("Evaluation report", () => {
     expect(screen.getByText("Faithfulness*")).toBeInTheDocument();
     expect(screen.getByText("10 / 29 ms")).toBeInTheDocument();
     expect(screen.getByText("hybrid")).toBeInTheDocument();
+    expect(screen.getByText("Citation accuracy")).toBeInTheDocument();
+    expect(screen.getByText("2 / 41")).toBeInTheDocument();
+    expect(screen.getByText("Agent execution success")).toBeInTheDocument();
     expect(screen.getByText(/no relevant passage in top 5/)).toBeInTheDocument();
     expect(screen.getAllByRole("img", { name: /%/ }).length).toBeGreaterThan(5);
   });

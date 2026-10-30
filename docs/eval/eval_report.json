@@ -1,8 +1,8 @@
 {
  "name": "default strategy",
  "dataset": "synthetic-mixed-v1",
- "created": "2026-10-30T05:42:51Z",
- "duration_s": 0.66,
+ "created": "2026-10-30T07:50:40Z",
+ "duration_s": 0.89,
  "config": {
   "embedder": "hash:v1:1024",
   "llm": "none",
@@ -20,6 +20,8 @@
    "corrective": true,
    "graph": false,
    "cross_lingual": true,
+   "self_rag": false,
+   "self_rag_rounds": 1,
    "max_retries": 2,
    "filters": {
     "kinds": null,
@@ -64,15 +66,29 @@
    "answer_relevancy_embedding (proxy)": 0.26710810810810814,
    "faithfulness_llm_judge": null,
    "answer_relevancy_llm_judge": null,
-   "false_answer_rate_on_unanswerable": 0.25
+   "false_answer_rate_on_unanswerable": 0.25,
+   "citation_accuracy": 1.0,
+   "citation_gold_precision": 0.6071428571428571,
+   "required_sources_cited": null,
+   "stale_or_forbidden_content_absent": null
+  },
+  "agents": {
+   "execution_success_rate": 1.0,
+   "cases_with_agent_failure": 0,
+   "verified_rate": 0.9047619047619048,
+   "cases_with_invalid_citations": 0,
+   "tool_calls": 49,
+   "declined_tool_calls": 8,
+   "failed_tool_calls": 0,
+   "failed_tool_call_rate": 0.0
   },
   "latency_ms": {
-   "mean": 14.46452380952381,
-   "p50": 8.965,
-   "p95": 27.536500000000007,
-   "max": 31.38,
-   "retrieval_p50": 0.9099999999999999,
-   "retrieval_p95": 3.9219999999999997
+   "mean": 18.656428571428574,
+   "p50": 17.72,
+   "p95": 27.739000000000008,
+   "max": 43.46,
+   "retrieval_p50": 2.17,
+   "retrieval_p95": 6.829999999999999
   },
   "tokens": {
    "prompt": 0,
@@ -92,7 +108,7 @@
     "mrr": null,
     "route_accuracy": null,
     "correct": 0.75,
-    "latency_p50_ms": 7.98
+    "latency_p50_ms": 15.285
    },
    "data": {
     "cases": 9,
@@ -100,7 +116,7 @@
     "mrr": null,
     "route_accuracy": 1.0,
     "correct": 1.0,
-    "latency_p50_ms": 23.16
+    "latency_p50_ms": 20.49
    },
    "exact": {
     "cases": 6,
@@ -108,7 +124,7 @@
     "mrr": 1.0,
     "route_accuracy": 1.0,
     "correct": 1.0,
-    "latency_p50_ms": 7.41
+    "latency_p50_ms": 15.780000000000001
    },
    "intel": {
     "cases": 2,
@@ -116,7 +132,7 @@
     "mrr": null,
     "route_accuracy": 1.0,
     "correct": 1.0,
-    "latency_p50_ms": 9.105
+    "latency_p50_ms": 14.815000000000001
    },
    "semantic": {
     "cases": 21,
@@ -124,7 +140,7 @@
     "mrr": 0.9047619047619048,
     "route_accuracy": 1.0,
     "correct": 0.9047619047619048,
-    "latency_p50_ms": 8.52
+    "latency_p50_ms": 18.74
    }
   }
  },
@@ -158,7 +174,7 @@
    "id": "s01",
    "type": "semantic",
    "question": "How many days of annual leave do full-time employees accrue?",
-   "retrieval_ms": 9.88,
+   "retrieval_ms": 13.3,
    "retrieved": [
     {
      "source": "hr_policy.pdf",
@@ -184,7 +200,7 @@
    "ndcg@5": 1.0,
    "mrr": 1.0,
    "retrieval_grade": "correct",
-   "latency_ms": 31.38,
+   "latency_ms": 43.46,
    "route": "semantic",
    "verified": true,
    "confidence": "high",
@@ -199,6 +215,11 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "citation_gold_precision": 0.5,
+   "agent_ok": true,
+   "agents_run": 4,
    "answered": true,
    "faithfulness_lexical": 1.0,
    "support_ratio": 0.605,
@@ -208,7 +229,7 @@
    "id": "s02",
    "type": "semantic",
    "question": "How many unused leave days can be carried over?",
-   "retrieval_ms": 0.83,
+   "retrieval_ms": 1.74,
    "retrieved": [
     {
      "source": "hr_policy.pdf",
@@ -228,7 +249,7 @@
    "ndcg@5": 1.0,
    "mrr": 1.0,
    "retrieval_grade": "correct",
-   "latency_ms": 22.87,
+   "latency_ms": 19.18,
    "route": "semantic",
    "verified": true,
    "confidence": "high",
@@ -243,6 +264,11 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "citation_gold_precision": 1.0,
+   "agent_ok": true,
+   "agents_run": 4,
    "answered": true,
    "faithfulness_lexical": 1.0,
    "support_ratio": 0.659,
@@ -252,7 +278,7 @@
    "id": "s03",
    "type": "semantic",
    "question": "When is a doctor's note required for sick leave?",
-   "retrieval_ms": 0.84,
+   "retrieval_ms": 1.94,
    "retrieved": [
     {
      "source": "hr_policy.pdf",
@@ -272,7 +298,7 @@
    "ndcg@5": 1.0,
    "mrr": 1.0,
    "retrieval_grade": "correct",
-   "latency_ms": 7.5,
+   "latency_ms": 13.7,
    "route": "semantic",
    "verified": true,
    "confidence": "high",
@@ -287,6 +313,11 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "citation_gold_precision": 1.0,
+   "agent_ok": true,
+   "agents_run": 3,
    "answered": true,
    "faithfulness_lexical": 1.0,
    "support_ratio": 0.605,
@@ -296,7 +327,7 @@
    "id": "s04",
    "type": "semantic",
    "question": "How many days a week can employees work remotely?",
-   "retrieval_ms": 0.82,
+   "retrieval_ms": 2.18,
    "retrieved": [
     {
      "source": "hr_policy.pdf",
@@ -322,7 +353,7 @@
    "ndcg@5": 1.0,
    "mrr": 1.0,
    "retrieval_grade": "correct",
-   "latency_ms": 24.3,
+   "latency_ms": 19.81,
    "route": "semantic",
    "verified": true,
    "confidence": "high",
@@ -337,6 +368,11 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "citation_gold_precision": 0.5,
+   "agent_ok": true,
+   "agents_run": 4,
    "answered": true,
    "faithfulness_lexical": 1.0,
    "support_ratio": 0.583,
@@ -346,7 +382,7 @@
    "id": "s05",
    "type": "semantic",
    "question": "Within how many days must expense reports be filed?",
-   "retrieval_ms": 1.32,
+   "retrieval_ms": 2.72,
    "retrieved": [
     {
      "source": "hr_policy.pdf",
@@ -372,7 +408,7 @@
    "ndcg@5": 1.0,
    "mrr": 1.0,
    "retrieval_grade": "correct",
-   "latency_ms": 24.43,
+   "latency_ms": 20.43,
    "route": "semantic",
    "verified": true,
    "confidence": "high",
@@ -387,6 +423,11 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "citation_gold_precision": 0.5,
+   "agent_ok": true,
+   "agents_run": 4,
    "answered": true,
    "faithfulness_lexical": 1.0,
    "support_ratio": 0.643,
@@ -396,7 +437,7 @@
    "id": "s06",
    "type": "semantic",
    "question": "Above what amount are receipts mandatory?",
-   "retrieval_ms": 0.73,
+   "retrieval_ms": 1.74,
    "retrieved": [
     {
      "source": "hr_policy.pdf",
@@ -416,7 +457,7 @@
    "ndcg@5": 1.0,
    "mrr": 1.0,
    "retrieval_grade": "correct",
-   "latency_ms": 6.88,
+   "latency_ms": 14.34,
    "route": "semantic",
    "verified": true,
    "confidence": "medium",
@@ -431,6 +472,11 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "citation_gold_precision": 1.0,
+   "agent_ok": true,
+   "agents_run": 3,
    "answered": true,
    "faithfulness_lexical": 1.0,
    "support_ratio": 0.357,
@@ -440,7 +486,7 @@
    "id": "s07",
    "type": "semantic",
    "question": "How often must passwords be rotated?",
-   "retrieval_ms": 0.7,
+   "retrieval_ms": 2.16,
    "retrieved": [
     {
      "source": "security_policy.pdf",
@@ -460,7 +506,7 @@
    "ndcg@5": 1.0,
    "mrr": 1.0,
    "retrieval_grade": "correct",
-   "latency_ms": 7.71,
+   "latency_ms": 12.71,
    "route": "semantic",
    "verified": true,
    "confidence": "medium",
@@ -475,6 +521,11 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "citation_gold_precision": 1.0,
+   "agent_ok": true,
+   "agents_run": 3,
    "answered": true,
    "faithfulness_lexical": 1.0,
    "support_ratio": 0.5,
@@ -484,7 +535,7 @@
    "id": "s08",
    "type": "semantic",
    "question": "Within how many hours must a security incident be reported?",
-   "retrieval_ms": 1.05,
+   "retrieval_ms": 1.96,
    "retrieved": [
     {
      "source": "security_policy.pdf",
@@ -510,7 +561,7 @@
    "ndcg@5": 1.0,
    "mrr": 1.0,
    "retrieval_grade": "correct",
-   "latency_ms": 25.27,
+   "latency_ms": 18.74,
    "route": "semantic",
    "verified": true,
    "confidence": "high",
@@ -525,6 +576,11 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "citation_gold_precision": 0.5,
+   "agent_ok": true,
+   "agents_run": 4,
    "answered": true,
    "faithfulness_lexical": 1.0,
    "support_ratio": 0.583,
@@ -534,7 +590,7 @@
    "id": "s09",
    "type": "semantic",
    "question": "How long must customer data be retained?",
-   "retrieval_ms": 1.52,
+   "retrieval_ms": 3.23,
    "retrieved": [
     {
      "source": "security_policy.pdf",
@@ -572,7 +628,7 @@
    "ndcg@5": 1.0,
    "mrr": 1.0,
    "retrieval_grade": "correct",
-   "latency_ms": 8.52,
+   "latency_ms": 15.96,
    "route": "semantic",
    "verified": true,
    "confidence": "high",
@@ -587,6 +643,11 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "citation_gold_precision": 0.25,
+   "agent_ok": true,
+   "agents_run": 3,
    "answered": true,
    "faithfulness_lexical": 1.0,
    "support_ratio": 0.651,
@@ -596,7 +657,7 @@
    "id": "s10",
    "type": "semantic",
    "question": "What notice is required to terminate the agreement for convenience?",
-   "retrieval_ms": 0.78,
+   "retrieval_ms": 2.05,
    "retrieved": [
     {
      "source": "service_agreement.docx",
@@ -622,7 +683,7 @@
    "ndcg@5": 1.0,
    "mrr": 1.0,
    "retrieval_grade": "correct",
-   "latency_ms": 8.16,
+   "latency_ms": 13.74,
    "route": "semantic",
    "verified": true,
    "confidence": "high",
@@ -637,6 +698,11 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "citation_gold_precision": 0.5,
+   "agent_ok": true,
+   "agents_run": 3,
    "answered": true,
    "faithfulness_lexical": 1.0,
    "support_ratio": 0.595,
@@ -646,7 +712,7 @@
    "id": "s11",
    "type": "semantic",
    "question": "Within how many days must invoices be paid?",
-   "retrieval_ms": 2.98,
+   "retrieval_ms": 6.07,
    "retrieved": [
     {
      "source": "service_agreement.docx",
@@ -678,7 +744,7 @@
    "ndcg@5": 1.0,
    "mrr": 1.0,
    "retrieval_grade": "ambiguous",
-   "latency_ms": 25.95,
+   "latency_ms": 25.63,
    "route": "semantic",
    "verified": true,
    "confidence": "medium",
@@ -693,6 +759,11 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "citation_gold_precision": 0.3333333333333333,
+   "agent_ok": true,
+   "agents_run": 4,
    "answered": true,
    "faithfulness_lexical": 1.0,
    "support_ratio": 0.644,
@@ -702,7 +773,7 @@
    "id": "s12",
    "type": "semantic",
    "question": "Which law governs the agreement?",
-   "retrieval_ms": 0.82,
+   "retrieval_ms": 1.75,
    "retrieved": [
     {
      "source": "service_agreement.docx",
@@ -728,7 +799,7 @@
    "ndcg@5": 1.0,
    "mrr": 1.0,
    "retrieval_grade": "correct",
-   "latency_ms": 7.35,
+   "latency_ms": 13.33,
    "route": "semantic",
    "verified": true,
    "confidence": "medium",
@@ -743,6 +814,11 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "citation_gold_precision": 0.5,
+   "agent_ok": true,
+   "agents_run": 3,
    "answered": true,
    "faithfulness_lexical": 1.0,
    "support_ratio": 0.516,
@@ -752,7 +828,7 @@
    "id": "s13",
    "type": "semantic",
    "question": "How long does the confidentiality obligation last after termination?",
-   "retrieval_ms": 3.97,
+   "retrieval_ms": 6.87,
    "retrieved": [
     {
      "source": "service_agreement.docx",
@@ -784,7 +860,7 @@
    "ndcg@5": 1.0,
    "mrr": 1.0,
    "retrieval_grade": "ambiguous",
-   "latency_ms": 10.56,
+   "latency_ms": 22.28,
    "route": "semantic",
    "verified": true,
    "confidence": "medium",
@@ -799,6 +875,11 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "citation_gold_precision": 0.3333333333333333,
+   "agent_ok": true,
+   "agents_run": 3,
    "answered": true,
    "faithfulness_lexical": 1.0,
    "support_ratio": 0.548,
@@ -808,7 +889,7 @@
    "id": "s14",
    "type": "semantic",
    "question": "What is the return policy for products?",
-   "retrieval_ms": 0.85,
+   "retrieval_ms": 2.45,
    "retrieved": [
     {
      "source": "product_faq.txt",
@@ -828,7 +909,7 @@
    "ndcg@5": 1.0,
    "mrr": 1.0,
    "retrieval_grade": "correct",
-   "latency_ms": 8.17,
+   "latency_ms": 17.42,
    "route": "semantic",
    "verified": true,
    "confidence": "high",
@@ -843,6 +924,11 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "citation_gold_precision": 1.0,
+   "agent_ok": true,
+   "agents_run": 3,
    "answered": true,
    "faithfulness_lexical": 1.0,
    "support_ratio": 0.514,
@@ -852,7 +938,7 @@
    "id": "s15",
    "type": "semantic",
    "question": "How long is the hardware warranty?",
-   "retrieval_ms": 0.97,
+   "retrieval_ms": 1.79,
    "retrieved": [
     {
      "source": "product_faq.txt",
@@ -872,7 +958,7 @@
    "ndcg@5": 1.0,
    "mrr": 1.0,
    "retrieval_grade": "correct",
-   "latency_ms": 7.91,
+   "latency_ms": 16.02,
    "route": "semantic",
    "verified": true,
    "confidence": "high",
@@ -887,6 +973,11 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "citation_gold_precision": 0.0,
+   "agent_ok": true,
+   "agents_run": 3,
    "answered": true,
    "faithfulness_lexical": 1.0,
    "support_ratio": 0.4,
@@ -896,7 +987,7 @@
    "id": "s16",
    "type": "semantic",
    "question": "When will the mobile app launch?",
-   "retrieval_ms": 0.69,
+   "retrieval_ms": 1.82,
    "retrieved": [
     {
      "source": "meeting_notes.md",
@@ -916,7 +1007,7 @@
    "ndcg@5": 1.0,
    "mrr": 1.0,
    "retrieval_grade": "correct",
-   "latency_ms": 7.48,
+   "latency_ms": 16.33,
    "route": "semantic",
    "verified": true,
    "confidence": "high",
@@ -931,6 +1022,11 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "citation_gold_precision": 1.0,
+   "agent_ok": true,
+   "agents_run": 3,
    "answered": true,
    "faithfulness_lexical": 1.0,
    "support_ratio": 0.467,
@@ -940,7 +1036,7 @@
    "id": "s17",
    "type": "semantic",
    "question": "Who signed the reseller agreement with Delta Systems?",
-   "retrieval_ms": 0.81,
+   "retrieval_ms": 1.9,
    "retrieved": [
     {
      "source": "meeting_notes.md",
@@ -972,7 +1068,7 @@
    "ndcg@5": 1.0,
    "mrr": 1.0,
    "retrieval_grade": "correct",
-   "latency_ms": 7.77,
+   "latency_ms": 19.21,
    "route": "semantic",
    "verified": true,
    "confidence": "high",
@@ -987,6 +1083,11 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "citation_gold_precision": 0.3333333333333333,
+   "agent_ok": true,
+   "agents_run": 3,
    "answered": true,
    "faithfulness_lexical": 1.0,
    "support_ratio": 0.533,
@@ -996,7 +1097,7 @@
    "id": "s18",
    "type": "semantic",
    "question": "What is the main risk to the launch?",
-   "retrieval_ms": 0.74,
+   "retrieval_ms": 1.78,
    "retrieved": [
     {
      "source": "meeting_notes.md",
@@ -1016,7 +1117,7 @@
    "ndcg@5": 1.0,
    "mrr": 1.0,
    "retrieval_grade": "correct",
-   "latency_ms": 7.54,
+   "latency_ms": 16.38,
    "route": "semantic",
    "verified": true,
    "confidence": "medium",
@@ -1031,6 +1132,11 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "citation_gold_precision": 1.0,
+   "agent_ok": true,
+   "agents_run": 3,
    "answered": true,
    "faithfulness_lexical": 1.0,
    "support_ratio": 0.389,
@@ -1040,7 +1146,7 @@
    "id": "h01",
    "type": "semantic",
    "question": "How much vacation time do staff get yearly?",
-   "retrieval_ms": 1.35,
+   "retrieval_ms": 3.57,
    "retrieved": [],
    "recall@1": 0.0,
    "precision@1": 0.0,
@@ -1053,7 +1159,7 @@
    "ndcg@5": 0.0,
    "mrr": 0.0,
    "retrieval_grade": "incorrect",
-   "latency_ms": 9.16,
+   "latency_ms": 25.07,
    "route": "semantic",
    "verified": false,
    "confidence": "none",
@@ -1068,13 +1174,15 @@
    },
    "route_ok": true,
    "keywords_ok": false,
+   "agent_ok": true,
+   "agents_run": 4,
    "answered": false
   },
   {
    "id": "h02",
    "type": "semantic",
    "question": "How soon do we have to tell the security team about a breach?",
-   "retrieval_ms": 2.08,
+   "retrieval_ms": 4.07,
    "retrieved": [
     {
      "source": "security_policy.pdf",
@@ -1094,7 +1202,7 @@
    "ndcg@5": 1.0,
    "mrr": 1.0,
    "retrieval_grade": "ambiguous",
-   "latency_ms": 9.49,
+   "latency_ms": 20.16,
    "route": "semantic",
    "verified": true,
    "confidence": "medium",
@@ -1109,6 +1217,11 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "citation_gold_precision": 1.0,
+   "agent_ok": true,
+   "agents_run": 3,
    "answered": true,
    "faithfulness_lexical": 1.0,
    "support_ratio": 0.571,
@@ -1118,7 +1231,7 @@
    "id": "h03",
    "type": "semantic",
    "question": "What is the cost of the Pro subscription per month?",
-   "retrieval_ms": 2.2,
+   "retrieval_ms": 4.68,
    "retrieved": [
     {
      "source": "service_agreement.docx",
@@ -1138,7 +1251,7 @@
    "ndcg@5": 0.0,
    "mrr": 0.0,
    "retrieval_grade": "ambiguous",
-   "latency_ms": 30.55,
+   "latency_ms": 27.92,
    "route": "semantic",
    "verified": true,
    "confidence": "medium",
@@ -1153,6 +1266,11 @@
    },
    "route_ok": true,
    "keywords_ok": false,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "citation_gold_precision": 0.0,
+   "agent_ok": true,
+   "agents_run": 4,
    "answered": true,
    "faithfulness_lexical": 1.0,
    "support_ratio": 0.45,
@@ -1162,7 +1280,7 @@
    "id": "e01",
    "type": "exact",
    "question": "Does Anjali Rao appear in the documents?",
-   "retrieval_ms": 3.01,
+   "retrieval_ms": 5.97,
    "retrieved": [
     {
      "source": "hr_policy.pdf",
@@ -1194,7 +1312,7 @@
    "ndcg@5": 1.0,
    "mrr": 1.0,
    "retrieval_grade": "ambiguous",
-   "latency_ms": 7.65,
+   "latency_ms": 17.81,
    "route": "exact",
    "verified": true,
    "confidence": "high",
@@ -1208,6 +1326,11 @@
     "estimated": false
    },
    "route_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "citation_gold_precision": 0.5,
+   "agent_ok": true,
+   "agents_run": 2,
    "count_ok": true,
    "answered": true,
    "answer_relevancy_embedding": 0.178
@@ -1216,7 +1339,7 @@
    "id": "e02",
    "type": "exact",
    "question": "How many times does \"Delta Systems\" appear?",
-   "latency_ms": 7.09,
+   "latency_ms": 14.94,
    "route": "exact",
    "verified": true,
    "confidence": "high",
@@ -1230,6 +1353,10 @@
     "estimated": false
    },
    "route_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "agent_ok": true,
+   "agents_run": 2,
    "count_ok": true,
    "answered": true,
    "answer_relevancy_embedding": 0.146
@@ -1238,7 +1365,7 @@
    "id": "e03",
    "type": "exact",
    "question": "Find SKU-1003",
-   "latency_ms": 7.06,
+   "latency_ms": 21.36,
    "route": "exact",
    "verified": true,
    "confidence": "high",
@@ -1252,6 +1379,10 @@
     "estimated": false
    },
    "route_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "agent_ok": true,
+   "agents_run": 2,
    "count_ok": true,
    "answered": true,
    "answer_relevancy_embedding": 0.096
@@ -1260,7 +1391,7 @@
    "id": "e04",
    "type": "exact",
    "question": "Search for \"Zaphod Beeblebrox\"",
-   "latency_ms": 7.17,
+   "latency_ms": 9.89,
    "route": "exact",
    "verified": true,
    "confidence": "high",
@@ -1274,6 +1405,8 @@
     "estimated": false
    },
    "route_ok": true,
+   "agent_ok": true,
+   "agents_run": 2,
    "count_ok": true,
    "answered": true,
    "answer_relevancy_embedding": 0.325
@@ -1282,7 +1415,7 @@
    "id": "e05",
    "type": "exact",
    "question": "Where does clause 8 appear?",
-   "latency_ms": 9.36,
+   "latency_ms": 16.62,
    "route": "document_search",
    "verified": true,
    "confidence": "high",
@@ -1296,6 +1429,10 @@
     "estimated": false
    },
    "route_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "agent_ok": true,
+   "agents_run": 3,
    "count_ok": true,
    "answered": true,
    "faithfulness_lexical": 0.3333333333333333,
@@ -1306,7 +1443,7 @@
    "id": "e06",
    "type": "exact",
    "question": "How many times does \"Bob Mehta\" appear?",
-   "latency_ms": 8.31,
+   "latency_ms": 13.5,
    "route": "exact",
    "verified": true,
    "confidence": "high",
@@ -1320,6 +1457,10 @@
     "estimated": false
    },
    "route_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "agent_ok": true,
+   "agents_run": 2,
    "count_ok": true,
    "answered": true,
    "answer_relevancy_embedding": 0.136
@@ -1328,7 +1469,7 @@
    "id": "d01",
    "type": "data",
    "question": "What is the total sales?",
-   "latency_ms": 27.62,
+   "latency_ms": 27.85,
    "route": "data",
    "verified": true,
    "confidence": "high",
@@ -1342,6 +1483,10 @@
     "estimated": false
    },
    "route_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "agent_ok": true,
+   "agents_run": 2,
    "value_ok": true,
    "answered": true,
    "answer_relevancy_embedding": 0.397
@@ -1350,7 +1495,7 @@
    "id": "d02",
    "type": "data",
    "question": "Which employee has the highest sales?",
-   "latency_ms": 22.54,
+   "latency_ms": 17.48,
    "route": "data",
    "verified": true,
    "confidence": "high",
@@ -1365,6 +1510,10 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "agent_ok": true,
+   "agents_run": 2,
    "value_ok": true,
    "answered": true,
    "answer_relevancy_embedding": 0.39
@@ -1373,7 +1522,7 @@
    "id": "d03",
    "type": "data",
    "question": "What is the average sales?",
-   "latency_ms": 21.79,
+   "latency_ms": 20.49,
    "route": "data",
    "verified": true,
    "confidence": "high",
@@ -1387,6 +1536,10 @@
     "estimated": false
    },
    "route_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "agent_ok": true,
+   "agents_run": 2,
    "value_ok": true,
    "answered": true,
    "answer_relevancy_embedding": 0.378
@@ -1395,7 +1548,7 @@
    "id": "d04",
    "type": "data",
    "question": "What is the total sales in the North region?",
-   "latency_ms": 22.39,
+   "latency_ms": 17.63,
    "route": "data",
    "verified": true,
    "confidence": "high",
@@ -1409,6 +1562,10 @@
     "estimated": false
    },
    "route_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "agent_ok": true,
+   "agents_run": 2,
    "value_ok": true,
    "answered": true,
    "answer_relevancy_embedding": 0.394
@@ -1417,7 +1574,7 @@
    "id": "d05",
    "type": "data",
    "question": "Which region has the highest total sales?",
-   "latency_ms": 23.45,
+   "latency_ms": 18.92,
    "route": "data",
    "verified": true,
    "confidence": "high",
@@ -1432,6 +1589,10 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "agent_ok": true,
+   "agents_run": 2,
    "answered": true,
    "answer_relevancy_embedding": 0.328
   },
@@ -1439,7 +1600,7 @@
    "id": "d06",
    "type": "data",
    "question": "How many customers are in the UK?",
-   "latency_ms": 22.89,
+   "latency_ms": 20.65,
    "route": "data",
    "verified": true,
    "confidence": "high",
@@ -1453,6 +1614,10 @@
     "estimated": false
    },
    "route_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "agent_ok": true,
+   "agents_run": 2,
    "value_ok": true,
    "answered": true,
    "answer_relevancy_embedding": 0.248
@@ -1461,7 +1626,7 @@
    "id": "d07",
    "type": "data",
    "question": "Are there duplicate emails in customers.csv?",
-   "latency_ms": 24.88,
+   "latency_ms": 23.41,
    "route": "data",
    "verified": true,
    "confidence": "high",
@@ -1475,6 +1640,10 @@
     "estimated": false
    },
    "route_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "agent_ok": true,
+   "agents_run": 2,
    "value_ok": true,
    "answered": true,
    "answer_relevancy_embedding": 0.192
@@ -1483,7 +1652,7 @@
    "id": "d08",
    "type": "data",
    "question": "Show the top 3 employees sorted by sales",
-   "latency_ms": 23.18,
+   "latency_ms": 21.37,
    "route": "data",
    "verified": true,
    "confidence": "high",
@@ -1498,6 +1667,10 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "agent_ok": true,
+   "agents_run": 2,
    "answered": true,
    "answer_relevancy_embedding": 0.304
   },
@@ -1505,7 +1678,7 @@
    "id": "d09",
    "type": "data",
    "question": "What is the median sales?",
-   "latency_ms": 23.16,
+   "latency_ms": 18.21,
    "route": "data",
    "verified": true,
    "confidence": "high",
@@ -1519,6 +1692,10 @@
     "estimated": false
    },
    "route_ok": true,
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "agent_ok": true,
+   "agents_run": 2,
    "value_ok": true,
    "answered": true,
    "answer_relevancy_embedding": 0.397
@@ -1527,7 +1704,7 @@
    "id": "a01",
    "type": "abstain",
    "question": "What is the capital of Mongolia?",
-   "latency_ms": 8.53,
+   "latency_ms": 16.35,
    "route": "semantic",
    "verified": false,
    "confidence": "none",
@@ -1540,6 +1717,8 @@
     "cost_usd": 0.0,
     "estimated": false
    },
+   "agent_ok": true,
+   "agents_run": 3,
    "abstained_ok": true,
    "abstained_or_low_conf": true
   },
@@ -1547,7 +1726,7 @@
    "id": "a02",
    "type": "abstain",
    "question": "What was the weather in Pune yesterday?",
-   "latency_ms": 8.52,
+   "latency_ms": 18.0,
    "route": "semantic",
    "verified": true,
    "confidence": "low",
@@ -1560,6 +1739,10 @@
     "cost_usd": 0.0,
     "estimated": false
    },
+   "citation_accuracy": 1.0,
+   "citations_invalid": 0,
+   "agent_ok": true,
+   "agents_run": 3,
    "abstained_ok": false,
    "abstained_or_low_conf": true,
    "faithfulness_lexical": 1.0,
@@ -1569,7 +1752,7 @@
    "id": "a03",
    "type": "abstain",
    "question": "Who won the football world cup in 1998?",
-   "latency_ms": 7.32,
+   "latency_ms": 14.22,
    "route": "semantic",
    "verified": false,
    "confidence": "none",
@@ -1582,6 +1765,8 @@
     "cost_usd": 0.0,
     "estimated": false
    },
+   "agent_ok": true,
+   "agents_run": 3,
    "abstained_ok": true,
    "abstained_or_low_conf": true
   },
@@ -1589,7 +1774,7 @@
    "id": "a04",
    "type": "abstain",
    "question": "What is the CEO's favourite colour?",
-   "latency_ms": 7.44,
+   "latency_ms": 13.42,
    "route": "semantic",
    "verified": false,
    "confidence": "none",
@@ -1602,6 +1787,8 @@
     "cost_usd": 0.0,
     "estimated": false
    },
+   "agent_ok": true,
+   "agents_run": 3,
    "abstained_ok": true,
    "abstained_or_low_conf": true
   },
@@ -1609,7 +1796,7 @@
    "id": "i01",
    "type": "intel",
    "question": "How is Anjali Rao related to Dev Patel?",
-   "latency_ms": 9.44,
+   "latency_ms": 17.28,
    "route": "summarize",
    "verified": true,
    "confidence": "medium",
@@ -1624,6 +1811,8 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "agent_ok": true,
+   "agents_run": 3,
    "faithfulness_lexical": 0.0,
    "support_ratio": 0.8,
    "answer_relevancy_embedding": 0.543
@@ -1632,7 +1821,7 @@
    "id": "i02",
    "type": "intel",
    "question": "Extract all the entities from meeting_notes.md",
-   "latency_ms": 8.77,
+   "latency_ms": 12.35,
    "route": "summarize",
    "verified": true,
    "confidence": "medium",
@@ -1647,14 +1836,75 @@
    },
    "route_ok": true,
    "keywords_ok": true,
+   "agent_ok": true,
+   "agents_run": 3,
    "faithfulness_lexical": 0.0,
    "support_ratio": 0.611,
    "answer_relevancy_embedding": 0.137
   }
  ],
+ "corpus": [
+  {
+   "name": "hr_policy.pdf",
+   "version": 1,
+   "kind": "pdf",
+   "ingested_at": "2026-10-30T07:50:39+00:00",
+   "content_hash": "08342e63af66c7aa39c6db34594c496b877bc9ce4ae85909563b210c950a4d61"
+  },
+  {
+   "name": "security_policy.pdf",
+   "version": 1,
+   "kind": "pdf",
+   "ingested_at": "2026-10-30T07:50:39+00:00",
+   "content_hash": "b3a6c24070a10ef8625dfb8022b733a4d1a140c2f5ae6e242aef9c699ac560ed"
+  },
+  {
+   "name": "service_agreement.docx",
+   "version": 1,
+   "kind": "docx",
+   "ingested_at": "2026-10-30T07:50:39+00:00",
+   "content_hash": "3dc9560fa396e00c71700b562ba7414e1313a3f17243f9c749c2af2c38c44b57"
+  },
+  {
+   "name": "sales_q1.xlsx",
+   "version": 1,
+   "kind": "xlsx",
+   "ingested_at": "2026-10-30T07:50:39+00:00",
+   "content_hash": "793a140afb7e2504099cc6abeff40c67d875d5d332f56414c74f49650282d16d"
+  },
+  {
+   "name": "customers.csv",
+   "version": 1,
+   "kind": "csv",
+   "ingested_at": "2026-10-30T07:50:39+00:00",
+   "content_hash": "ac028fe25d35c02432a90693e0bcc5bf5d48e02a221e473531988ba73c5115bd"
+  },
+  {
+   "name": "meeting_notes.md",
+   "version": 1,
+   "kind": "md",
+   "ingested_at": "2026-10-30T07:50:39+00:00",
+   "content_hash": "346fd819163764212db5143a313675dbfdc1fb5aa523567d9e659c3e4c07e969"
+  },
+  {
+   "name": "product_faq.txt",
+   "version": 1,
+   "kind": "txt",
+   "ingested_at": "2026-10-30T07:50:39+00:00",
+   "content_hash": "da8a3daa756b5bde634aa5314a8dcccdf9cabac04b66f2912fed08663112841d"
+  },
+  {
+   "name": "inventory.json",
+   "version": 1,
+   "kind": "json",
+   "ingested_at": "2026-10-30T07:50:39+00:00",
+   "content_hash": "a85550f8d5d830ff5da565b224a0de756e3846867b2c2b5dcdcaecc715a68bc6"
+  }
+ ],
  "notes": [
   "Faithfulness/relevancy marked (proxy) are lexical/embedding heuristics, not RAGAS; the LLM-judge values exist only when an LLM is configured.",
-  "Token counts are provider-reported when available, otherwise estimated at ~4 characters per token; cost uses MKA_PRICE_TABLE."
+  "Token counts are provider-reported when available, otherwise estimated at ~4 characters per token; cost uses MKA_PRICE_TABLE.",
+  "citation_accuracy = share of returned citations whose page/row exists and whose excerpt occurs there (checked by the Verification Agent); agent execution success = no internal error or timeout in any agent node."
  ],
  "comparison": [
   {
@@ -1663,8 +1913,8 @@
    "precision@5": 0.17272727272727273,
    "mrr": 0.8333333333333333,
    "ndcg@5": 0.8409090909090909,
-   "p50_ms": 7.275,
-   "p95_ms": 24.587,
+   "p50_ms": 15.955,
+   "p95_ms": 24.85,
    "cost_per_query": 0.0
   },
   {
@@ -1673,8 +1923,8 @@
    "precision@5": 0.17272727272727273,
    "mrr": 0.8636363636363636,
    "ndcg@5": 0.8636363636363636,
-   "p50_ms": 7.765000000000001,
-   "p95_ms": 25.9825,
+   "p50_ms": 14.815,
+   "p95_ms": 21.4435,
    "cost_per_query": 0.0
   },
   {
@@ -1683,8 +1933,8 @@
    "precision@5": 0.17272727272727273,
    "mrr": 0.8333333333333333,
    "ndcg@5": 0.8409090909090909,
-   "p50_ms": 8.75,
-   "p95_ms": 28.166500000000003,
+   "p50_ms": 16.48,
+   "p95_ms": 22.874499999999998,
    "cost_per_query": 0.0
   },
   {
@@ -1693,8 +1943,8 @@
    "precision@5": 0.17272727272727273,
    "mrr": 0.8636363636363636,
    "ndcg@5": 0.8636363636363636,
-   "p50_ms": 8.08,
-   "p95_ms": 26.171000000000003,
+   "p50_ms": 16.335,
+   "p95_ms": 24.796500000000005,
    "cost_per_query": 0.0
   },
   {
@@ -1703,8 +1953,8 @@
    "precision@5": 0.18181818181818182,
    "mrr": 0.9090909090909091,
    "ndcg@5": 0.9090909090909091,
-   "p50_ms": 8.625,
-   "p95_ms": 25.905,
+   "p50_ms": 16.125,
+   "p95_ms": 22.732000000000003,
    "cost_per_query": 0.0
   },
   {
@@ -1713,8 +1963,8 @@
    "precision@5": 0.18181818181818182,
    "mrr": 0.9090909090909091,
    "ndcg@5": 0.9090909090909091,
-   "p50_ms": 11.09,
-   "p95_ms": 44.58200000000002,
+   "p50_ms": 17.77,
+   "p95_ms": 24.706500000000002,
    "cost_per_query": 0.0
   }
  ]

@@ -16,10 +16,12 @@ app = create_app(Settings(data_dir=tempfile.mkdtemp(), _env_file=None))
 spec = app.openapi()
 (root / "docs" / "openapi.json").write_text(json.dumps(spec, indent=1), encoding="utf-8")
 
-PERM = {  # minimum role per route family (see app/security/auth.py PERMISSIONS)
-    "/auth": "public (signup/login) / any user", "/health": "public", "/sources": "viewer (read) · editor (upload, URL, re-index, delete own) · admin (delete any)",
-    "/jobs": "editor", "/ask": "viewer", "/conversations": "viewer (own conversations only)", "/graph": "viewer", "/transcribe": "viewer", "/eval": "editor",
-    "/admin": "admin", "/session": "admin",
+PERM = {  # minimum role per route family (see app/security/auth.py PERMISSIONS): user < manager < admin
+    "/auth": "public (signup/login/refresh) / any user", "/health": "public", "/metrics": "metrics bearer token or admin",
+    "/sources": "user (read, preview, compare) · manager (upload, URL, re-index, versions, sharing, delete own) · admin (delete any)",
+    "/jobs": "manager", "/ask": "user", "/conversations": "user (own conversations only)", "/graph": "user", "/transcribe": "user",
+    "/search": "user", "/summaries": "user", "/compare": "user", "/analytics": "user", "/web": "user", "/reports": "user (own reports; admin: whole organisation)",
+    "/memory": "user (own data)", "/eval": "manager", "/admin/maintenance": "admin", "/admin": "admin", "/session": "admin",
 }
 by_tag: dict[str, list] = {}
 for path, ops in spec["paths"].items():

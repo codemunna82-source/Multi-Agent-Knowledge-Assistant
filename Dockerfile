@@ -7,7 +7,7 @@ RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
 RUN npm run build
 
-# ---- 2. python runtime (API and worker use the same image) -----------------------------------
+# ---- 2. python runtime (API, ingestion worker and scheduler use the same image; schema migrations run at API start-up when MKA_ENV=production) -----------------------------------
 FROM python:3.12-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 MKA_DATA_DIR=/data
 RUN apt-get update && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-hin libpq5 curl \
@@ -16,6 +16,8 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install -r requirements.txt
 COPY app ./app
+COPY alembic.ini ./
+COPY migrations ./migrations
 COPY --from=web /web/dist ./frontend/dist
 RUN useradd --create-home --uid 10001 mka && mkdir -p /data && chown mka /data
 USER mka

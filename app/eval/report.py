@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import html
+from datetime import UTC
 
 
 def _f(v, nd=3) -> str:
@@ -80,3 +81,45 @@ def html_report(rep: dict) -> str:
         t.append(f"<tr><td>{e(c['id'])}<td>{e(c['type'])}<td>{e(c['route'])}<td class={'ok' if c['verified'] else 'muted'}>{'yes' if c['verified'] else 'no'}<td>{_f(c.get('recall@5'), 2)}<td>{_f(c.get('mrr'), 2)}<td>{c['latency_ms']:.0f}<td>{e(c['question'])}</tr>")
     t.append("</table><h2>Notes</h2><ul>" + "".join(f"<li>{e(n)}</li>" for n in rep["notes"]) + "</ul></main>")
     return "".join(t)
+
+
+def to_doc(rep: dict):
+    """The evaluation report as a neutral Doc (PDF / DOCX / XLSX via app.reports.render): metrics, per-type table, charts, failures, per-case results,
+    the corpus that was evaluated (sources with versions and hashes) and generation timestamps."""
+    from datetime import datetime
+
+    from ..analytics.charts import spec
+    from ..reports.model import Doc
+
+    m = rep["metrics"]
+    try:
+        ts = datetime.strptime(rep["created"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+    except ValueError:
+        ts = datetime.now(UTC)
+    doc = Doc(f"Evaluation report: {rep['name']}", subtitle=f"dataset {rep['dataset']} · {m['cases']} cases · embedder {rep['config']['embedder']} · LLM {rep['config']['llm']} · vector store {rep['config']['vector_store']}", generated_at=ts)
+    doc.h("Headline metrics").table(["Metric", "Value", "Meaning"], [list(k) for k in kpis(rep)])
+    r = m["retrieval"]
+    doc.h("Retrieval").table(["K", "Recall@K", "Precision@K", "nDCG@K"], [[k, _pct(r[f"recall@{k}"]), _pct(r[f"precision@{k}"]), _f(r[f"ndcg@{k}"])] for k in (1, 3, 5)], caption=f"MRR {_f(r['mrr'])} over {r['cases_with_gold']} cases with gold passages")
+    doc.h("Answers and citations").table(["Metric", "Value"], [[k, _pct(v)] for k, v in m["answers"].items()])
+    if m.get("agents"):
+        a = m["agents"]
+        doc.h("Agent execution").table(["Measure", "Value"], [["Execution success rate", _pct(a.get("execution_success_rate"))], ["Cases with an agent failure", a.get("cases_with_agent_failure")],
+                                                            ["Verified answer rate", _pct(a.get("verified_rate"))], ["Tool calls", a.get("tool_calls")], ["Failed tool calls", a.get("failed_tool_calls")],
+                                                            ["Failed tool call rate", _pct(a.get("failed_tool_call_rate"))], ["Cases with invalid citations", a.get("cases_with_invalid_citations")]])
+    types = list(m["by_type"])
+    doc.h("By question type").table(["Type", "Cases", "Correct", "Recall@5", "MRR", "Route accuracy", "p50 ms"],
+                                    [[t, d["cases"], _pct(d["correct"]), _pct(d["recall@5"]), _f(d["mrr"]), _pct(d["route_accuracy"]), _f(d["latency_p50_ms"], 1)] for t, d in m["by_type"].items()])
+    doc.chart(spec("bar", "Share of correct answers by question type", types, [{"name": "correct", "values": [m["by_type"][t]["correct"] or 0 for t in types]}], "question type", "correct"))
+    if rep.get("comparison"):
+        c = rep["comparison"]
+        doc.h("Strategy comparison").table(["Strategy", "Recall@5", "Precision@5", "MRR", "nDCG@5", "p50 ms", "p95 ms", "$/query"],
+                                           [[x["strategy"], _pct(x["recall@5"]), _pct(x["precision@5"]), _f(x["mrr"]), _f(x["ndcg@5"]), _f(x["p50_ms"], 1), _f(x["p95_ms"], 1), f"{x['cost_per_query']:.5f}"] for x in c])
+        doc.chart(spec("bar", "Recall@5 and MRR by retrieval strategy", [x["strategy"][:28] for x in c], [{"name": "Recall@5", "values": [x["recall@5"] or 0 for x in c]}, {"name": "MRR", "values": [x["mrr"] or 0 for x in c]}], "strategy", "score"))
+    doc.h(f"Failures ({len(rep['failures'])})")
+    doc.table(["Case", "Question", "Why"], [[f["id"], f["question"], ", ".join(f["why"])] for f in rep["failures"]]) if rep["failures"] else doc.p("None.")
+    doc.h("All cases").table(["ID", "Type", "Route", "Verified", "Recall@5", "ms", "Question"],
+                             [[c["id"], c["type"], c["route"], "yes" if c["verified"] else "no", _f(c.get("recall@5"), 2), round(c["latency_ms"]), c["question"]] for c in rep["cases"]])
+    for n in rep["notes"]:
+        doc.note(n)
+    doc.add_sources([{"name": s["name"], "version": s.get("version", 1), "kind": s.get("kind", ""), "ingested_at": s.get("ingested_at", ""), "content_hash": s.get("content_hash", "")} for s in rep.get("corpus", [])])
+    return doc

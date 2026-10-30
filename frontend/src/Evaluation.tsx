@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api } from "./api";
+import { api, saveBlob } from "./api";
 import type { EvalReport } from "./types";
 import { Bar, num, pct, useLoad } from "./ui";
 
@@ -22,6 +22,9 @@ export function ReportView({ rep }: { rep: EvalReport }) {
         <Tile label="Latency p50 / p95" value={`${num(m.latency_ms.p50, 0)} / ${num(m.latency_ms.p95, 0)} ms`} />
         <Tile label="Tokens / query" value={num(m.tokens.per_query, 0)} hint={m.tokens.estimated ? "estimated" : "provider-reported"} />
         <Tile label="Cost / query" value={`$${m.cost_usd.per_query.toFixed(5)}`} hint={`total $${m.cost_usd.total.toFixed(4)}`} />
+        <Tile label="Citation accuracy" value={pct(m.answers["citation_accuracy"])} hint="page/row exists and text is there" />
+        {m.agents && <Tile label="Agent execution success" value={pct(m.agents.execution_success_rate)} hint={`${m.agents.cases_with_agent_failure} case(s) with a failure`} />}
+        {m.agents && <Tile label="Failed tool calls" value={`${m.agents.failed_tool_calls} / ${m.agents.tool_calls}`} hint={pct(m.agents.failed_tool_call_rate)} />}
       </div>
       <h2>Retrieval</h2>
       <table><thead><tr><th>K</th><th>Recall@K</th><th>Precision@K</th><th>nDCG@K</th></tr></thead>
@@ -49,10 +52,10 @@ export function Evaluation() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  async function runSample() {
+  async function runSample(extended = false) {
     setBusy(true);
     setErr(null);
-    try { const r = await api.runEval({ sample: true, compare_strategies: true, name: "Sample corpus" }); setReport(r); void runs.reload(); } catch (e) { setErr(e instanceof Error ? e.message : "Failed"); } finally { setBusy(false); }
+    try { const r = await api.runEval({ sample: true, extended, compare_strategies: !extended, name: extended ? "Extended corpus (v3 features)" : "Sample corpus" }); setReport(r); void runs.reload(); } catch (e) { setErr(e instanceof Error ? e.message : "Failed"); } finally { setBusy(false); }
   }
   async function open(id: string) {
     try { setReport(await api.evalRun(id)); } catch (e) { setErr(e instanceof Error ? e.message : "Failed"); }
@@ -62,14 +65,21 @@ export function Evaluation() {
     <div>
       <div className="card">
         <div className="row"><h2 style={{ margin: 0 }}>Evaluation</h2><span className="grow" />
-          <button className="primary" onClick={() => void runSample()} disabled={busy}>{busy ? "Running…" : "Run sample evaluation"}</button></div>
+          <button className="primary" onClick={() => void runSample()} disabled={busy}>{busy ? "Running…" : "Run sample evaluation"}</button>
+          <button onClick={() => void runSample(true)} disabled={busy} title="versions, comparison, contradictions, Hindi, analytics, parallel agents">Run extended evaluation</button></div>
         <p className="muted small">Runs the built-in synthetic corpus (PDF, DOCX, XLSX, CSV, MD, TXT, JSON) through the real pipeline in a throw-away workspace and compares retrieval strategies. To evaluate your own documents, POST a dataset to <code>/eval/run</code>.</p>
         {err && <div className="error" role="alert">{err}</div>}
         <table><thead><tr><th>Run</th><th>When</th><th>Cases</th><th>Recall@5</th><th>MRR</th><th>p50 ms</th><th /></tr></thead>
           <tbody>{(runs.data ?? []).map((r) => <tr key={r.id}><td>{r.name}</td><td className="small">{r.created_at}</td><td>{r.cases}</td><td>{pct(r["recall@5"])}</td><td>{num(r.mrr)}</td><td>{num(r.latency_p50, 1)}</td><td><button className="small" onClick={() => void open(r.id)}>Open</button></td></tr>)}
             {!runs.data?.length && <tr><td colSpan={7} className="muted">No runs yet.</td></tr>}</tbody></table>
       </div>
-      {report && <div className="card"><h2 style={{ marginTop: 0 }}>{report.name}</h2><ReportView rep={report} /></div>}
+      {report && (
+        <div className="card">
+          <div className="row"><h2 style={{ margin: 0 }}>{report.name}</h2><span className="grow" />
+            {(["pdf", "docx", "xlsx"] as const).map((f) => <button key={f} className="small" disabled={!(report as EvalReport & { id?: string }).id} onClick={async () => { try { saveBlob(await api.evalExport((report as EvalReport & { id: string }).id, f), `evaluation.${f}`); } catch (e) { setErr(e instanceof Error ? e.message : "Export failed"); } }}>Export {f.toUpperCase()}</button>)}</div>
+          <ReportView rep={report} />
+        </div>
+      )}
     </div>
   );
 }

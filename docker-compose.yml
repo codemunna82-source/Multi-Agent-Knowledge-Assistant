@@ -1,4 +1,5 @@
-# Production-shaped stack: API + ingestion worker + PostgreSQL + Redis + Qdrant.
+# Production-shaped stack: API + ingestion worker + maintenance scheduler + PostgreSQL + Redis + Qdrant.
+# (Not executed in the build environment - no container runtime was available there; `docker compose config` and the Dockerfile are validated in CI.)
 #   cp .env.example .env   # set MKA_JWT_SECRET, OPENAI_API_KEY (optional), passwords
 #   docker compose up --build
 # First tenant:  docker compose exec api python -m app.cli create-tenant --name "ACME" --email admin@acme.com
@@ -16,11 +17,12 @@ x-app: &app
     MKA_QDRANT_URL: http://qdrant:6333
     MKA_CHECKPOINT_BACKEND: postgres
     MKA_DATA_DIR: /data
+    MKA_AUTO_MIGRATE: "true"          # alembic upgrade head at start (PostgreSQL advisory lock: safe with several replicas)
   volumes: [ "mka-data:/data" ]   # shared: the API stages uploads here, the worker reads them
   depends_on:
     postgres: { condition: service_healthy }
     redis: { condition: service_healthy }
-    qdrant: { condition: service_started }
+    qdrant: { condition: service_healthy }
 
 services:
   api:
@@ -29,6 +31,10 @@ services:
   worker:
     <<: *app
     command: [ "python", "-m", "app.worker" ]
+    healthcheck: { disable: true }
+  scheduler:                      # retention sweeps + housekeeping; one leader at a time (Redis lock), safe to run several replicas
+    <<: *app
+    command: [ "python", "-m", "app.scheduler" ]
     healthcheck: { disable: true }
   postgres:
     image: postgres:16-alpine
@@ -43,5 +49,6 @@ services:
   qdrant:
     image: qdrant/qdrant:v1.12.4
     volumes: [ "qdrant-data:/qdrant/storage" ]
+    healthcheck: { test: [ "CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1" ], interval: 10s, timeout: 3s, retries: 10 }
 
 volumes: { mka-data: {}, pg-data: {}, redis-data: {}, qdrant-data: {} }

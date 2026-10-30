@@ -1,5 +1,6 @@
 -r requirements.txt
 pytest>=8
+httpx>=0.27
 ruff>=0.4
 reportlab>=4        # builds PDF fixtures, the evaluation corpus and the BRD
 cryptography>=42    # self-signed certificates for the TLS/SNI pinning test

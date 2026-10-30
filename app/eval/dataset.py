@@ -19,12 +19,14 @@ class RelevantRef(BaseModel):
 class EvalCase(BaseModel):
     id: str
     question: str = Field(min_length=1, max_length=1000)
-    type: Literal["semantic", "exact", "data", "abstain", "intel"] = "semantic"
+    type: Literal["semantic", "exact", "data", "abstain", "intel", "hindi", "compare", "contradiction", "analytics", "parallel"] = "semantic"
     relevant: list[RelevantRef] = []  # gold passages -> Recall@K / Precision@K / MRR
     expected_route: Optional[str] = None
     expected_keywords: list[str] = []  # all must appear in the answer
     expected_count: Optional[int] = None  # exact search occurrence count
     expected_value: Optional[float] = None  # data-agent numeric result
+    expected_sources: list[str] = []  # every one of these files must be cited
+    forbidden_keywords: list[str] = []  # none may appear in the answer (e.g. a number from an old version)
     answerable: bool = True  # False: the correct behaviour is to abstain (verified == False)
 
 

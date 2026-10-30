@@ -38,3 +38,26 @@ def test_ambiguous_numeric_column_asks(client):
 def test_currency_formatting_is_parsed(client):
     upload(client, "m.csv", b'Name,Revenue\na,"$1,200.50"\nb,"$300"\n')
     assert ask(client, "total revenue")["details"]["result"]["value"] == 1500.5
+
+
+def test_parsed_tables_are_cached_per_file_and_invalidated_when_the_file_changes(client):
+    from app.tools import tabular as tab
+
+    tab._CACHE.clear()
+    k = client.app.state.knowledge
+    from app.storage import Scope
+
+    src = upload(client, "c.csv", b"Name,Sales\na,1\nb,2\n")["source"]
+    st = k.store(Scope("default", "s1"))
+    meta = st.get_source(src["id"])
+    t1 = tab.load_tables(st, [meta])
+    assert tab.load_tables(st, [meta])[0] is t1[0] and len(tab._CACHE) == 1                      # second call: no re-parse
+    path = st.source_dir(src["id"]) / meta["original"]
+    path.write_text("Name,Sales\na,1\nb,2\nc,3\n")                                                # file changed (re-index / replacement)
+    t2 = tab.load_tables(st, [meta])
+    assert t2[0] is not t1[0] and len(t2[0].df) == 3
+    assert ask(client, "What is the total sales?")["details"]["result"]["value"] == 6
+    for i in range(10):                                                                           # bounded: never more than CACHE_MAX_FILES entries
+        s2 = upload(client, f"x{i}.csv", f"Name,Sales\na,{i}\n".encode())["source"]
+        tab.load_tables(st, [st.get_source(s2["id"])])
+    assert len(tab._CACHE) <= tab.CACHE_MAX_FILES

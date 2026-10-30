@@ -22,11 +22,19 @@ def _key(loc: dict) -> tuple:
 
 
 class CitationChecker:
-    """Lazy per-request index: source id -> ([location key per unit], [stemmed tokens per unit]) in document order."""
+    """Lazy per-request index: source id -> ([location key per unit], [text per unit]) in document order. Only the units around a cited
+    location are tokenised (tokenising a 1,000-page document for every answer cost ~0.4 s)."""
 
     def __init__(self, store, principal=None):
         self.store, self.principal = store, principal
-        self._idx: dict[str, dict | None] = {}
+        self._idx: dict[str, tuple | None] = {}
+        self._tok: dict[tuple[str, int], set] = {}
+
+    def _unit_tokens(self, sid: str, i: int) -> set:
+        t = self._tok.get((sid, i))
+        if t is None:
+            t = self._tok[(sid, i)] = set(_toks(self._idx[sid][1][i]))  # type: ignore[index]
+        return t
 
     def _index(self, sid: str):
         if sid not in self._idx:
@@ -34,11 +42,11 @@ class CitationChecker:
             if not meta:  # unknown or not visible: indistinguishable
                 self._idx[sid] = None
             else:
-                keys, toks = [], []
+                keys, texts = [], []
                 for _, u in self.store.iter_units([sid]):
                     keys.append(_key(u.loc))
-                    toks.append(set(_toks(u.text)))
-                self._idx[sid] = (keys, toks)
+                    texts.append(u.text)
+                self._idx[sid] = (keys, texts)
         return self._idx[sid]
 
     def check(self, c: dict) -> tuple[str, str]:
@@ -49,7 +57,7 @@ class CitationChecker:
         idx = self._index(sid)
         if idx is None:
             return "invalid", "source not found or not accessible"
-        keys, per_unit = idx
+        keys, texts = idx
         key = _key(loc)
         starts = [i for i, k in enumerate(keys) if k == key]
         if not starts:
@@ -61,13 +69,13 @@ class CitationChecker:
 
         def starts_here(i: int) -> bool:
             """The excerpt begins inside the cited unit, or the cited unit (e.g. a heading) is the beginning of the excerpt."""
-            u = per_unit[i]
+            u = self._unit_tokens(sid, i)
             return sum(1 for t in head if t in u) >= 0.75 * len(head) or (0 < len(u) <= 6 and u <= set(ex[: len(u) + 1]))
 
         starts = [i for i in starts if starts_here(i)]
         if not starts:
             return "invalid", f"the cited text does not start at {c.get('location')}"
-        cov = max(sum(1 for t in ex if t in win) / len(ex) for win in (set().union(*per_unit[i:i + WINDOW]) for i in starts))
+        cov = max(sum(1 for t in ex if t in win) / len(ex) for win in (set().union(*(self._unit_tokens(sid, j) for j in range(i, min(i + WINDOW, len(texts))))) for i in starts))
         need = 0.5 if "row" in loc and "page" not in loc else MIN_COVERAGE  # spreadsheet cells are re-formatted (1,200.50 -> 1200.5)
         return ("valid", "") if cov >= need else ("invalid", f"excerpt not found at {c.get('location')} (coverage {cov:.0%})")
 

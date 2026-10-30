@@ -70,6 +70,7 @@ def create_app(settings: Optional[Settings] = None, knowledge: Optional[Knowledg
     app = FastAPI(title="Multi-Agent Knowledge Assistant", version="3.0.0",
                   description="Multi-tenant document intelligence: upload documents or URLs, ask questions, get cited answers.")
     app.state.svc = svc
+    k.obs.metrics.up.labels(app.version).set(1)
     app.state.knowledge, app.state.assistant = k, svc.assistant  # kept for tests / scripts
 
     if settings.cors_origins:

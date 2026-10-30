@@ -1,6 +1,6 @@
 # Upgrade plan v3 — gap analysis against the "Enterprise AI Knowledge & Research Platform" master prompt
 
-Baseline inspected on 30 Oct 2026: 10 commits, ~7,200 lines of application code, ~2,050 lines of backend tests, 19 frontend tests,
+Baseline inspected on 30 Oct 2026 (166 backend tests). Final state: see docs/REQUIREMENTS_TRACE.md — all phases P1–P8 delivered.
 **166 backend tests passing** (against real PostgreSQL 16 and Redis 7), ruff and `tsc --strict` clean.
 Legend: ✅ implemented and tested · 🟡 partial · ❌ missing.
 

@@ -82,6 +82,7 @@ export interface EvalMetrics {
   latency_ms: Record<string, number | null>;
   tokens: { prompt: number; completion: number; embedding: number; per_query: number; estimated: boolean };
   cost_usd: { total: number; per_query: number };
+  agents?: { execution_success_rate: number | null; cases_with_agent_failure: number; verified_rate: number | null; tool_calls: number; failed_tool_calls: number; failed_tool_call_rate: number | null; cases_with_invalid_citations: number };
   by_type: Record<string, { cases: number; correct: number | null; "recall@5": number | null; mrr: number | null; route_accuracy: number | null; latency_p50_ms: number | null }>;
 }
 export interface EvalReport {

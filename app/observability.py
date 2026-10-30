@@ -29,7 +29,7 @@ class Metrics:
         self.questions = Counter("mka_questions_total", "Questions answered", ["route", "verified"], registry=r)
         self.node_runs = Counter("mka_agent_node_runs_total", "Agent node executions", ["node", "outcome"], registry=r)  # ok | error | timeout
         self.node_seconds = Histogram("mka_agent_node_seconds", "Agent node latency", ["node"], buckets=LAT, registry=r)
-        self.tool_calls = Counter("mka_tool_calls_total", "Tool calls", ["tool", "outcome"], registry=r)  # ok | error
+        self.tool_calls = Counter("mka_tool_calls_total", "Tool calls", ["tool", "outcome"], registry=r)  # ok | declined (expected refusal) | error (failure)
         self.tokens = Counter("mka_llm_tokens_total", "LLM/embedding tokens", ["kind"], registry=r)
         self.cost = Counter("mka_llm_cost_usd_total", "Estimated LLM cost in USD", registry=r)
         self.citations = Counter("mka_citations_total", "Citations returned by verification result", ["status"], registry=r)  # valid | invalid | unchecked

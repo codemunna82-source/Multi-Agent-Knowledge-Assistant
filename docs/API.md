@@ -9,7 +9,7 @@ machine-readable: [`openapi.json`](openapi.json).
 
 ### `GET /admin/audit`
 
-Parameters: `action` (query), `limit` (query), `x-session-id` (header)
+Parameters: `action` (query), `outcome` (query), `limit` (query), `offset` (query), `x-session-id` (header)
 
 Responses: 200, 422 · Access: admin
 
@@ -23,6 +23,16 @@ Body: `application/json` → `PurgeRequest`
 
 Responses: 200, 422 · Access: admin
 
+### `POST /admin/maintenance/run`
+
+Same tasks as the scheduler, restricted to your organisation. Retention periods come from /admin/tenant-settings.
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `MaintenanceBody`
+
+Responses: 200, 422 · Access: admin
+
 ### `GET /admin/settings`
 
 Effective configuration; secrets are masked and never returned.
@@ -31,9 +41,25 @@ Parameters: `x-session-id` (header)
 
 Responses: 200, 422 · Access: admin
 
-### `GET /admin/users`
+### `GET /admin/tenant-settings`
 
 Parameters: `x-session-id` (header)
+
+Responses: 200, 422 · Access: admin
+
+### `PUT /admin/tenant-settings`
+
+Retention periods, approved web domains and message redaction for the whole organisation.
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `TenantSettingsBody`
+
+Responses: 200, 422 · Access: admin
+
+### `GET /admin/users`
+
+Parameters: `limit` (query), `offset` (query), `x-session-id` (header)
 
 Responses: 200, 422 · Access: admin
 
@@ -59,21 +85,87 @@ Body: `application/json` → `UserUpdate`
 
 Responses: 200, 422 · Access: admin
 
+## analytics
+
+### `GET /analytics/anomalies`
+
+Parameters: `source_id` (query, required), `column` (query, required), `sheet` (query), `method` (query), `threshold` (query), `x-session-id` (header)
+
+Responses: 200, 422 · Access: user
+
+### `POST /analytics/ask`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `AskBody`
+
+Responses: 200, 422 · Access: user
+
+### `POST /analytics/chart`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `ChartBody`
+
+Responses: 200, 422 · Access: user
+
+### `GET /analytics/profile`
+
+Parameters: `source_id` (query, required), `sheet` (query), `x-session-id` (header)
+
+Responses: 200, 422 · Access: user
+
+### `POST /analytics/sql`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `SqlBody`
+
+Responses: 200, 422 · Access: user
+
+### `GET /analytics/tables`
+
+Parameters: `x-session-id` (header)
+
+Responses: 200, 422 · Access: user
+
+### `GET /analytics/trend`
+
+Parameters: `source_id` (query, required), `date_column` (query, required), `sheet` (query), `value_column` (query), `freq` (query), `agg` (query), `x-session-id` (header)
+
+Responses: 200, 422 · Access: user
+
 ## auth
 
 ### `POST /auth/login`
 
 Body: `application/json` → `LoginRequest`
 
-Responses: 200, 422 · Access: public (signup/login) / any user
+Responses: 200, 422 · Access: public (signup/login/refresh) / any user
 
 ### `POST /auth/logout`
 
-Responses: 200 · Access: public (signup/login) / any user
+Revokes the access token and the whole refresh-token family of this login.
+
+Parameters: `mka_refresh` (cookie)
+
+Body: `application/json`
+
+Responses: 200, 422 · Access: public (signup/login/refresh) / any user
 
 ### `GET /auth/me`
 
-Responses: 200 · Access: public (signup/login) / any user
+Responses: 200 · Access: public (signup/login/refresh) / any user
+
+### `POST /auth/refresh`
+
+Exchange a refresh token (body or httpOnly cookie) for a new access token; the refresh token rotates on every use. `optional=true` (used by the browser on page load): a missing or invalid token answers 200 {"authenticated": false} instead of 401, so signed-out visits stay quiet.
+
+Parameters: `optional` (query), `mka_refresh` (cookie)
+
+Body: `application/json`
+
+Responses: 200, 422 · Access: public (signup/login/refresh) / any user
 
 ### `POST /auth/signup`
 
@@ -81,7 +173,7 @@ Create a new tenant with its first admin. Disabled in production (use `python -m
 
 Body: `application/json` → `SignupRequest`
 
-Responses: 201, 422 · Access: public (signup/login) / any user
+Responses: 201, 422 · Access: public (signup/login/refresh) / any user
 
 ## chat
 
@@ -91,7 +183,7 @@ Parameters: `x-session-id` (header)
 
 Body: `application/json` → `AskRequest`
 
-Responses: 200, 422 · Access: viewer
+Responses: 200, 422 · Access: user
 
 ### `POST /ask/stream`
 
@@ -101,31 +193,39 @@ Parameters: `x-session-id` (header)
 
 Body: `application/json` → `AskRequest`
 
-Responses: 200, 422 · Access: viewer
+Responses: 200, 422 · Access: user
 
 ### `GET /conversations`
 
-Parameters: `limit` (query), `x-session-id` (header)
+Parameters: `limit` (query), `offset` (query), `x-session-id` (header)
 
-Responses: 200, 422 · Access: viewer (own conversations only)
+Responses: 200, 422 · Access: user (own conversations only)
 
 ### `POST /conversations`
 
 Parameters: `x-session-id` (header)
 
-Responses: 201, 422 · Access: viewer (own conversations only)
+Responses: 201, 422 · Access: user (own conversations only)
 
 ### `DELETE /conversations/{conv_id}`
 
 Parameters: `conv_id` (path, required), `x-session-id` (header)
 
-Responses: 200, 422 · Access: viewer (own conversations only)
+Responses: 200, 422 · Access: user (own conversations only)
+
+### `PATCH /conversations/{conv_id}`
+
+Parameters: `conv_id` (path, required), `x-session-id` (header)
+
+Body: `application/json` → `ConversationPatch`
+
+Responses: 200, 422 · Access: user (own conversations only)
 
 ### `GET /conversations/{conv_id}/messages`
 
 Parameters: `conv_id` (path, required), `x-session-id` (header)
 
-Responses: 200, 422 · Access: viewer (own conversations only)
+Responses: 200, 422 · Access: user (own conversations only)
 
 ### `GET /conversations/{conv_id}/trace`
 
@@ -133,7 +233,7 @@ Checkpoint trail of the agent graph for this conversation (route, per-node trace
 
 Parameters: `conv_id` (path, required), `x-session-id` (header)
 
-Responses: 200, 422 · Access: viewer (own conversations only)
+Responses: 200, 422 · Access: user (own conversations only)
 
 ### `DELETE /session`
 
@@ -153,31 +253,37 @@ Parameters: `x-session-id` (header)
 
 Body: `application/json` → `EvalRequest`
 
-Responses: 200, 422 · Access: editor
+Responses: 200, 422 · Access: manager
 
 ### `GET /eval/runs`
 
-Parameters: `limit` (query), `x-session-id` (header)
+Parameters: `limit` (query), `offset` (query), `x-session-id` (header)
 
-Responses: 200, 422 · Access: editor
+Responses: 200, 422 · Access: manager
 
 ### `GET /eval/runs/{run_id}`
 
 Parameters: `run_id` (path, required), `x-session-id` (header)
 
-Responses: 200, 422 · Access: editor
+Responses: 200, 422 · Access: manager
 
 ### `GET /eval/runs/{run_id}/report.html`
 
 Parameters: `run_id` (path, required), `x-session-id` (header)
 
-Responses: 200, 422 · Access: editor
+Responses: 200, 422 · Access: manager
 
 ### `GET /eval/runs/{run_id}/report.md`
 
 Parameters: `run_id` (path, required), `x-session-id` (header)
 
-Responses: 200, 422 · Access: editor
+Responses: 200, 422 · Access: manager
+
+### `GET /eval/runs/{run_id}/report.{fmt}`
+
+Parameters: `run_id` (path, required), `fmt` (path, required), `x-session-id` (header)
+
+Responses: 200, 422 · Access: manager
 
 ## intelligence
 
@@ -187,19 +293,19 @@ Knowledge graph view: top entities; neighbours of `entity`; or the shortest conn
 
 Parameters: `entity` (query), `to` (query), `limit` (query), `x-session-id` (header)
 
-Responses: 200, 422 · Access: viewer
+Responses: 200, 422 · Access: user
 
 ### `GET /sources/{source_id}/entities`
 
 Parameters: `source_id` (path, required), `types` (query), `use_llm` (query), `x-session-id` (header)
 
-Responses: 200, 422 · Access: viewer (read) · editor (upload, URL, re-index, delete own) · admin (delete any)
+Responses: 200, 422 · Access: user (read, preview, compare) · manager (upload, URL, re-index, versions, sharing, delete own) · admin (delete any)
 
 ### `GET /sources/{source_id}/questions`
 
 Parameters: `source_id` (path, required), `n` (query), `x-session-id` (header)
 
-Responses: 200, 422 · Access: viewer (read) · editor (upload, URL, re-index, delete own) · admin (delete any)
+Responses: 200, 422 · Access: user (read, preview, compare) · manager (upload, URL, re-index, versions, sharing, delete own) · admin (delete any)
 
 ### `POST /transcribe`
 
@@ -209,39 +315,159 @@ Parameters: `x-session-id` (header)
 
 Body: `multipart/form-data` → `Body_transcribe_transcribe_post`
 
-Responses: 200, 422 · Access: viewer
+Responses: 200, 422 · Access: user
 
 ## jobs
 
 ### `GET /jobs`
 
-Parameters: `limit` (query), `all_workspaces` (query), `x-session-id` (header)
+Parameters: `limit` (query), `offset` (query), `all_workspaces` (query), `x-session-id` (header)
 
-Responses: 200, 422 · Access: editor
+Responses: 200, 422 · Access: manager
 
 ### `GET /jobs/{job_id}`
 
 Parameters: `job_id` (path, required), `x-session-id` (header)
 
-Responses: 200, 422 · Access: editor
+Responses: 200, 422 · Access: manager
+
+## memory
+
+### `DELETE /memory`
+
+Parameters: `conversations` (query), `x-session-id` (header)
+
+Responses: 200, 422 · Access: user (own data)
+
+### `GET /memory/facts`
+
+Parameters: `limit` (query), `offset` (query), `x-session-id` (header)
+
+Responses: 200, 422 · Access: user (own data)
+
+### `POST /memory/facts`
+
+Save a note you explicitly want remembered. Notes that look like secrets, card/ID numbers, e-mail addresses or phone numbers are refused.
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `FactBody`
+
+Responses: 201, 422 · Access: user (own data)
+
+### `DELETE /memory/facts/{fact_id}`
+
+Parameters: `fact_id` (path, required), `x-session-id` (header)
+
+Responses: 200, 422 · Access: user (own data)
+
+### `GET /memory/preferences`
+
+Parameters: `x-session-id` (header)
+
+Responses: 200, 422 · Access: user (own data)
+
+### `PUT /memory/preferences`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `PrefsBody`
+
+Responses: 200, 422 · Access: user (own data)
+
+## reports
+
+### `GET /reports`
+
+Parameters: `kind` (query), `limit` (query), `offset` (query), `x-session-id` (header)
+
+Responses: 200, 422 · Access: user (own reports; admin: whole organisation)
+
+### `POST /reports`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `ReportBody`
+
+Responses: 201, 422 · Access: user (own reports; admin: whole organisation)
+
+### `DELETE /reports/{report_id}`
+
+Parameters: `report_id` (path, required), `x-session-id` (header)
+
+Responses: 200, 422 · Access: user (own reports; admin: whole organisation)
+
+### `GET /reports/{report_id}`
+
+Parameters: `report_id` (path, required), `x-session-id` (header)
+
+Responses: 200, 422 · Access: user (own reports; admin: whole organisation)
+
+### `GET /reports/{report_id}/download`
+
+Parameters: `report_id` (path, required), `x-session-id` (header)
+
+Responses: 200, 422 · Access: user (own reports; admin: whole organisation)
+
+## search & analysis
+
+### `POST /compare`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `CompareBody`
+
+Responses: 200, 422 · Access: user
+
+### `POST /search/exact`
+
+Parameters: `limit` (query), `offset` (query), `x-session-id` (header)
+
+Body: `application/json` → `ExactBody`
+
+Responses: 200, 422 · Access: user
+
+### `GET /sources/{source_id}/changes`
+
+Parameters: `source_id` (path, required), `against` (query), `x-session-id` (header)
+
+Responses: 200, 422 · Access: user (read, preview, compare) · manager (upload, URL, re-index, versions, sharing, delete own) · admin (delete any)
+
+### `POST /summaries`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `SummaryBody`
+
+Responses: 200, 422 · Access: user
+
+### `POST /web/research`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `WebBody`
+
+Responses: 200, 422 · Access: user
 
 ## sources
 
 ### `GET /sources`
 
-Parameters: `x-session-id` (header)
+Documents visible to you (current versions; include_versions=true adds superseded ones). Paginated: limit/offset, total in X-Total-Count.
 
-Responses: 200, 422 · Access: viewer (read) · editor (upload, URL, re-index, delete own) · admin (delete any)
+Parameters: `include_versions` (query), `kind` (query), `q` (query), `limit` (query), `offset` (query), `x-session-id` (header)
+
+Responses: 200, 422 · Access: user (read, preview, compare) · manager (upload, URL, re-index, versions, sharing, delete own) · admin (delete any)
 
 ### `POST /sources/upload`
 
-Multi-file upload. Default: synchronous (validated, extracted, embedded and indexed before the response). With ?async=true: files are queued for background workers and 202 + job ids are returned.
+Multi-file upload. Default: synchronous (validated, extracted, embedded and indexed before the response). With ?async=true: files are queued for background workers and 202 + job ids are returned. An identical file already indexed in the workspace is reported as `duplicate` (unless allow_duplicate); a file with the same name but different content becomes a new VERSION of that document (older versions stay available for comparison but are not searched).
 
 Parameters: `async` (query), `x-session-id` (header)
 
 Body: `multipart/form-data` → `Body_upload_sources_upload_post`
 
-Responses: 200, 202, 422 · Access: viewer (read) · editor (upload, URL, re-index, delete own) · admin (delete any)
+Responses: 200, 202, 422 · Access: user (read, preview, compare) · manager (upload, URL, re-index, versions, sharing, delete own) · admin (delete any)
 
 ### `POST /sources/url`
 
@@ -249,25 +475,75 @@ Parameters: `visibility` (query), `async` (query), `x-session-id` (header)
 
 Body: `application/json` → `UrlRequest`
 
-Responses: 200, 202, 422 · Access: viewer (read) · editor (upload, URL, re-index, delete own) · admin (delete any)
+Responses: 200, 202, 422 · Access: user (read, preview, compare) · manager (upload, URL, re-index, versions, sharing, delete own) · admin (delete any)
 
 ### `DELETE /sources/{source_id}`
 
-Parameters: `source_id` (path, required), `x-session-id` (header)
+Deletes text, chunks, vectors and the original file. Deleting the current version restores the newest older one; all_versions=true removes the document entirely.
 
-Responses: 200, 422 · Access: viewer (read) · editor (upload, URL, re-index, delete own) · admin (delete any)
+Parameters: `source_id` (path, required), `all_versions` (query), `x-session-id` (header)
+
+Responses: 200, 422 · Access: user (read, preview, compare) · manager (upload, URL, re-index, versions, sharing, delete own) · admin (delete any)
 
 ### `GET /sources/{source_id}`
 
 Parameters: `source_id` (path, required), `x-session-id` (header)
 
-Responses: 200, 422 · Access: viewer (read) · editor (upload, URL, re-index, delete own) · admin (delete any)
+Responses: 200, 422 · Access: user (read, preview, compare) · manager (upload, URL, re-index, versions, sharing, delete own) · admin (delete any)
+
+### `GET /sources/{source_id}/classification`
+
+Document type from a closed taxonomy (contract, invoice, policy, report, ...) with confidence and method (keywords | structure | llm).
+
+Parameters: `source_id` (path, required), `x-session-id` (header)
+
+Responses: 200, 422 · Access: user (read, preview, compare) · manager (upload, URL, re-index, versions, sharing, delete own) · admin (delete any)
+
+### `POST /sources/{source_id}/make-current`
+
+Roll back / forward: make this version the searchable one.
+
+Parameters: `source_id` (path, required), `x-session-id` (header)
+
+Responses: 200, 422 · Access: user (read, preview, compare) · manager (upload, URL, re-index, versions, sharing, delete own) · admin (delete any)
+
+### `GET /sources/{source_id}/pages/{page}/image`
+
+PNG of a PDF page with the cited text highlighted (PDF sources only; needs PyMuPDF).
+
+Parameters: `source_id` (path, required), `page` (path, required), `highlight` (query), `zoom` (query), `x-session-id` (header)
+
+Responses: 200, 422 · Access: user (read, preview, compare) · manager (upload, URL, re-index, versions, sharing, delete own) · admin (delete any)
+
+### `GET /sources/{source_id}/passage`
+
+The extracted text at a citation location (+ the neighbouring passages) - used by the dashboard to preview a cited passage.
+
+Parameters: `source_id` (path, required), `page` (query), `row` (query), `sheet` (query), `paragraph` (query), `line` (query), `table` (query), `x-session-id` (header)
+
+Responses: 200, 422 · Access: user (read, preview, compare) · manager (upload, URL, re-index, versions, sharing, delete own) · admin (delete any)
 
 ### `POST /sources/{source_id}/reindex`
 
 Parameters: `source_id` (path, required), `x-session-id` (header)
 
-Responses: 200, 422 · Access: viewer (read) · editor (upload, URL, re-index, delete own) · admin (delete any)
+Responses: 200, 422 · Access: user (read, preview, compare) · manager (upload, URL, re-index, versions, sharing, delete own) · admin (delete any)
+
+### `GET /sources/{source_id}/sharing`
+
+Parameters: `source_id` (path, required), `x-session-id` (header)
+
+Responses: 200, 422 · Access: user (read, preview, compare) · manager (upload, URL, re-index, versions, sharing, delete own) · admin (delete any)
+
+### `PUT /sources/{source_id}/sharing`
+
+Document-level permissions: 'tenant' (everyone in the organisation), 'private' (owner + admins) or 'restricted' (owner + the listed users/roles + admins).
+
+Parameters: `source_id` (path, required), `x-session-id` (header)
+
+Body: `application/json` → `SharingBody`
+
+Responses: 200, 422 · Access: user (read, preview, compare) · manager (upload, URL, re-index, versions, sharing, delete own) · admin (delete any)
 
 ### `GET /sources/{source_id}/tables`
 
@@ -275,7 +551,21 @@ Structured tables extracted from the source (spreadsheets, DOCX, HTML, PDF), eac
 
 Parameters: `source_id` (path, required), `max_rows` (query), `x-session-id` (header)
 
-Responses: 200, 422 · Access: viewer (read) · editor (upload, URL, re-index, delete own) · admin (delete any)
+Responses: 200, 422 · Access: user (read, preview, compare) · manager (upload, URL, re-index, versions, sharing, delete own) · admin (delete any)
+
+### `GET /sources/{source_id}/timeline`
+
+Chronological list of dated events (the sentence around every date) with citations.
+
+Parameters: `source_id` (path, required), `x-session-id` (header)
+
+Responses: 200, 422 · Access: user (read, preview, compare) · manager (upload, URL, re-index, versions, sharing, delete own) · admin (delete any)
+
+### `GET /sources/{source_id}/versions`
+
+Parameters: `source_id` (path, required), `x-session-id` (header)
+
+Responses: 200, 422 · Access: user (read, preview, compare) · manager (upload, URL, re-index, versions, sharing, delete own) · admin (delete any)
 
 ## system
 

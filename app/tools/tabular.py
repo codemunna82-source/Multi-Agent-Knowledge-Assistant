@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import json
 import re
+import threading
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -83,24 +85,54 @@ def _to_number(s: pd.Series) -> Optional[pd.Series]:
     return nums if nonblank and nums.notna().sum() / nonblank >= 0.9 else None
 
 
+_CACHE: "OrderedDict[tuple, list[Table]]" = OrderedDict()
+_CACHE_LOCK = threading.Lock()
+CACHE_MAX_FILES, CACHE_MAX_CELLS = 6, 3_000_000
+
+
 def load_tables(store, metas: list[dict]) -> list[Table]:
+    """Spreadsheet sources -> typed pandas tables. Parsed tables are cached per file (path + mtime + size, small LRU) because re-parsing a
+    200,000-row sheet costs seconds; callers must treat the frames as read-only (every operation here returns new frames)."""
     tables = []
     for meta in metas:
         if meta.get("kind") not in ("csv", "xlsx", "xls"):
             continue
         path = store.source_dir(meta["id"]) / meta["original"]
-        for sheet, header, data in read_sheets(path, meta["kind"]):
-            rows = [c + [""] * (len(header) - len(c)) for _, c in data]
-            df = pd.DataFrame([r[: len(header)] for r in rows], columns=header, index=[rn for rn, _ in data])
-            t = Table(meta["id"], meta["name"], sheet, df)
-            for col in header:
-                num = _to_number(df[col])
-                if num is not None:
-                    df[col] = num
-                    t.numeric.append(col)
-                else:
-                    t.text.append(col)
-            tables.append(t)
+        try:
+            stt = path.stat()
+            key = (str(path), stt.st_mtime_ns, stt.st_size, meta["id"], meta["name"])
+        except OSError:
+            key = None
+        with _CACHE_LOCK:
+            hit = _CACHE.get(key) if key else None
+            if hit is not None:
+                _CACHE.move_to_end(key)
+        if hit is None:
+            hit = _parse(path, meta)
+            cells = sum(t.df.size for t in hit)
+            if key and cells <= CACHE_MAX_CELLS:
+                with _CACHE_LOCK:
+                    _CACHE[key] = hit
+                    while len(_CACHE) > CACHE_MAX_FILES:
+                        _CACHE.popitem(last=False)
+        tables.extend(hit)
+    return tables
+
+
+def _parse(path, meta: dict) -> list[Table]:
+    tables = []
+    for sheet, header, data in read_sheets(path, meta["kind"]):
+        rows = [c + [""] * (len(header) - len(c)) for _, c in data]
+        df = pd.DataFrame([r[: len(header)] for r in rows], columns=header, index=[rn for rn, _ in data])
+        t = Table(meta["id"], meta["name"], sheet, df)
+        for col in header:
+            num = _to_number(df[col])
+            if num is not None:
+                df[col] = num
+                t.numeric.append(col)
+            else:
+                t.text.append(col)
+        tables.append(t)
     return tables
 
 

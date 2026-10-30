@@ -84,6 +84,9 @@ class ToolRegistry:
         try:
             with self.a.k.obs.span(f"tool.{name}"):
                 out = t.fn(ctx, parsed)
+        except tab.PlanError:  # expected outcome ("which column did you mean?", "this is not a table question"): the agent handles it, it is not a tool failure
+            m.labels(name, "declined").inc()
+            raise
         except Exception:
             m.labels(name, "error").inc()
             raise

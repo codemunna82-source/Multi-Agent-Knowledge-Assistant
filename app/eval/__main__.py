@@ -1,4 +1,5 @@
-"""CLI:  python -m app.eval run --sample [--compare] [--out report.html]   |   python -m app.eval run --dataset cases.json --scope tenant/workspace"""
+"""CLI:  python -m app.eval run --sample [--extended] [--compare] [--out report]   (writes .json .md .html .pdf .docx .xlsx)
+         python -m app.eval run --sample [--compare] [--out report.html]   |   python -m app.eval run --dataset cases.json --scope tenant/workspace"""
 from __future__ import annotations
 
 import argparse
@@ -26,11 +27,17 @@ STRATEGIES = {
 }
 
 
-def build_sample(settings: Settings, workdir: Path):
-    from .sample import corpus, dataset
-
+def build_sample(settings: Settings, workdir: Path, extended: bool = False):
     k = Knowledge(settings)
     a = Assistant(k)
+    if extended:
+        from . import extended as ext
+
+        scope = Scope("eval", "extended")
+        ext.ingest(k, scope, workdir)
+        return a, scope, ext.dataset()
+    from .sample import corpus, dataset
+
     scope = Scope("eval", "sample")
     for name, data in corpus().items():
         p = workdir / name
@@ -45,6 +52,7 @@ def main(argv=None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run")
     r.add_argument("--sample", action="store_true", help="ingest the built-in synthetic corpus into a throw-away data dir and evaluate it")
+    r.add_argument("--extended", action="store_true", help="with --sample: evaluate the v3 corpus (versions, comparison, contradictions, Hindi, analytics, parallel agents)")
     r.add_argument("--dataset", help="JSON/JSONL dataset file (evaluates the existing workspace given by --scope)")
     r.add_argument("--scope", default="default/default", help="tenant/workspace for --dataset")
     r.add_argument("--compare", action="store_true", help="also compare retrieval strategies")
@@ -53,7 +61,7 @@ def main(argv=None) -> int:
     with tempfile.TemporaryDirectory() as td:
         if a.sample:
             settings = Settings(data_dir=td + "/data", _env_file=None)
-            assistant, scope, ds = build_sample(settings, Path(td))
+            assistant, scope, ds = build_sample(settings, Path(td), a.extended)
         else:
             settings = Settings()
             assistant, ds = Assistant(Knowledge(settings)), EvalDataset.load(a.dataset)
@@ -69,6 +77,11 @@ def main(argv=None) -> int:
     out.with_suffix(".json").write_text(json.dumps(rep, indent=1, ensure_ascii=False), encoding="utf-8")
     out.with_suffix(".md").write_text(markdown(rep), encoding="utf-8")
     out.with_suffix(".html").write_text(html_report(rep), encoding="utf-8")
+    from ..reports.render import render
+    from .report import to_doc
+
+    for fmt in ("pdf", "docx", "xlsx"):
+        out.with_suffix(f".{fmt}").write_bytes(render(to_doc(rep), fmt))
     print(markdown(rep))
     return 0
 

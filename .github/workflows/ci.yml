@@ -27,11 +27,19 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y tesseract-ocr
       - run: pip install -r requirements-dev.txt
       - run: ruff check .
+      - name: Migrations apply to an empty PostgreSQL database and match the models
+        run: |
+          MKA_DATABASE_URL=$MKA_TEST_PG_URL python -m app.cli migrate
+          MKA_DATABASE_URL=$MKA_TEST_PG_URL alembic check
       - run: pytest
-      - name: Retrieval/answer evaluation on the synthetic corpus (regression gate is inside the test-suite)
-        run: python -m app.eval run --sample --compare --out eval_report
+      - name: Retrieval/answer evaluation (regression gates are inside the test-suite)
+        run: |
+          python -m app.eval run --sample --compare --out eval_report
+          python -m app.eval run --sample --extended --out eval_report_extended
+      - name: Scheduler dry run
+        run: python -m app.scheduler --once --dry-run
       - uses: actions/upload-artifact@v4
-        with: { name: eval-report, path: "eval_report.*" }
+        with: { name: eval-report, path: "eval_report*.*" }
 
   frontend:
     runs-on: ubuntu-latest
@@ -69,3 +77,9 @@ jobs:
       - uses: docker/build-push-action@v6
         with: { context: ., push: false, tags: mka:ci, cache-from: type=gha, cache-to: "type=gha,mode=max" }
       - run: POSTGRES_PASSWORD=ci docker compose config -q
+      - name: Image starts and answers /health (SQLite, no external services)
+        run: |
+          docker run -d --name mka -p 8000:8000 mka:ci
+          for i in $(seq 1 30); do curl -fsS localhost:8000/health && break || sleep 2; done
+          curl -fsS localhost:8000/metrics | grep -q mka_build_info || true
+          docker rm -f mka

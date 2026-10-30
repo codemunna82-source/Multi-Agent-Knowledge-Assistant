@@ -11,7 +11,6 @@ from .entities import extract_source
 STYLES = ("short", "detailed", "executive", "chapter", "section")
 PAGES_PER_BLOCK = 10
 UNITS_PER_BLOCK = 40
-MAX_SECTION_CHARS = 120_000
 
 
 def _group(units) -> list[dict]:
@@ -42,13 +41,32 @@ def _group(units) -> list[dict]:
     return groups
 
 
+LLM_DIRECT_CHARS = 300_000  # above this, the model sees an extractive condensation of each 6,000-character batch instead of every batch (cost control)
+
+
 def _summ(texts: list[str], llm, n_sentences: int | None = None) -> tuple[str, bool]:
-    text = "\n".join(texts)[:MAX_SECTION_CHARS]
-    s, calls = summarise_chunks([{"text": text}], llm)
+    """Map-reduce over EVERY unit (nothing is truncated). Very long inputs are first condensed extractively before any model call."""
     used_llm = bool(llm is not None and getattr(llm, "available", False))
+    total = sum(len(t) for t in texts)
+    if used_llm and total > LLM_DIRECT_CHARS:
+        texts = [extractive(t, 3) or t[:400] for t in _batches(texts, 6000)]
+    s, _ = summarise_chunks([{"text": t} for t in texts], llm)
     if n_sentences:
         s = _shorten(s, n_sentences, llm if used_llm else None)
     return s, used_llm
+
+
+def _batches(texts: list[str], size: int) -> list[str]:
+    out, cur, n = [], [], 0
+    for t in texts:
+        if n + len(t) > size and cur:
+            out.append("\n".join(cur))
+            cur, n = [], 0
+        cur.append(t)
+        n += len(t)
+    if cur:
+        out.append("\n".join(cur))
+    return out
 
 
 def _shorten(text: str, n: int, llm=None) -> str:
@@ -57,7 +75,8 @@ def _shorten(text: str, n: int, llm=None) -> str:
             return llm.complete(SYSTEM, f"Rewrite as at most {n} sentences, keeping only the most important facts:\n<text>\n{text[:6000]}\n</text>")
         except ProviderError:
             pass
-    return extractive(text, n) or text[:400]
+    out = extractive(text, n) or text
+    return out if len(out) <= 120 * n else out[: 120 * n].rsplit(" ", 1)[0] + "…"  # unpunctuated text yields one huge "sentence": keep "short" short
 
 
 def summarize_source(k, st, meta: dict, style: str = "detailed", section: str | None = None, max_sections: int = 60) -> dict:

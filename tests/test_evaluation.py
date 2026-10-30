@@ -211,3 +211,113 @@ def test_evaluation_is_deterministic_across_hash_seeds(tmp_path):
         m["by_type"] = {t: {k: v for k, v in d.items() if k != "latency_p50_ms"} for t, d in m["by_type"].items()}  # wall-clock timings legitimately vary
         outs.append((m, [(c["id"], c["route"], c["verified"], c["answer"], c.get("recall@5"), c.get("mrr")) for c in rep["cases"]]))
     assert outs[0] == outs[1]
+
+
+# ------------------------------------------------------------------ v3: extended corpus, citation / agent metrics, exports
+@pytest.fixture(scope="module")
+def extended_report(tmp_path_factory):
+    td = tmp_path_factory.mktemp("evalext")
+    a, scope, ds = build_sample(Settings(data_dir=str(td / "data"), _env_file=None), td, extended=True)
+    return run_eval(a, scope, ANONYMOUS, ds, None)
+
+
+def test_extended_corpus_ground_truth_and_versions(extended_report):
+    from app.eval.extended import _count, corpus, dataset
+
+    names = [n for n, _ in corpus()]
+    assert names.count("leave_policy.txt") == 2                                              # version 1 then version 2
+    assert _count("Anjali Rao") == 1 and _count("30 days") == 1 and _count("25 days") == 0   # the OLD version is not counted
+    assert {c.type for c in dataset().cases} == {"semantic", "compare", "contradiction", "hindi", "analytics", "parallel", "abstain"}
+    assert {(c["name"], c["version"]) for c in extended_report["corpus"]} >= {("leave_policy.txt", 2), ("hindi_policy.txt", 1)}
+
+
+def test_extended_regression_thresholds(extended_report):
+    m = extended_report["metrics"]
+    a, ag = m["answers"], m["agents"]
+    assert a["route_accuracy"] == 1.0 and a["keyword_accuracy"] == 1.0 and a["exact_count_accuracy"] == 1.0 and a["data_accuracy"] == 1.0
+    assert a["abstention_accuracy"] == 1.0 and a["false_answer_rate_on_unanswerable"] == 0.0
+    assert a["required_sources_cited"] == 1.0 and a["stale_or_forbidden_content_absent"] == 1.0   # the superseded "25 days" never reaches an answer
+    assert a["citation_accuracy"] == 1.0 and a["citation_gold_precision"] >= 0.75
+    assert ag["execution_success_rate"] == 1.0 and ag["failed_tool_calls"] == 0 and ag["tool_calls"] > 0 and ag["cases_with_invalid_citations"] == 0
+    assert m["retrieval"]["recall@5"] >= 0.9 and m["retrieval"]["mrr"] >= 0.8
+    assert not [f for f in extended_report["failures"] if f["id"] != "x14"] and set(m["by_type"]) == {"semantic", "compare", "contradiction", "hindi", "analytics", "parallel", "abstain"}
+    assert all(t["correct"] == 1.0 for t in m["by_type"].values())
+
+
+def test_agent_failures_and_forbidden_content_are_detected(tmp_path, monkeypatch):
+    from app.agents import Assistant, nodes
+    from app.storage import Scope
+
+    s = Settings(data_dir=str(tmp_path / "d"), _env_file=None)
+    k = Knowledge(s)
+    p = tmp_path / "a.txt"
+    p.write_text("Employees accrue 25 days of annual leave per year.")
+    scope = Scope("t", "w")
+    k.ingest_file(scope, p, "a.txt")
+    monkeypatch.setattr(nodes.Agents, "semantic", lambda self, st: (_ for _ in ()).throw(RuntimeError("boom")))
+    ds = EvalDataset(name="x", cases=[EvalCase(id="c1", question="How many days of annual leave do employees accrue?", expected_keywords=["25 days"], forbidden_keywords=["could not complete"], expected_sources=["a.txt"])])
+    rep = run_eval(Assistant(k), scope, ANONYMOUS, ds)
+    r = rep["cases"][0]
+    assert r["agent_ok"] is False and r["forbidden_ok"] is False and r["sources_ok"] is False and rep["metrics"]["agents"]["execution_success_rate"] == 0.0
+    assert rep["failures"][0]["why"] == ["keywords_ok", "forbidden_ok", "sources_ok", "agent execution failed"]
+
+
+def test_failed_tool_calls_are_counted_but_declined_ones_are_not(tmp_path):
+    from app.agents import Assistant
+    from app.storage import Scope
+
+    s = Settings(data_dir=str(tmp_path / "d"), _env_file=None)
+    k = Knowledge(s)
+    csv = tmp_path / "s.csv"
+    csv.write_text("Name,Sales,Cost\na,1,2\nb,3,4\n")
+    k.ingest_file(Scope("t", "w"), csv, "s.csv")
+    a = Assistant(k)
+    ds = EvalDataset(name="x", cases=[EvalCase(id="c1", question="What is the highest value?", type="data")])    # ambiguous column -> the agent asks, the tool "declines"
+    rep = run_eval(a, Scope("t", "w"), ANONYMOUS, ds)
+    ag = rep["metrics"]["agents"]
+    assert ag["failed_tool_calls"] == 0 and ag["declined_tool_calls"] == 1 and ag["tool_calls"] == 1 and ag["failed_tool_call_rate"] == 0.0
+    try:
+        a.tools.call("exact_search", None, term="")                                                         # invalid arguments -> a real tool failure
+    except Exception:
+        pass
+    reg = k.obs.metrics.render().decode()
+    assert 'mka_tool_calls_total{outcome="declined",tool="table_query"} 1.0' in reg and 'mka_tool_calls_total{outcome="error",tool="exact_search"} 1.0' in reg
+
+
+def test_eval_report_exports_pdf_docx_xlsx_with_sources_and_timestamps(extended_report):
+    import io
+
+    import docx
+    import openpyxl
+    import pymupdf
+
+    from app.eval.report import to_doc
+    from app.reports.render import render
+
+    doc = to_doc(extended_report)
+    assert doc.timestamp.startswith(extended_report["created"][:10]) and {s["name"] for s in doc.sources} >= {"leave_policy.txt", "orders.csv"}
+    pdf = "\n".join(p.get_text() for p in pymupdf.open(stream=render(doc, "pdf"), filetype="pdf"))
+    assert "Evaluation report" in pdf and "citation_accuracy" in pdf and "Failed tool calls" in pdf and "leave_policy.txt" in pdf and extended_report["created"][:10] in pdf
+    d = docx.Document(io.BytesIO(render(doc, "docx")))
+    cells = [c.text for t in d.tables for r in t.rows for c in r.cells]
+    assert "Agent execution" in [p.text for p in d.paragraphs] and "Execution success rate" in cells and "hindi_policy.txt" in cells
+    wb = openpyxl.load_workbook(io.BytesIO(render(doc, "xlsx")))
+    assert wb.sheetnames == ["Report", "Sources"] and len(wb["Report"]._charts) == 1 and {r[0].value for r in wb["Sources"].iter_rows(min_row=2)} >= {"leave_policy.txt"}
+
+
+def test_eval_api_extended_run_and_exports(tmp_path):
+    s = Settings(data_dir=str(tmp_path / "d"), auth_enabled=True, jwt_secret="e" * 40, rate_limit_auth="1000/minute", rate_limit_ingest="1000/minute", _env_file=None)
+    c = TestClient(create_app(s))
+    adm = {"Authorization": "Bearer " + c.post("/auth/signup", json={"tenant_name": "Tenant", "email": "a@a.io", "password": "long enough pw"}).json()["access_token"]}
+    r = c.post("/eval/run", json={"sample": True, "extended": True, "name": "ext"}, headers=adm)
+    assert r.status_code == 200, r.text
+    rid = r.json()["id"]
+    assert r.json()["dataset"] == "platform-v3-extended" and r.json()["metrics"]["agents"]["execution_success_rate"] == 1.0
+    for fmt, magic in (("pdf", b"%PDF-"), ("docx", b"PK"), ("xlsx", b"PK")):
+        f = c.get(f"/eval/runs/{rid}/report.{fmt}", headers=adm)
+        assert f.status_code == 200 and f.content[:len(magic)] == magic and fmt in f.headers["content-disposition"], fmt
+    assert c.get(f"/eval/runs/{rid}/report.md", headers=adm).text.startswith("# Evaluation report")          # md/html routes still win over the generic format route
+    assert "<!doctype html>" in c.get(f"/eval/runs/{rid}/report.html", headers=adm).text
+    assert c.get(f"/eval/runs/{rid}/report.exe", headers=adm).status_code == 404
+    other = {"Authorization": "Bearer " + c.post("/auth/signup", json={"tenant_name": "Other", "email": "b@b.io", "password": "long enough pw"}).json()["access_token"]}
+    assert c.get(f"/eval/runs/{rid}/report.pdf", headers=other).status_code == 404

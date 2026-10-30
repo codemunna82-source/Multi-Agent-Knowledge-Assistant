@@ -14,6 +14,7 @@ from . import metrics as M
 from .dataset import EvalCase, EvalDataset, RelevantRef
 
 KS = (1, 3, 5)
+CHECKS = ("route_ok", "keywords_ok", "count_ok", "value_ok", "abstained_ok", "forbidden_ok", "sources_ok")
 
 
 def _match(ref: RelevantRef, hit) -> bool:
@@ -72,6 +73,23 @@ def run_case(assistant, scope, principal, case: EvalCase, opts: Optional[Retriev
         out["route_ok"] = resp.route.split("+")[0] == case.expected_route
     if case.expected_keywords:
         out["keywords_ok"] = all(w.lower() in ans_low for w in case.expected_keywords)
+    if case.forbidden_keywords:
+        out["forbidden_ok"] = not any(w.lower() in ans_low for w in case.forbidden_keywords)
+    if case.expected_sources:
+        cited = {c.source.lower() for c in resp.citations}
+        out["sources_ok"] = all(x.lower() in cited for x in case.expected_sources)
+    # --- citation quality: validity (page/row/text exist, from the Verification Agent's check) and, with gold passages, relevance
+    ck = resp.details.get("citation_check")
+    if ck and ck.get("accuracy") is not None:
+        out["citation_accuracy"], out["citations_invalid"] = ck["accuracy"], len(ck.get("invalid", []))
+    if case.relevant and resp.citations:
+        hit = lambda c: any(  # noqa: E731
+            c.source.lower() == r.source.lower() and (r.page is None or (c.loc or {}).get("page") == r.page) and (not r.contains or r.contains.lower() in " ".join(c.excerpt.split()).lower()) for r in case.relevant)
+        out["citation_gold_precision"] = sum(1 for c in resp.citations if hit(c)) / len(resp.citations)
+    # --- agent execution: an internal error or a timeout inside any node is a failed execution, even if an honest message was returned
+    trace = resp.details.get("trace", [])
+    out["agent_ok"] = not any("internal error" in t or "timed out" in t for t in trace)
+    out["agents_run"] = len(trace)
     if case.expected_count is not None:
         out["count_ok"] = resp.details.get("count") == case.expected_count
     if case.expected_value is not None:
@@ -104,6 +122,7 @@ def aggregate(results: list[dict]) -> dict:
     n = len(results) or 1
     flag = lambda key: M.mean([1.0 if r[key] else 0.0 for r in results if key in r])  # noqa: E731
     ab = [r for r in results if "abstained_ok" in r]
+    cites = [r for r in results if "citation_accuracy" in r]
     ans = [r for r in results if "answered" in r]
     out = {
         "cases": len(results),
@@ -113,7 +132,11 @@ def aggregate(results: list[dict]) -> dict:
                     "abstention_accuracy": flag("abstained_ok"), "abstained_or_flagged_low_confidence": flag("abstained_or_low_conf"), "answer_rate_on_answerable": M.mean([1.0 if r["answered"] else 0.0 for r in ans]),
                     "faithfulness_lexical (proxy)": g("faithfulness_lexical"), "answer_relevancy_embedding (proxy)": g("answer_relevancy_embedding"),
                     "faithfulness_llm_judge": g("faithfulness_llm"), "answer_relevancy_llm_judge": g("relevancy_llm"),
-                    "false_answer_rate_on_unanswerable": (1 - flag("abstained_ok")) if ab else None},
+                    "false_answer_rate_on_unanswerable": (1 - flag("abstained_ok")) if ab else None,
+                    "citation_accuracy": M.mean([r["citation_accuracy"] for r in cites]), "citation_gold_precision": g("citation_gold_precision"),
+                    "required_sources_cited": flag("sources_ok"), "stale_or_forbidden_content_absent": flag("forbidden_ok")},
+        "agents": {"execution_success_rate": flag("agent_ok"), "cases_with_agent_failure": sum(1 for r in results if r.get("agent_ok") is False),
+                   "verified_rate": M.mean([1.0 if r["verified"] else 0.0 for r in results]), "cases_with_invalid_citations": sum(1 for r in results if r.get("citations_invalid"))},
         "latency_ms": {"mean": M.mean(lat), "p50": M.percentile(lat, 50), "p95": M.percentile(lat, 95), "max": max(lat) if lat else None,
                        "retrieval_p50": M.percentile(rlat, 50), "retrieval_p95": M.percentile(rlat, 95)},
         "tokens": {"prompt": ptok, "completion": ctok, "embedding": etok, "per_query": round((ptok + ctok + etok) / n, 1), "estimated": any(r["usage"].get("estimated") for r in results)},
@@ -124,28 +147,43 @@ def aggregate(results: list[dict]) -> dict:
         rs = [r for r in results if r["type"] == t]
         by_type[t] = {"cases": len(rs), "recall@5": M.mean([r.get("recall@5") for r in rs]), "mrr": M.mean([r.get("mrr") for r in rs]),
                       "route_accuracy": M.mean([1.0 if r["route_ok"] else 0.0 for r in rs if "route_ok" in r]),
-                      "correct": M.mean([1.0 if all(r.get(f, True) for f in ("keywords_ok", "count_ok", "value_ok", "abstained_ok")) else 0.0 for r in rs]),
+                      "correct": M.mean([1.0 if all(r.get(f, True) for f in CHECKS) else 0.0 for r in rs]),
                       "latency_p50_ms": M.percentile([r["latency_ms"] for r in rs], 50)}
     out["by_type"] = by_type
     return out
+
+
+def _tool_counts(k) -> dict:
+    """Cumulative tool-call counters (ok / error) from the application's metrics registry; run_eval reports the delta of its own run."""
+    reg = k.obs.metrics.registry
+    tot = lambda outcome: sum(s.value for mf in reg.collect() if mf.name == "mka_tool_calls" for s in mf.samples if s.name.endswith("_total") and s.labels.get("outcome") == outcome)  # noqa: E731
+    return {"ok": tot("ok"), "declined": tot("declined"), "error": tot("error")}
 
 
 def run_eval(assistant, scope, principal, dataset: EvalDataset, opts: Optional[RetrievalOptions] = None, source_ids: Optional[list[str]] = None,
              use_judge: bool = True, name: str = "") -> dict:
     k = assistant.k
     t0 = time.time()
+    tools_before = _tool_counts(k)
     results = [run_case(assistant, scope, principal, c, opts, source_ids, use_judge) for c in dataset.cases]
+    tools = {key: _tool_counts(k)[key] - tools_before[key] for key in tools_before}
     assistant.forget_workspace(scope)
-    failures = [{"id": r["id"], "question": r["question"], "why": [f for f in ("route_ok", "keywords_ok", "count_ok", "value_ok", "abstained_ok") if r.get(f) is False]
+    failures = [{"id": r["id"], "question": r["question"], "why": [f for f in CHECKS if r.get(f) is False] + (["agent execution failed"] if r.get("agent_ok") is False else [])
                  + (["no relevant passage in top 5"] if r.get("recall@5") == 0 else [])} for r in results
-                if any(r.get(f) is False for f in ("route_ok", "keywords_ok", "count_ok", "value_ok", "abstained_ok")) or r.get("recall@5") == 0]
+                if any(r.get(f) is False for f in CHECKS) or r.get("agent_ok") is False or r.get("recall@5") == 0]
+    metrics = aggregate(results)
+    total = sum(tools.values())
+    metrics["agents"].update(tool_calls=int(total), declined_tool_calls=int(tools["declined"]), failed_tool_calls=int(tools["error"]), failed_tool_call_rate=round(tools["error"] / total, 4) if total else None)
     return {
         "name": name or dataset.name, "dataset": dataset.name, "created": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "duration_s": round(time.time() - t0, 2),
         "config": {"embedder": k.embedder.name, "llm": k.llm.name, "vector_store": k.settings.vector_store,
                    "retrieval": resolve(k.settings, opts).__dict__ | {"filters": resolve(k.settings, opts).filters.model_dump()}},
-        "metrics": aggregate(results), "failures": failures, "cases": results,
+        "metrics": metrics, "failures": failures, "cases": results,
+        "corpus": [{"name": m["name"], "version": m.get("version", 1), "kind": m["kind"], "ingested_at": m.get("ingested_at") or m.get("created_at") or "", "content_hash": m.get("content_hash") or ""}
+                   for m in k.store(scope).list_sources()],
         "notes": ["Faithfulness/relevancy marked (proxy) are lexical/embedding heuristics, not RAGAS; the LLM-judge values exist only when an LLM is configured.",
-                  "Token counts are provider-reported when available, otherwise estimated at ~4 characters per token; cost uses MKA_PRICE_TABLE."],
+                  "Token counts are provider-reported when available, otherwise estimated at ~4 characters per token; cost uses MKA_PRICE_TABLE.",
+                  "citation_accuracy = share of returned citations whose page/row exists and whose excerpt occurs there (checked by the Verification Agent); agent execution success = no internal error or timeout in any agent node."],
     }
 
 
