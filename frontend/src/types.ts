@@ -28,7 +28,7 @@ export interface AskResponse {
 }
 export interface RetrievalOptions {
   mode?: "semantic" | "keyword" | "hybrid"; top_k?: number; rewrite?: boolean; multi_query?: boolean; hyde?: boolean; parent_child?: boolean; compression?: boolean;
-  reranker?: "none" | "lexical" | "llm" | "cross_encoder"; corrective?: boolean; graph?: boolean; self_rag?: boolean;
+  reranker?: "none" | "lexical" | "llm" | "cross_encoder"; corrective?: boolean; graph?: boolean; self_rag?: boolean; auto?: boolean;
   filters?: { kinds?: string[]; name_contains?: string; page_min?: number; page_max?: number; sheet?: string; section_contains?: string };
 }
 export interface AskBody { question: string; source_ids?: string[]; conversation_id?: string; case_sensitive?: boolean; whole_word?: boolean; retrieval?: RetrievalOptions; incognito?: boolean }
@@ -90,4 +90,24 @@ export interface EvalReport {
   metrics: EvalMetrics; failures: { id: string; question: string; why: string[] }[]; notes: string[];
   comparison?: { strategy: string; "recall@5": number | null; "precision@5": number | null; mrr: number | null; "ndcg@5": number | null; p50_ms: number | null; p95_ms: number | null; cost_per_query: number }[];
   cases: { id: string; type: string; question: string; route: string; verified: boolean; latency_ms: number; "recall@5"?: number | null; mrr?: number | null }[];
+}
+
+export interface Lesson { id: string; group: "RAG" | "LangGraph" | "LangChain"; title: string; what: string; why: string; code: string; try: { lab: string; preset?: string }; needs_llm?: boolean }
+export interface DemoQuestion { q: string; teaches: string }
+export interface LessonsOut { lessons: Lesson[]; presets: string[]; ablation: string[]; llm_available: boolean; embedder: string; demo_questions: DemoQuestion[]; note: string }
+export interface LabHit { rank: number; chunk_id: string; source: string; location: string; score: number; lexical: number; fused: number; rerank: number | null; chars_matched: number; chars_to_model: number; compressed: boolean; excerpt: string }
+export interface LabRow {
+  name: string; overrides: Record<string, unknown>; grade: "correct" | "ambiguous" | "incorrect"; abstained: boolean; query_used: string; attempts: number; ms: number; hits: LabHit[]; trace: Record<string, unknown>[]; notes: string[];
+  delta: null | { vs: string; overlap: number; new: string[]; dropped: string[]; same_top1: boolean; grade_changed: string | null; ms_change: number; chars_to_model_change: number };
+}
+export interface GraphInfo { nodes: { id: string; description: string }[]; edges: { source: string; target: string; conditional: boolean }[]; mermaid: string }
+export interface GraphStep { node: string; ms: number; writes: string[]; summary: Record<string, unknown> }
+export interface GraphRun { steps: GraphStep[]; checkpoints: { step: number | null; next: string[]; writes: string[] }[]; response: AskResponse | null }
+export interface LcDemo {
+  llm_used: boolean; code: Record<string, string>;
+  retriever: { documents: { source: string; location: string; score: number; text: string }[] };
+  chain: { answer: string; prompt: string; steps: { kind: string; name: string; input: string; output: string; ms: number }[] };
+  tool: { term: string; schema: Record<string, unknown>; result: string; invalid_call_rejected: string };
+  parser: { format_instructions: string; parsed: Record<string, unknown>; malformed_output_error: string };
+  memory: { messages: { type: string; content: string }[]; kept_by_window: { type: string; content: string }[] };
 }

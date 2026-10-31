@@ -40,3 +40,4 @@ opentelemetry-api>=1.25          # tracing (no-op unless MKA_OTEL_ENDPOINT is se
 opentelemetry-sdk>=1.25
 opentelemetry-exporter-otlp-proto-grpc>=1.25
 langsmith>=0.1                   # optional: enabled only by MKA_LANGSMITH_API_KEY (LANGSMITH_* env wiring; not covered by tests)
+langchain-core>=0.3             # Learn lab (real Runnables, retriever, tools, parsers); also pulled in by langgraph

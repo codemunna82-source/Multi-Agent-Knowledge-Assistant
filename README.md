@@ -62,7 +62,8 @@ docker compose exec api python -m app.cli create-tenant --name "ACME" --email ad
 | Reports | summary, executive, comparison, research, analytics, exact-search, evaluation → PDF / DOCX / XLSX with sources and timestamps |
 | Security | JWT + rotating httpOnly refresh token, roles user/manager/admin, tenant isolation, document sharing, audit, rate limits, injection/SSRF defences, retention + erasure, user-controlled memory |
 | Operations | PostgreSQL + Alembic, Redis queue, scheduler, `/metrics`, OpenTelemetry, backup/restore scripts |
-| UI | 14 screens (dashboard, library, chat, citation preview, exact search, comparison, analyst, reports, history, settings, admin, …), light/dark |
+| Learn | **Learn lab**: ablate/compare retrieval techniques, see the LangGraph run step by step, real LangChain objects on your documents — [`docs/LEARNING.md`](docs/LEARNING.md); **✨ Auto** lets a graph node pick the best retrieval setting per question |
+| UI | ChatGPT-style chat (character-by-character reveal), 14+ screens (dashboard, library, chat, citation preview, exact search, comparison, analyst, reports, history, settings, admin, …), light/dark |
 
 Measured on 4 vCPU (offline config): 1,000-page PDF ingest 5.6 s · exact search 0.1 s with the correct count · complete `/ask` ~90 ms · 200,000-row CSV profile 1.3 s, SQL group-by 65 ms.
 
@@ -88,7 +89,7 @@ MKA_SMOKE_PG_URL=... MKA_SMOKE_REDIS_URL=... python scripts/prod_smoke.py
 python -m app.eval run --sample --compare --out eval_report; python -m app.eval run --sample --extended --out eval_report_ext
 python scripts/benchmark.py; python scripts/gen_api_docs.py; python docs/build_brd.py
 ```
-Last run (30 Oct 2026): **337 pytest** (real PostgreSQL 16 + Redis 7) · **38 Vitest** · **18/18 Playwright steps** · **12/12 production-smoke checks** · ruff, `tsc --strict`, `alembic check` clean.
+Last run (31 Oct 2026): **351 pytest** (real PostgreSQL 16 + Redis 7) · **49 Vitest** · **19/19 Playwright steps** · **12/12 production-smoke checks** · ruff, `tsc --strict`, `alembic check` clean.
 Evaluation is synthetic and offline (hash embedder, no LLM): it is a regression guard, not an accuracy benchmark; faithfulness/relevancy are lexical/embedding proxies.
 
 ## Implemented vs partial vs pending

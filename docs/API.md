@@ -331,6 +331,58 @@ Parameters: `job_id` (path, required), `x-session-id` (header)
 
 Responses: 200, 422 · Access: manager
 
+## learn
+
+### `POST /learn/demo-corpus`
+
+Parameters: `x-session-id` (header)
+
+Responses: 200, 422
+
+### `GET /learn/graph`
+
+Parameters: `x-session-id` (header)
+
+Responses: 200, 422
+
+### `POST /learn/graph/run`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `GraphRunBody`
+
+Responses: 200, 422
+
+### `POST /learn/langchain`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `LcBody`
+
+Responses: 200, 422
+
+### `GET /learn/lessons`
+
+Parameters: `x-session-id` (header)
+
+Responses: 200, 422
+
+### `POST /learn/retrieval/ablation`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `LabBody`
+
+Responses: 200, 422
+
+### `POST /learn/retrieval/compare`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `app__api__routers__learn__CompareBody`
+
+Responses: 200, 422
+
 ## memory
 
 ### `DELETE /memory`
@@ -415,7 +467,7 @@ Responses: 200, 422 · Access: user (own reports; admin: whole organisation)
 
 Parameters: `x-session-id` (header)
 
-Body: `application/json` → `CompareBody`
+Body: `application/json` → `app__api__routers__features__CompareBody`
 
 Responses: 200, 422 · Access: user
 

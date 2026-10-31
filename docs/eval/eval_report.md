@@ -1,6 +1,6 @@
 # Evaluation report — default strategy
 
-*Dataset:* `synthetic-mixed-v1` · *cases:* 42 · *run:* 2026-10-30T07:50:40Z · *duration:* 0.89s
+*Dataset:* `synthetic-mixed-v1` · *cases:* 42 · *run:* 2026-10-31T14:59:45Z · *duration:* 1.45s
 
 *Embedder:* `hash:v1:1024` · *LLM:* `none` · *vector store:* `local`
 
@@ -13,7 +13,7 @@
 | MRR | 0.909 | mean reciprocal rank of the first relevant result |
 | Faithfulness* | 88.9% | lexical proxy (not RAGAS) |
 | Answer relevancy* | 26.7% | embedding proxy (not RAGAS) |
-| Latency p50 / p95 | 18 / 28 ms | end-to-end per question |
+| Latency p50 / p95 | 30 / 43 ms | end-to-end per question |
 | Tokens / query | 0 | provider-reported |
 | Est. cost / query | $0.00000 | from MKA_PRICE_TABLE |
 
@@ -52,22 +52,22 @@ MRR: **0.909** over 22 cases with gold passages.
 
 | Type | Cases | Correct | Recall@5 | MRR | Route accuracy | p50 ms |
 |---|---|---|---|---|---|---|
-| abstain | 4 | 75.0% | — | — | — | 15.3 |
-| data | 9 | 100.0% | — | — | 100.0% | 20.5 |
-| exact | 6 | 100.0% | 100.0% | 1.000 | 100.0% | 15.8 |
-| intel | 2 | 100.0% | — | — | 100.0% | 14.8 |
-| semantic | 21 | 90.5% | 90.5% | 0.905 | 100.0% | 18.7 |
+| abstain | 4 | 75.0% | — | — | — | 26.4 |
+| data | 9 | 100.0% | — | — | 100.0% | 27.4 |
+| exact | 6 | 100.0% | 100.0% | 1.000 | 100.0% | 19.9 |
+| intel | 2 | 100.0% | — | — | 100.0% | 33.9 |
+| semantic | 21 | 90.5% | 90.5% | 0.905 | 100.0% | 30.4 |
 
 ## Strategy comparison
 
 | Strategy | Recall@5 | Precision@5 | MRR | nDCG@5 | p50 ms | p95 ms | $/query |
 |---|---|---|---|---|---|---|---|
-| semantic | 86.4% | 17.3% | 0.833 | 0.841 | 16.0 | 24.9 | 0.00000 |
-| keyword (BM25) | 86.4% | 17.3% | 0.864 | 0.864 | 14.8 | 21.4 | 0.00000 |
-| hybrid | 86.4% | 17.3% | 0.833 | 0.841 | 16.5 | 22.9 | 0.00000 |
-| hybrid + lexical rerank | 86.4% | 17.3% | 0.864 | 0.864 | 16.3 | 24.8 | 0.00000 |
-| hybrid + rerank + parent-child + corrective | 90.9% | 18.2% | 0.909 | 0.909 | 16.1 | 22.7 | 0.00000 |
-| hybrid + multi-query + graph | 90.9% | 18.2% | 0.909 | 0.909 | 17.8 | 24.7 | 0.00000 |
+| semantic | 86.4% | 17.3% | 0.833 | 0.841 | 25.5 | 43.3 | 0.00000 |
+| keyword (BM25) | 86.4% | 17.3% | 0.864 | 0.864 | 24.1 | 31.7 | 0.00000 |
+| hybrid | 86.4% | 17.3% | 0.833 | 0.841 | 22.2 | 37.8 | 0.00000 |
+| hybrid + lexical rerank | 86.4% | 17.3% | 0.864 | 0.864 | 26.9 | 37.1 | 0.00000 |
+| hybrid + rerank + parent-child + corrective | 90.9% | 18.2% | 0.909 | 0.909 | 24.8 | 42.2 | 0.00000 |
+| hybrid + multi-query + graph | 90.9% | 18.2% | 0.909 | 0.909 | 27.6 | 40.9 | 0.00000 |
 
 ## Failures (3)
 

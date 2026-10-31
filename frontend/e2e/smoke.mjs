@@ -118,12 +118,12 @@ await step("compound question fans out to two agents in parallel", async () => {
 });
 await step("incognito question leaves no conversation behind", async () => {
   await page.getByRole("button", { name: "+ New conversation" }).click();
-  await page.getByLabel(/Incognito/).check();
+  await page.getByRole("button", { name: "Incognito mode" }).click();
   await page.getByLabel("Question", { exact: true }).fill("How often must passwords be rotated?");
   await page.getByRole("button", { name: "Ask", exact: true }).click();
   await page.getByText(/rotated every 90 days/).first().waitFor(T);
   await page.getByText("incognito", { exact: true }).waitFor(T);
-  await page.getByLabel(/Incognito/).uncheck();
+  await page.getByRole("button", { name: "Incognito mode" }).click();
 });
 await step("unanswerable question is flagged, not invented", async () => {
   await page.getByLabel("Question", { exact: true }).fill("What is the capital of Mongolia?");
@@ -197,6 +197,27 @@ await step("admin: add a user, audit log shows activity without question text", 
   await page.locator("table >> td:text-is('ask')").first().waitFor(T);
   const html = await page.content();
   if (html.includes("capital of Mongolia")) throw new Error("question text leaked into the audit view");
+});
+await step("learn lab: demo documents, ablation, graph run with auto strategy, LangChain examples (own workspace)", async () => {
+  await page.getByLabel("Workspace").fill("learn");
+  await page.getByLabel("Workspace").press("Enter");
+  await page.getByRole("button", { name: "Learn lab", exact: true }).click();
+  await page.getByRole("tab", { name: "Retrieval lab" }).click();
+  await page.getByRole("button", { name: "Load demo documents" }).click();
+  await page.getByText(/Loaded \d+ new/).waitFor(T);
+  await page.getByRole("button", { name: "Run experiment" }).click();
+  await page.getByRole("table", { name: "Experiment results" }).waitFor(T);
+  await page.getByText(/characters to the model/).first().waitFor(T);
+  await page.getByRole("tab", { name: "Agent graph" }).click();
+  await page.getByRole("img", { name: /Agent graph with/ }).waitFor(T);
+  await page.getByLabel(/Auto strategy/).check();
+  await page.getByRole("button", { name: "Run through the graph" }).click();
+  await page.getByLabel("Graph steps").getByText("strategy", { exact: true }).waitFor(T);
+  await page.getByRole("tab", { name: "LangChain lab" }).click();
+  await page.getByRole("button", { name: "Run the LangChain examples" }).click();
+  await page.getByText(/ChatPromptTemplate/).first().waitFor(T);
+  await page.getByLabel("Workspace").fill("default");
+  await page.getByLabel("Workspace").press("Enter");
 });
 await step("plain user: signs in, can chat and search, cannot see Admin/Evaluation or upload", async () => {
   await page.getByRole("button", { name: "Sign out" }).click();

@@ -45,6 +45,7 @@ describe("Chat", () => {
   it("sends the selected filters, documents and options with the question", async () => {
     const { calls } = setup({ answer: "ok", citations: [], followups: [] });
     render(<Chat workspace="w" prefill={null} onPrefillUsed={() => {}} />);
+    await userEvent.click(screen.getByRole("button", { name: /Options/ }));
     await screen.findByText("policy.pdf");
     await userEvent.click(screen.getByLabelText("policy.pdf"));
     await userEvent.click(screen.getByRole("button", { name: "pdf" }));
@@ -76,5 +77,42 @@ describe("Chat", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Old chat" }));
     expect(await screen.findByText("old a")).toBeInTheDocument();
     expect(screen.getByText("confidence: low")).toBeInTheDocument();
+  });
+});
+
+describe("Chat experience", () => {
+  it("reveals the answer progressively (typewriter) and can be skipped by clicking", async () => {
+    const long = "Employees accrue twenty five days of annual leave per calendar year and may carry over five unused days. ".repeat(4);
+    setup({ answer: long, citations: [], followups: [] });
+    render(<Chat workspace="w" prefill={null} onPrefillUsed={() => {}} />);
+    await userEvent.type(screen.getByLabelText("Question"), "leave?");
+    await userEvent.click(screen.getByRole("button", { name: "Ask" }));
+    const first = await screen.findByText(/Employees accrue/);
+    expect(first.textContent!.length).toBeLessThan(long.length);                    // mid-animation: only part of the text is visible
+    await waitFor(() => expect(screen.getByText(/carry over five unused days\.\s*$/)).toBeInTheDocument(), { timeout: 3000 });
+  });
+
+  it("the Auto toggle sends retrieval.auto and the chosen strategy is explained", async () => {
+    const auto = { chosen: "keyword-first", why: "the question contains a quoted phrase", candidates: [
+      { name: "keyword-first", why: "exact words matter", grade: "correct", hits: 2, ms: 3, score: 9.1 }, { name: "hybrid", why: "balanced default", grade: "correct", hits: 2, ms: 4, score: 8.2 }] };
+    const { calls } = setup({ answer: "ok", citations: [], followups: [], details: { plan: { auto_strategy: auto } } });
+    render(<Chat workspace="w" prefill={null} onPrefillUsed={() => {}} />);
+    const pill = screen.getByRole("button", { name: "Auto strategy" });
+    expect(pill).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(pill);
+    expect(pill).toHaveAttribute("aria-pressed", "true");
+    await userEvent.type(screen.getByLabelText("Question"), 'find "INV-1"');
+    await userEvent.click(screen.getByRole("button", { name: "Ask" }));
+    expect(await screen.findByText(/Auto picked/)).toBeInTheDocument();
+    expect(screen.getByText(/the question contains a quoted phrase/)).toBeInTheDocument();
+    expect(JSON.parse(String(calls.find((c) => c.url.includes("/ask/stream"))!.init.body)).retrieval.auto).toBe(true);
+  });
+
+  it("shows starter prompts on an empty conversation and fills the box when one is clicked", async () => {
+    setup({ answer: "x", citations: [], followups: [] });
+    render(<Chat workspace="w" prefill={null} onPrefillUsed={() => {}} />);
+    expect(screen.getByRole("heading", { name: /How can I help/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Summarize my documents" }));
+    expect(screen.getByLabelText("Question")).toHaveValue("Summarize my documents");
   });
 });

@@ -1,8 +1,8 @@
 {
  "name": "default strategy",
  "dataset": "platform-v3-extended",
- "created": "2026-10-30T07:50:49Z",
- "duration_s": 0.3,
+ "created": "2026-10-31T14:59:58Z",
+ "duration_s": 0.41,
  "config": {
   "embedder": "hash:v1:1024",
   "llm": "none",
@@ -20,6 +20,7 @@
    "corrective": true,
    "graph": false,
    "cross_lingual": true,
+   "auto": false,
    "self_rag": false,
    "self_rag_rounds": 1,
    "max_retries": 2,
@@ -83,12 +84,12 @@
    "failed_tool_call_rate": 0.0
   },
   "latency_ms": {
-   "mean": 19.132857142857144,
-   "p50": 17.22,
-   "p95": 30.632999999999996,
-   "max": 38.03,
-   "retrieval_p50": 2.88,
-   "retrieval_p95": 12.986999999999998
+   "mean": 26.01571428571429,
+   "p50": 25.020000000000003,
+   "p95": 42.95949999999999,
+   "max": 58.67,
+   "retrieval_p50": 3.14,
+   "retrieval_p95": 18.538999999999998
   },
   "tokens": {
    "prompt": 0,
@@ -108,7 +109,7 @@
     "mrr": null,
     "route_accuracy": null,
     "correct": 1.0,
-    "latency_p50_ms": 15.35
+    "latency_p50_ms": 19.4
    },
    "analytics": {
     "cases": 2,
@@ -116,7 +117,7 @@
     "mrr": null,
     "route_accuracy": 1.0,
     "correct": 1.0,
-    "latency_p50_ms": 18.84
+    "latency_p50_ms": 22.935
    },
    "compare": {
     "cases": 2,
@@ -124,7 +125,7 @@
     "mrr": null,
     "route_accuracy": 1.0,
     "correct": 1.0,
-    "latency_p50_ms": 17.41
+    "latency_p50_ms": 25.855
    },
    "contradiction": {
     "cases": 1,
@@ -132,7 +133,7 @@
     "mrr": null,
     "route_accuracy": 1.0,
     "correct": 1.0,
-    "latency_p50_ms": 14.62
+    "latency_p50_ms": 21.51
    },
    "hindi": {
     "cases": 5,
@@ -140,7 +141,7 @@
     "mrr": 1.0,
     "route_accuracy": 1.0,
     "correct": 1.0,
-    "latency_p50_ms": 15.01
+    "latency_p50_ms": 24.26
    },
    "parallel": {
     "cases": 1,
@@ -148,7 +149,7 @@
     "mrr": null,
     "route_accuracy": 1.0,
     "correct": 1.0,
-    "latency_p50_ms": 26.65
+    "latency_p50_ms": 34.5
    },
    "semantic": {
     "cases": 2,
@@ -156,7 +157,7 @@
     "mrr": 0.75,
     "route_accuracy": 1.0,
     "correct": 1.0,
-    "latency_p50_ms": 29.235
+    "latency_p50_ms": 42.43000000000001
    }
   }
  },
@@ -166,7 +167,7 @@
    "id": "x01",
    "type": "semantic",
    "question": "How many days of annual leave do full-time employees accrue?",
-   "retrieval_ms": 14.11,
+   "retrieval_ms": 20.25,
    "retrieved": [
     {
      "source": "hr_faq.txt",
@@ -192,7 +193,7 @@
    "ndcg@5": 0.6309297535714575,
    "mrr": 0.5,
    "retrieval_grade": "correct",
-   "latency_ms": 38.03,
+   "latency_ms": 58.67,
    "route": "semantic",
    "verified": true,
    "confidence": "high",
@@ -223,7 +224,7 @@
    "id": "x02",
    "type": "semantic",
    "question": "How many days a week is remote work allowed?",
-   "retrieval_ms": 1.78,
+   "retrieval_ms": 3.14,
    "retrieved": [
     {
      "source": "leave_policy.txt",
@@ -243,7 +244,7 @@
    "ndcg@5": 1.0,
    "mrr": 1.0,
    "retrieval_grade": "correct",
-   "latency_ms": 20.44,
+   "latency_ms": 26.19,
    "route": "semantic",
    "verified": true,
    "confidence": "high",
@@ -273,7 +274,7 @@
    "id": "x03",
    "type": "compare",
    "question": "What changed in leave_policy.txt?",
-   "latency_ms": 19.25,
+   "latency_ms": 27.18,
    "route": "compare",
    "verified": true,
    "confidence": "high",
@@ -301,7 +302,7 @@
    "id": "x04",
    "type": "contradiction",
    "question": "Do leave_policy.txt and hr_faq.txt contradict each other?",
-   "latency_ms": 14.62,
+   "latency_ms": 21.51,
    "route": "compare",
    "verified": true,
    "confidence": "low",
@@ -329,7 +330,7 @@
    "id": "x05",
    "type": "compare",
    "question": "Compare supplier_a.txt and supplier_b.txt",
-   "latency_ms": 15.57,
+   "latency_ms": 24.53,
    "route": "compare",
    "verified": true,
    "confidence": "high",
@@ -357,7 +358,7 @@
    "id": "x06",
    "type": "hindi",
    "question": "\"छुट्टी\" कितनी बार आया है",
-   "latency_ms": 13.95,
+   "latency_ms": 15.62,
    "route": "exact",
    "verified": true,
    "confidence": "high",
@@ -382,7 +383,7 @@
    "id": "x07",
    "type": "hindi",
    "question": "कर्मचारियों को कितनी छुट्टी मिलती है",
-   "retrieval_ms": 2.88,
+   "retrieval_ms": 2.96,
    "retrieved": [
     {
      "source": "hindi_policy.txt",
@@ -402,7 +403,7 @@
    "ndcg@5": 1.0,
    "mrr": 1.0,
    "retrieval_grade": "correct",
-   "latency_ms": 22.7,
+   "latency_ms": 24.26,
    "route": "semantic",
    "verified": true,
    "confidence": "medium",
@@ -430,7 +431,7 @@
    "id": "x08",
    "type": "hindi",
    "question": "बिक्री का कुल योग क्या है?",
-   "latency_ms": 18.87,
+   "latency_ms": 25.51,
    "route": "data",
    "verified": true,
    "confidence": "high",
@@ -455,7 +456,7 @@
    "id": "x09",
    "type": "hindi",
    "question": "सबसे अधिक बिक्री किस कर्मचारी की है?",
-   "latency_ms": 15.01,
+   "latency_ms": 25.6,
    "route": "data",
    "verified": true,
    "confidence": "high",
@@ -481,7 +482,7 @@
    "id": "x10",
    "type": "hindi",
    "question": "hindi_policy.txt का सारांश दें",
-   "latency_ms": 9.74,
+   "latency_ms": 15.38,
    "route": "summarize",
    "verified": true,
    "confidence": "medium",
@@ -506,7 +507,7 @@
    "id": "x11",
    "type": "analytics",
    "question": "Show the monthly revenue trend",
-   "latency_ms": 22.6,
+   "latency_ms": 28.08,
    "route": "data",
    "verified": true,
    "confidence": "high",
@@ -531,7 +532,7 @@
    "id": "x12",
    "type": "analytics",
    "question": "Are there any outliers in revenue?",
-   "latency_ms": 15.08,
+   "latency_ms": 17.79,
    "route": "data",
    "verified": true,
    "confidence": "high",
@@ -556,7 +557,7 @@
    "id": "x13",
    "type": "parallel",
    "question": "How many times does \"Anjali Rao\" appear, and what is the highest revenue?",
-   "latency_ms": 26.65,
+   "latency_ms": 34.5,
    "route": "parallel",
    "verified": true,
    "confidence": "high",
@@ -584,7 +585,7 @@
    "id": "x14",
    "type": "abstain",
    "question": "What is the CEO's favourite colour?",
-   "latency_ms": 15.35,
+   "latency_ms": 19.4,
    "route": "semantic",
    "verified": false,
    "confidence": "none",
@@ -608,49 +609,49 @@
    "name": "leave_policy.txt",
    "version": 2,
    "kind": "txt",
-   "ingested_at": "2026-10-30T07:50:48+00:00",
+   "ingested_at": "2026-10-31T14:59:57+00:00",
    "content_hash": "6f836604cf379f10c0ed8ae50a3813919f52efb90693bc7a8d4a94eebfe76f5a"
   },
   {
    "name": "hr_faq.txt",
    "version": 1,
    "kind": "txt",
-   "ingested_at": "2026-10-30T07:50:48+00:00",
+   "ingested_at": "2026-10-31T14:59:57+00:00",
    "content_hash": "fde8047743fae2641757bd1c9078e8a4ac67af7827ed4b65ac85059970462b48"
   },
   {
    "name": "supplier_a.txt",
    "version": 1,
    "kind": "txt",
-   "ingested_at": "2026-10-30T07:50:48+00:00",
+   "ingested_at": "2026-10-31T14:59:57+00:00",
    "content_hash": "180ecd1369a855c658ed8aaa2b03f73c70289f5c3e4d0a8d3c1e9268be85b859"
   },
   {
    "name": "supplier_b.txt",
    "version": 1,
    "kind": "txt",
-   "ingested_at": "2026-10-30T07:50:48+00:00",
+   "ingested_at": "2026-10-31T14:59:57+00:00",
    "content_hash": "0b61d346f5d76ec9cde5f48d526ba4afbfb283a8b578e3a43f6b6807d03ce573"
   },
   {
    "name": "hindi_policy.txt",
    "version": 1,
    "kind": "txt",
-   "ingested_at": "2026-10-30T07:50:48+00:00",
+   "ingested_at": "2026-10-31T14:59:57+00:00",
    "content_hash": "37e53e5e19a15f83c1fffe6831d1cbf0943050f5271bd64f0ee09c76d0312ef5"
   },
   {
    "name": "bikri.csv",
    "version": 1,
    "kind": "csv",
-   "ingested_at": "2026-10-30T07:50:48+00:00",
+   "ingested_at": "2026-10-31T14:59:57+00:00",
    "content_hash": "eac200f274722c5b0c853629139f8b50f90c4808860813e0ce8ba59f8b984302"
   },
   {
    "name": "orders.csv",
    "version": 1,
    "kind": "csv",
-   "ingested_at": "2026-10-30T07:50:48+00:00",
+   "ingested_at": "2026-10-31T14:59:57+00:00",
    "content_hash": "054b27688c41aa678f57627dd91a985628aa3e16069c64ce2275308ed65b12aa"
   }
  ],

@@ -56,6 +56,16 @@ Legend: ✅ implemented and exercised by an automated test · 🟡 implemented, 
 | Intent routing without vector search for counts / numbers | ✅ | `test_agents.py::test_supervisor_rules_route` |
 | Charts and Excel report generation | ✅ SVG specs (UI), PNG (matplotlib), native XLSX charts | `test_analytics.py`, `test_reports_memory.py` |
 
+## Added after v2.1 delivery (30–31 Oct 2026)
+
+| Item | Status | Evidence |
+|---|---|---|
+| Follow-up suggestions only when the sources can answer them | ✅ each candidate is checked with a retrieval pass | `test_verification_selfrag.py::test_followups_are_only_offered_*` |
+| **Auto retrieval strategy** (LangGraph `strategy` node tries ≤3 configurations, keeps the best; ties keep the simpler one) | ✅ rule-proposed candidates, empirical scoring; no model needed | `test_verification_selfrag.py::test_auto_strategy_*`, `test_learn.py::test_graph_run_*` |
+| **Learn lab** (retrieval ablation / compare, graph run trace, LangChain lab, lesson catalog, demo corpus) | ✅ real `langchain_core` objects; model-dependent steps labelled when no LLM | `test_learn.py`, `Learn.test.tsx`, e2e step |
+| ChatGPT-style chat UI, character-by-character reveal | ✅ UI; **the reveal is a display effect on the finished, verified answer — provider-side token streaming is not implemented** | `Chat.test.tsx` |
+| UI stays usable when the backend is down (banner + retry) | ✅ | `App.test.tsx` |
+
 ## Knowledge graph and multimodal
 
 | Requirement | Status | Note |

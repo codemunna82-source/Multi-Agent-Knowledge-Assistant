@@ -9,13 +9,14 @@ import { Documents } from "./Documents";
 import { Evaluation } from "./Evaluation";
 import { ExactSearch } from "./ExactSearch";
 import { History } from "./History";
+import { Learn } from "./Learn";
 import { Login } from "./Login";
 import { Reports } from "./Reports";
 import { Settings } from "./Settings";
 import { applyTheme, loadTheme } from "./theme";
 import type { Health, Role, User } from "./types";
 
-type Page = "dashboard" | "documents" | "chat" | "search" | "compare" | "analyst" | "reports" | "history" | "evaluation" | "settings" | "admin";
+type Page = "dashboard" | "documents" | "chat" | "search" | "compare" | "analyst" | "reports" | "history" | "learn" | "evaluation" | "settings" | "admin";
 const DEV_USER: User = { id: "anonymous", tenant_id: "default", email: "anonymous@local", role: "admin" };
 const WS_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const RANK: Record<Role, number> = { user: 0, manager: 1, admin: 2 };
@@ -63,7 +64,7 @@ export function App() {
   const atLeast = (r: Role) => RANK[shownUser.role] >= RANK[r];
   const nav: [Page, string, boolean][] = [
     ["dashboard", "Dashboard", true], ["documents", "Library", true], ["chat", "Chat", true], ["search", "Exact search", true], ["compare", "Compare", true], ["analyst", "Data analyst", true],
-    ["reports", "Reports", true], ["history", "History", true], ["evaluation", "Evaluation", atLeast("manager")], ["settings", "Settings", true], ["admin", "Admin", atLeast("admin")],
+    ["reports", "Reports", true], ["history", "History", true], ["learn", "Learn lab", true], ["evaluation", "Evaluation", atLeast("manager")], ["settings", "Settings", true], ["admin", "Admin", atLeast("admin")],
   ];
   const go = (p: string) => setPage(p as Page);
 
@@ -96,6 +97,7 @@ export function App() {
         {page === "analyst" && <Analyst workspace={workspace} />}
         {page === "reports" && <Reports workspace={workspace} />}
         {page === "history" && <History workspace={workspace} />}
+        {page === "learn" && <Learn workspace={workspace} canIngest={atLeast("manager")} />}
         {page === "evaluation" && atLeast("manager") && <Evaluation />}
         {page === "settings" && <Settings user={shownUser} authEnabled={Boolean(health?.auth_enabled)} />}
         {page === "admin" && atLeast("admin") && <Admin me={shownUser} />}

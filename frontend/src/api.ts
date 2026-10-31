@@ -1,5 +1,5 @@
 import type {
-  Anomalies, AskBody, AskResponse, AuditEvent, ChartSpec, Conversation, ContradictionResult, DiffResult, EvalReport, EvalSummary, ExactResult, Health, IngestResult, Job, MemoryFact,
+  Anomalies, AskBody, GraphInfo, GraphRun, LabRow, LcDemo, LessonsOut, RetrievalOptions, AskResponse, AuditEvent, ChartSpec, Conversation, ContradictionResult, DiffResult, EvalReport, EvalSummary, ExactResult, Health, IngestResult, Job, MemoryFact,
   MemoryPrefs, Message, Paged, Profile, QueuedItem, ReportItem, Sharing, SourceInfo, SqlResult, SqlTable, StreamEvent, SummaryOut, TenantSettings, TimelineEvent, TokenResponse, Trend, User,
 } from "./types";
 
@@ -137,6 +137,14 @@ export const api = {
   createReport: (ws: string, body: { kind: string; format: string; source_ids?: string[]; params?: Record<string, unknown>; title?: string }) => req<ReportItem>("/reports", { method: "POST", body, workspace: ws }),
   downloadReport: (ws: string, id: string) => blob(`/reports/${id}/download`, { workspace: ws }),
   deleteReport: (ws: string, id: string) => req<{ deleted: string }>(`/reports/${id}`, { method: "DELETE", workspace: ws }),
+
+  learnLessons: () => req<LessonsOut>("/learn/lessons"),
+  learnDemoCorpus: (ws: string) => req<{ documents: { name: string; status: string }[] }>("/learn/demo-corpus", { method: "POST", workspace: ws }),
+  learnCompare: (ws: string, question: string, presets?: string[]) => req<{ rows: LabRow[] }>("/learn/retrieval/compare", { method: "POST", body: { question, presets }, workspace: ws }),
+  learnAblation: (ws: string, question: string) => req<{ rows: LabRow[] }>("/learn/retrieval/ablation", { method: "POST", body: { question }, workspace: ws }),
+  learnGraph: () => req<GraphInfo>("/learn/graph"),
+  learnGraphRun: (ws: string, question: string, retrieval?: RetrievalOptions) => req<GraphRun>("/learn/graph/run", { method: "POST", body: { question, retrieval }, workspace: ws }),
+  learnLangchain: (ws: string, question: string) => req<LcDemo>("/learn/langchain", { method: "POST", body: { question }, workspace: ws }),
 
   memoryPrefs: () => req<MemoryPrefs>("/memory/preferences"),
   setMemoryPrefs: (body: Partial<MemoryPrefs>) => req<MemoryPrefs>("/memory/preferences", { method: "PUT", body }),

@@ -260,6 +260,333 @@
     }
    }
   },
+  "/learn/demo-corpus": {
+   "post": {
+    "tags": [
+     "learn"
+    ],
+    "summary": "Load the built-in sample documents (PDF, DOCX, XLSX, CSV, MD, TXT, JSON) into the current workspace so the labs have something to compare",
+    "operationId": "demo_corpus_learn_demo_corpus_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/learn/lessons": {
+   "get": {
+    "tags": [
+     "learn"
+    ],
+    "summary": "Concept catalog with the lab action that demonstrates each one",
+    "operationId": "lessons_learn_lessons_get",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/learn/retrieval/compare": {
+   "post": {
+    "tags": [
+     "learn"
+    ],
+    "summary": "The same question under different retrieval settings, side by side",
+    "operationId": "compare_learn_retrieval_compare_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/app__api__routers__learn__CompareBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/learn/retrieval/ablation": {
+   "post": {
+    "tags": [
+     "learn"
+    ],
+    "summary": "Switch techniques on one by one and see what each addition changes",
+    "operationId": "ablation_learn_retrieval_ablation_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LabBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/learn/graph": {
+   "get": {
+    "tags": [
+     "learn"
+    ],
+    "summary": "The compiled LangGraph: nodes, edges (conditional ones flagged) and Mermaid source",
+    "operationId": "graph_learn_graph_get",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/learn/graph/run": {
+   "post": {
+    "tags": [
+     "learn"
+    ],
+    "summary": "Run a question and watch every graph step: node, time, state keys written, checkpoints",
+    "operationId": "graph_run_learn_graph_run_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/GraphRunBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/learn/langchain": {
+   "post": {
+    "tags": [
+     "learn"
+    ],
+    "summary": "Real langchain_core objects on your documents: retriever, LCEL chain, tool schema, parser, history",
+    "operationId": "langchain_lab_learn_langchain_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LcBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/search/exact": {
    "post": {
     "tags": [
@@ -411,7 +738,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/CompareBody"
+        "$ref": "#/components/schemas/app__api__routers__features__CompareBody"
        }
       }
      }
@@ -5006,33 +5333,6 @@
     ],
     "title": "Citation"
    },
-   "CompareBody": {
-    "properties": {
-     "source_ids": {
-      "items": {
-       "type": "string"
-      },
-      "type": "array",
-      "maxItems": 6,
-      "minItems": 2,
-      "title": "Source Ids"
-     },
-     "mode": {
-      "type": "string",
-      "enum": [
-       "diff",
-       "contradictions"
-      ],
-      "title": "Mode",
-      "default": "diff"
-     }
-    },
-    "type": "object",
-    "required": [
-     "source_ids"
-    ],
-    "title": "CompareBody"
-   },
    "ConversationOut": {
     "properties": {
      "id": {
@@ -5360,6 +5660,46 @@
     ],
     "title": "FactOut"
    },
+   "GraphRunBody": {
+    "properties": {
+     "question": {
+      "type": "string",
+      "maxLength": 1000,
+      "minLength": 2,
+      "title": "Question"
+     },
+     "source_ids": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array",
+        "maxItems": 20
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Ids"
+     },
+     "retrieval": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/RetrievalOptions"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "type": "object",
+    "required": [
+     "question"
+    ],
+    "title": "GraphRunBody"
+   },
    "HTTPValidationError": {
     "properties": {
      "detail": {
@@ -5508,6 +5848,93 @@
      "updated_at"
     ],
     "title": "JobOut"
+   },
+   "LabBody": {
+    "properties": {
+     "question": {
+      "type": "string",
+      "maxLength": 1000,
+      "minLength": 2,
+      "title": "Question"
+     },
+     "source_ids": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array",
+        "maxItems": 20
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Ids"
+     },
+     "top_k": {
+      "type": "integer",
+      "maximum": 10.0,
+      "minimum": 1.0,
+      "title": "Top K",
+      "default": 5
+     }
+    },
+    "type": "object",
+    "required": [
+     "question"
+    ],
+    "title": "LabBody"
+   },
+   "LcBody": {
+    "properties": {
+     "question": {
+      "type": "string",
+      "maxLength": 1000,
+      "minLength": 2,
+      "title": "Question"
+     },
+     "source_ids": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array",
+        "maxItems": 20
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Ids"
+     },
+     "top_k": {
+      "type": "integer",
+      "maximum": 10.0,
+      "minimum": 1.0,
+      "title": "Top K",
+      "default": 5
+     },
+     "term": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 200
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Term",
+      "description": "literal term for the tool demo (default: guessed from the question)"
+     }
+    },
+    "type": "object",
+    "required": [
+     "question"
+    ],
+    "title": "LcBody"
    },
    "LoginRequest": {
     "properties": {
@@ -6102,6 +6529,18 @@
        }
       ],
       "title": "Cross Lingual"
+     },
+     "auto": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Auto",
+      "description": "Let the agent graph choose the retrieval strategy for this question: candidate configurations are tried and the best-scoring one is used"
      },
      "self_rag": {
       "anyOf": [
@@ -6828,6 +7267,86 @@
      "query"
     ],
     "title": "WebBody"
+   },
+   "app__api__routers__features__CompareBody": {
+    "properties": {
+     "source_ids": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 6,
+      "minItems": 2,
+      "title": "Source Ids"
+     },
+     "mode": {
+      "type": "string",
+      "enum": [
+       "diff",
+       "contradictions"
+      ],
+      "title": "Mode",
+      "default": "diff"
+     }
+    },
+    "type": "object",
+    "required": [
+     "source_ids"
+    ],
+    "title": "CompareBody"
+   },
+   "app__api__routers__learn__CompareBody": {
+    "properties": {
+     "question": {
+      "type": "string",
+      "maxLength": 1000,
+      "minLength": 2,
+      "title": "Question"
+     },
+     "source_ids": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array",
+        "maxItems": 20
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Ids"
+     },
+     "top_k": {
+      "type": "integer",
+      "maximum": 10.0,
+      "minimum": 1.0,
+      "title": "Top K",
+      "default": 5
+     },
+     "presets": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array",
+        "maxItems": 12
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Presets",
+      "description": "names from GET /learn/lessons \u2192 presets (default: all)"
+     }
+    },
+    "type": "object",
+    "required": [
+     "question"
+    ],
+    "title": "CompareBody"
    }
   }
  }
