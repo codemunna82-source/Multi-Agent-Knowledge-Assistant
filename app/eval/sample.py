@@ -77,7 +77,7 @@ def _pdf(pages: list[str]) -> bytes:
     from reportlab.pdfgen import canvas
 
     buf = io.BytesIO()
-    c = canvas.Canvas(buf, pagesize=A4)
+    c = canvas.Canvas(buf, pagesize=A4, invariant=1)  # reproducible bytes: re-loading the demo corpus is detected as a duplicate
     for text in pages:
         y, line = 800, ""
         words = text.split()
@@ -116,7 +116,10 @@ def _docx() -> bytes:
 def _xlsx() -> bytes:
     from openpyxl import Workbook
 
+    from datetime import datetime
+
     wb = Workbook()
+    wb.properties.created = wb.properties.modified = datetime(2024, 1, 1)  # reproducible bytes
     ws = wb.active
     ws.title = "Q1"
     for r in SALES:

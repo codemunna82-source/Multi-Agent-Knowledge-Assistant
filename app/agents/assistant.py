@@ -47,6 +47,35 @@ def make_checkpointer(settings):
     raise ValueError(f"Unknown checkpoint backend '{kind}'")
 
 
+def _summarize_update(node: str, d: dict) -> dict:
+    out: dict = {}
+    if "route" in d:
+        out["route"] = d["route"]
+    if "plan" in d:
+        pl = d["plan"] or {}
+        out["plan"] = {k: v for k, v in pl.items() if k in ("method", "why", "sub", "auto")}
+        if pl.get("auto_strategy"):
+            out["auto_strategy"] = {"chosen": pl["auto_strategy"]["chosen"], "candidates": [(c["name"], c["score"], c["grade"]) for c in pl["auto_strategy"]["candidates"]]}
+        if pl.get("branches"):
+            out["branches"] = [(b["route"], b["question"]) for b in pl["branches"]]
+    if d.get("evidence") is not None and "evidence" in d:
+        out["evidence_passages"] = len(d["evidence"])
+    if d.get("draft"):
+        dr = d["draft"]
+        out["draft"] = {"route": dr.get("route"), "confidence": dr.get("confidence"), "citations": len(dr.get("citations", [])), "answer": " ".join(str(dr.get("answer", "")).split())[:200]}
+    if d.get("verification"):
+        out["verification"] = d["verification"]
+    if d.get("branches"):
+        out["branch_results"] = [(b["route"], b["question"][:60]) for b in d["branches"]]
+    if "attempt" in d:
+        out["attempt"] = d["attempt"]
+    if d.get("trace"):
+        out["trace"] = d["trace"][-2:]
+    if d.get("result"):
+        out["final"] = True
+    return out
+
+
 class Assistant:
     def __init__(self, knowledge, checkpointer=None):
         self.k = knowledge
@@ -129,6 +158,37 @@ class Assistant:
         finally:
             with self._lock:
                 self._ctx.pop(rid, None)
+
+    def trace_run(self, scope: Scope, req: AskRequest, principal=None) -> dict:
+        """Learning aid: run a question through the compiled graph and report every superstep - which node ran, how long it took, which state keys it wrote
+        and a short summary - plus the checkpoints LangGraph saved. The conversation thread is deleted afterwards."""
+        self.k.stats.questions += 1
+        conv = f"learn-{uuid.uuid4().hex[:10]}"
+        rid, ctx, init, cfg = self._prepare(scope, req, principal, conv, [], None)
+        ctx.usage = Usage()
+        steps, final, last = [], None, time.perf_counter()
+        try:
+            for upd in self.graph.stream(init, cfg, stream_mode="updates"):
+                now = time.perf_counter()
+                for node, delta in upd.items():
+                    steps.append({"node": node, "ms": round((now - last) * 1000, 1), "writes": sorted((delta or {}).keys()), "summary": _summarize_update(node, delta or {})})
+                    if delta and delta.get("result"):
+                        final = dict(delta["result"])
+                last = now
+            checkpoints = [{"step": (snap.metadata or {}).get("step"), "next": list(snap.next), "writes": sorted(((snap.metadata or {}).get("writes") or {}).keys())} for snap in self.graph.get_state_history(cfg)]
+            resp = self._finish(rid, ctx, final) if final else None
+            return {"steps": steps, "checkpoints": list(reversed(checkpoints)), "response": resp.model_dump() if resp else None}
+        finally:
+            with self._lock:
+                self._ctx.pop(rid, None)
+            self._drop_thread(scope, self.thread_id(scope, getattr(principal, "user_id", "anon"), conv))
+
+    def graph_info(self) -> dict:
+        from ..learn.catalog import NODE_INFO
+
+        g = self.graph.get_graph()
+        return {"nodes": [{"id": n, "description": NODE_INFO.get(n, "")} for n in g.nodes], "edges": [{"source": e.source, "target": e.target, "conditional": bool(e.conditional)} for e in g.edges],
+                "mermaid": g.draw_mermaid()}
 
     def ask_stream(self, scope: Scope, req: AskRequest, principal=None, conversation_id: str = "default", history: Optional[list[dict]] = None,
                    summary: Optional[str] = None, notes: Optional[list[str]] = None) -> Iterator[dict]:

@@ -89,6 +89,7 @@ class Settings(BaseSettings):
     reranker: str = "lexical"  # none | lexical | llm | cross_encoder
     cross_encoder_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     graph_rag: bool = False  # expand retrieval with chunks linked through the entity knowledge graph
+    auto_retrieval: bool = False  # a LangGraph `strategy` node tries candidate retrieval configurations per question and keeps the best (per request: retrieval.auto)
     self_rag: bool = False  # Self-RAG loop on every semantic answer (retrieve-or-not, passage grading, sentence-level support critique)
     self_rag_rounds: int = Field(default=1, ge=0, le=3)  # regeneration rounds before unsupported statements are dropped
     cross_lingual: bool = True  # (needs an LLM) add translated query variants when the question language differs from the documents'

@@ -206,3 +206,37 @@ def test_followups_are_only_offered_when_the_sources_can_answer_them(tmp_path):
     upload(c, "p.txt", b"Employees accrue 25 days of annual leave per year. Unused days of annual leave can be carried over for 12 months.")
     r = ask(c, "How many days of annual leave do employees get?")
     assert r["followups"] == ["How many days of annual leave can be carried over?"]
+
+
+# ----------------------------------------------------------------------------- automatic retrieval strategy (LangGraph `strategy` node)
+def test_auto_strategy_node_tries_candidates_and_records_why(tmp_path):
+    from app.rag import autoplan
+
+    c, k = app_with(tmp_path)
+    upload(c, "hr.txt", b"Employees accrue 25 days of annual leave per year.\n\nThe security team reviews incidents within 24 hours. Remote work is allowed three days per week.")
+    r = ask(c, "Explain the remote work rule for the security team incidents", retrieval={"auto": True})
+    a = r["details"]["plan"]["auto_strategy"]
+    assert 2 <= len(a["candidates"]) <= 3 and a["chosen"] in {x["name"] for x in a["candidates"]} and all(x["why"] and x["grade"] for x in a["candidates"])
+    assert sum(1 for x in a["candidates"] if x.get("chosen")) == 1 and any(t.startswith("strategy: auto-picked") for t in r["details"]["trace"])
+    assert "auto_strategy" not in ask(c, "How many days of annual leave do employees get?")["details"]["plan"]            # off unless requested
+    # quality ties never flip on timing noise: the earlier (simpler) candidate wins
+    f = autoplan.features('Find "INV-2041" and explain')
+    assert f["quoted"] and f["id_like"] and autoplan.propose(f, {"en"})[0][0] == "keyword-first"
+    assert autoplan.propose(autoplan.features("नीति क्या है"), {"hi"})[0][0] == "hybrid + cross-lingual"
+    assert autoplan.propose(autoplan.features("How is Anjali Rao related to Dev Patel"), {"en"})[0][0] == "hybrid + graph"
+
+
+def test_auto_strategy_prefers_the_candidate_that_actually_retrieves_better(tmp_path, monkeypatch):
+    from app.rag import autoplan
+    from app.rag.options import MetadataFilter
+
+    c, k = app_with(tmp_path)
+    upload(c, "hr.txt", b"Employees accrue 25 days of annual leave per year.")
+    monkeypatch.setattr(autoplan, "CANDIDATES", {"blind": {"mode": "keyword", "filters": MetadataFilter(name_contains="no-such-file")}, "sighted": {"mode": "hybrid"}})
+    monkeypatch.setattr(autoplan, "propose", lambda f, langs: [("blind", "listed first but finds nothing"), ("sighted", "listed second")])
+    a = ask(c, "How many days of annual leave do employees get?", retrieval={"auto": True})["details"]["plan"]["auto_strategy"]
+    rows = {x["name"]: x for x in a["candidates"]}
+    assert a["chosen"] == "sighted" and rows["blind"]["hits"] == 0 and rows["blind"]["score"] < rows["sighted"]["score"]
+    monkeypatch.setattr(autoplan, "CANDIDATES", {"x": {"mode": "hybrid"}, "y": {"mode": "hybrid"}})
+    monkeypatch.setattr(autoplan, "propose", lambda f, langs: [("x", "first"), ("y", "second")])
+    assert ask(c, "How many days of annual leave do employees get?", retrieval={"auto": True})["details"]["plan"]["auto_strategy"]["chosen"] == "x"   # equal quality: the earlier one stays

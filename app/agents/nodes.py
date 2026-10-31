@@ -132,7 +132,7 @@ class Agents:
                 return {"route": "parallel", "plan": {"method": method, "why": f"compound question ({len(parts)} parts)", "branches": branches, "question_flags": flags},
                         "trace": [f"supervisor: parallel fan-out to {', '.join(b['route'] for b in branches)}"]}
         return {"route": plan["route"], "term": plan.get("term"), "quoted": plan.get("quoted", False),
-                "plan": {"method": method, "why": why, "sub": plan.get("sub"), "question_flags": flags},
+                "plan": {"method": method, "why": why, "sub": plan.get("sub"), "question_flags": flags, "auto": bool(c.opts.auto)},
                 "trace": [f"supervisor: route={plan['route']}{'/' + plan['sub'] if plan.get('sub') else ''} via {method} ({why})"]}
 
     # ================================================================== shared helpers
@@ -433,6 +433,22 @@ class Agents:
         from .summarize import run_summarize
 
         return run_summarize(self, state)
+
+    # ================================================================== Strategy node (automatic retrieval configuration)
+    def strategy(self, state: AgentState) -> dict:
+        """Tries candidate retrieval configurations for THIS question with the real pipeline and keeps the best-scoring one for the answering agent."""
+        from dataclasses import replace
+
+        from ..rag import autoplan
+
+        c = self.ctx(state)
+        metas = c.sources(self.k)
+        if not metas:
+            return {"trace": ["strategy: no sources, nothing to choose"]}
+        langs = {m.get("language", "en") for m in metas if m.get("language")}
+        res = autoplan.choose(self.a.pipeline, self.k.store(c.scope), state["query"], c.opts, [m["id"] for m in metas], langs, self.k.llm.available)
+        c.opts = replace(c.opts, **res["overrides"], auto=False)
+        return {"plan": {**(state.get("plan") or {}), "auto_strategy": res}, "trace": [f"strategy: auto-picked '{res['chosen']}' of {len(res['candidates'])} candidate(s) - {res['why']}"]}
 
     # ================================================================== Parallel fan-out / merge
     LABELS = {"exact": "Exact search", "data": "Data analysis", "semantic": "Document answer", "document_search": "Document search", "summarize": "Summary",

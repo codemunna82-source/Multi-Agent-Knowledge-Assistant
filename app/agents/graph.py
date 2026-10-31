@@ -5,6 +5,7 @@
                                           ^                                           |
                                           +------------------ retry (bounded) -------+
     semantic --(abstained + web fallback enabled)--> web
+    supervisor --(retrieval.auto, semantic/document_search)--> strategy (tries candidate configurations, keeps the best) --> that agent
     supervisor --(compound question)--> Send x N -> branch (agent + verification, concurrently) -> merge -> final
 
 Conditional edges decide the path; `verify` bounds retries with settings.max_retries."""
@@ -18,6 +19,7 @@ from .state import AgentState
 
 GENERATIVE = ("semantic", "document_search", "web", "summarize", "compare")
 DETERMINISTIC = ("exact", "data")
+AUTO_ROUTES = ("semantic", "document_search")
 
 
 def build_graph(agents: Agents, checkpointer=None):
@@ -27,6 +29,7 @@ def build_graph(agents: Agents, checkpointer=None):
     g.add_node("supervisor", m(agents.supervisor))
     for name in DETERMINISTIC + GENERATIVE:
         g.add_node(name, m(getattr(agents, name)))
+    g.add_node("strategy", m(agents.strategy))  # auto retrieval-strategy selection (only when retrieval.auto is on)
     g.add_node("branch", agents.branch)  # runs one sub-question through its agent (+ verification); metered per inner node
     g.add_node("merge", m(agents.merge))
     g.add_node("verify", m(agents.verify))
@@ -35,13 +38,21 @@ def build_graph(agents: Agents, checkpointer=None):
     def after_supervisor(st: AgentState):
         if st["route"] == "parallel":  # compound question: fan out, one branch per sub-question, executed concurrently
             return [Send("branch", {**st, "branch": {**b, "i": i}}) for i, b in enumerate(st["plan"]["branches"])]
+        if st["route"] in AUTO_ROUTES and (st.get("plan") or {}).get("auto"):
+            return "strategy"
         return st["route"]
 
-    g.add_conditional_edges("supervisor", after_supervisor, {**{r: r for r in DETERMINISTIC + GENERATIVE}, "branch": "branch"})
+    g.add_conditional_edges("supervisor", after_supervisor, {**{r: r for r in DETERMINISTIC + GENERATIVE}, "branch": "branch", "strategy": "strategy"})
+    g.add_conditional_edges("strategy", lambda st: st["route"], {r: r for r in AUTO_ROUTES})
     g.add_edge("branch", "merge")
     g.add_edge("merge", "final")
     g.add_edge("exact", "final")
-    g.add_conditional_edges("data", lambda st: "semantic" if st.get("route") == "semantic" else "final", {"semantic": "semantic", "final": "final"})
+    def after_data(st: AgentState) -> str:  # not a table question: hand over to the document agent (through the strategy node in auto mode)
+        if st.get("route") != "semantic":
+            return "final"
+        return "strategy" if (st.get("plan") or {}).get("auto") else "semantic"
+
+    g.add_conditional_edges("data", after_data, {"semantic": "semantic", "strategy": "strategy", "final": "final"})
 
     def after_semantic(st: AgentState) -> str:
         d = st.get("draft") or {}
