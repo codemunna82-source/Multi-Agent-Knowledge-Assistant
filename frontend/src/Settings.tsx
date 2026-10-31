@@ -8,6 +8,7 @@ export function Settings({ user, authEnabled }: { user: User; authEnabled: boole
   return (
     <div>
       <Appearance />
+      {authEnabled && <Security />}
       <Memory authEnabled={authEnabled} />
       {user.role === "admin" && <Organisation />}
       {user.role === "admin" && <Maintenance />}
@@ -99,6 +100,43 @@ function Maintenance() {
         <button className={dry ? "" : "danger"} onClick={async () => { if (!dry && !confirm("Permanently delete everything older than the retention periods?")) return; try { setRes((await api.maintenance({ dry_run: dry })).results); setErr(null); } catch (e) { setErr(errText(e)); } }}>{dry ? "Preview sweep" : "Run sweep"}</button></div>
       {err && <div className="error" role="alert">{err}</div>}
       {res && <table aria-label="Sweep result"><tbody>{Object.entries(res).map(([k, v]) => <tr key={k}><td><code>{k}</code></td><td>{v.error ? <span className="bad">{v.error}</span> : `${v.removed ?? 0} ${dry ? "would be removed" : "removed"}`}</td></tr>)}</tbody></table>}
+    </div>
+  );
+}
+
+function Security() {
+  const st = useLoad(() => api.mfaStatus(), []);
+  const [setup, setSetup] = useState<{ secret: string; otpauth_uri: string } | null>(null);
+  const [code, setCode] = useState("");
+  const [pw, setPw] = useState("");
+  const [codes, setCodes] = useState<string[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const run = async (fn: () => Promise<void>) => { try { await fn(); setErr(null); } catch (e) { setErr(errText(e)); } void st.reload(); };
+  const enabled = st.data?.enabled ?? false;
+  return (
+    <div className="card"><h2 style={{ marginTop: 0 }}>Two-step sign-in (authenticator app)</h2>
+      {!enabled && !setup && <><p className="muted small">Adds a 6-digit code from an authenticator app (Google Authenticator, Authy, 1Password…) to your password sign-in.</p>
+        <button className="primary" onClick={() => void run(async () => { setCodes(null); setSetup(await api.mfaSetup()); })}>Set up</button></>}
+      {setup && !enabled && (
+        <form className="col" onSubmit={(e) => { e.preventDefault(); void run(async () => { const r = await api.mfaEnable(code); setCodes(r.recovery_codes); setSetup(null); setCode(""); }); }}>
+          <p className="small">Add this key to your authenticator app (choose "enter a setup key", time-based):</p>
+          <code aria-label="Setup key" style={{ wordBreak: "break-all" }}>{setup.secret}</code>
+          <a className="small" href={setup.otpauth_uri}>Open in an authenticator app on this device</a>
+          <label htmlFor="mfacode">Then enter the 6-digit code it shows</label>
+          <input id="mfacode" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} required />
+          <button className="primary" disabled={code.trim().length < 6}>Turn on</button>
+        </form>
+      )}
+      {codes && <div role="status"><b>Save these recovery codes now — they are shown only once.</b> Each works one time if you lose your device.<pre>{codes.join("\n")}</pre></div>}
+      {enabled && (
+        <form className="col" onSubmit={(e) => { e.preventDefault(); void run(async () => { await api.mfaDisable(pw, code); setPw(""); setCode(""); setCodes(null); }); }}>
+          <p className="small">Two-step sign-in is <b>on</b> ({st.data?.recovery_codes_left} recovery codes left). To turn it off, confirm with your password and a current code.</p>
+          <input type="password" aria-label="Password" placeholder="Password" value={pw} onChange={(e) => setPw(e.target.value)} required autoComplete="current-password" />
+          <input aria-label="Code" placeholder="Authenticator or recovery code" value={code} onChange={(e) => setCode(e.target.value)} required autoComplete="one-time-code" />
+          <button className="danger" disabled={!pw || !code}>Turn off</button>
+        </form>
+      )}
+      {err && <div className="error" role="alert">{err}</div>}
     </div>
   );
 }

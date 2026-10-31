@@ -38,9 +38,14 @@ def norm(v: str) -> str:
 
 def entities_in(text: str, types: Optional[Iterable[str]] = None) -> list[tuple[str, str]]:
     """-> [(TYPE, value)] in order of appearance (heuristic). Spans already claimed by a stricter type are not re-reported."""
+    return [(t, v) for _, _, t, v in entity_spans(text, types)]
+
+
+def entity_spans(text: str, types: Optional[Iterable[str]] = None) -> list[tuple[int, int, str, str]]:
+    """-> [(start, end, TYPE, value)] in order of appearance."""
     want = set(types) if types else None
     taken: list[tuple[int, int]] = []
-    out: list[tuple[int, str, str]] = []
+    out: list[tuple[int, int, str, str]] = []
 
     def free(a, b):
         return not any(a < y and x < b for x, y in taken)
@@ -56,7 +61,7 @@ def entities_in(text: str, types: Optional[Iterable[str]] = None) -> list[tuple[
                 continue
             if free(m.start(), m.end()):
                 taken.append((m.start(), m.end()))
-                out.append((m.start(), typ, v))
+                out.append((m.start(), m.end(), typ, v))
     if not want or want & {"NAME", "ORG"}:
         for m in NAME.finditer(text):
             words = m.group(0).split()
@@ -67,9 +72,9 @@ def entities_in(text: str, types: Optional[Iterable[str]] = None) -> list[tuple[
             v = " ".join(words)
             typ = "ORG" if ORG_SUFFIX.search(v) else "NAME"
             if (not want or typ in want) and free(m.start(), m.end()):
-                out.append((m.start(), typ, v))
+                out.append((m.start(), m.end(), typ, v))
     out.sort()
-    return [(t, v) for _, t, v in out]
+    return out
 
 
 def extract_source(units: list[Unit], llm=None, types: Optional[list[str]] = None, max_locations: int = 5) -> dict:
@@ -133,3 +138,43 @@ def chunk_entities(text: str) -> list[list[list[str]]]:
         if g:
             groups.append(g)
     return groups
+
+
+# ----------------------------------------------------------------------------- typed relations (pattern based)
+# (relation, regex over the text BETWEEN two neighbouring entities, passive?)  passive = the entity on the right is the subject
+RELATION_PATTERNS: list[tuple[str, "re.Pattern[str]", bool]] = [
+    ("reports_to", re.compile(r"^\s*(?:,\s*)?(?:who\s+|which\s+)?(?:directly\s+)?reports?\s+to\s*$", re.I), False),
+    ("works_for", re.compile(r"^\s*(?:,\s*)?(?:who\s+)?(?:works?|worked|is\s+employed|are\s+employed|serves?|joined)\s+(?:at|for|with|by)\s*$|^\s*(?:,\s*)?(?:is|was)\s+an?\s+(?:employee|engineer|manager|director|consultant|analyst)\s+(?:at|of)\s*$", re.I), False),
+    ("manages", re.compile(r"^\s*(?:,\s*)?(?:also\s+)?(?:manages|leads|heads|oversees|runs|directs|is\s+(?:the\s+)?(?:manager|head|lead|owner)\s+of)\s*$", re.I), False),
+    ("approved", re.compile(r"^\s*(?:,\s*)?(?:also\s+)?(?:approved|authori[sz]ed|signed\s+off(?:\s+on)?|sanctioned)\s*$", re.I), False),
+    ("approved", re.compile(r"^\s*(?:was|were|is|has\s+been)\s+(?:approved|authori[sz]ed|signed\s+off)\s+by\s*$", re.I), True),
+    ("signed", re.compile(r"^\s*(?:,\s*)?(?:signed|countersigned)\s*$", re.I), False),
+    ("signed", re.compile(r"^\s*(?:was|were|is)\s+(?:signed|countersigned)\s+by\s*$", re.I), True),
+    ("acquired", re.compile(r"^\s*(?:,\s*)?(?:acquired|bought|purchased|took\s+over)\s*$", re.I), False),
+    ("acquired", re.compile(r"^\s*(?:was|were|is)\s+(?:acquired|bought|purchased)\s+by\s*$", re.I), True),
+    ("partner_of", re.compile(r"^\s*(?:,\s*)?(?:partners?\s+with|(?:has|have)\s+(?:a\s+)?(?:contract|agreement|partnership)\s+with|contracts?\s+with|is\s+a\s+(?:partner|supplier|vendor|client|customer)\s+of)\s*$", re.I), False),
+    ("owns", re.compile(r"^\s*(?:,\s*)?(?:owns|owned|is\s+the\s+owner\s+of|holds\s+a\s+stake\s+in)\s*$", re.I), False),
+    ("owns", re.compile(r"^\s*(?:is|was)\s+owned\s+by\s*$", re.I), True),
+]
+_MAX_GAP = 60
+
+
+def chunk_relations(text: str) -> list[list]:
+    """-> [[subject_type, subject, relation, object_type, object], ...] for neighbouring entity pairs in one sentence whose connecting words
+    match a known pattern ('X reports to Y', 'Y was approved by X'). Deterministic and conservative: no pattern, no relation."""
+    out, seen = [], set()
+    for sent in _SENT.split(text):
+        spans = entity_spans(sent, TYPES_FOR_GRAPH)
+        for a, b in zip(spans, spans[1:]):
+            gap = sent[a[1]:b[0]]
+            if len(gap) > _MAX_GAP or re.search(r"[.!?;]", gap):
+                continue
+            for rel, pat, passive in RELATION_PATTERNS:
+                if pat.match(gap):
+                    subj, obj = (b, a) if passive else (a, b)
+                    key = (subj[2], norm(subj[3]), rel, obj[2], norm(obj[3]))
+                    if key not in seen:
+                        seen.add(key)
+                        out.append([subj[2], subj[3], rel, obj[2], obj[3]])
+                    break
+    return out

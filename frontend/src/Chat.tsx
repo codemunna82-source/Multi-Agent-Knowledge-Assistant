@@ -5,7 +5,7 @@ import { Preview } from "./Preview";
 import type { AskResponse, Citation, Message, RetrievalOptions } from "./types";
 import { Badge, useLoad } from "./ui";
 
-interface Turn { role: "user" | "assistant"; text: string; resp?: Partial<AskResponse>; steps?: string[]; pending?: boolean; animate?: boolean }
+interface Turn { role: "user" | "assistant"; text: string; resp?: Partial<AskResponse>; steps?: string[]; pending?: boolean; animate?: boolean; draft?: string }
 const KINDS = ["pdf", "docx", "xlsx", "csv", "txt", "md", "json", "url", "image"];
 
 type SR = { new (): { lang: string; interimResults: boolean; onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onend: (() => void) | null; onerror: (() => void) | null; start(): void; stop(): void } };
@@ -161,9 +161,11 @@ export function Chat({ workspace, prefill, onPrefillUsed }: { workspace: string;
     try {
       await askStream(workspace, { question: q, conversation_id: active ?? undefined, source_ids: selected.length ? selected : undefined, case_sensitive: caseSensitive, retrieval, incognito }, (ev) => {
         if (ev.type === "step") patch((t) => ({ ...t, steps: [...(t.steps ?? []), ev.detail] }));
-        else if (ev.type === "token") { /* tokens arrive together with the verified answer; the "final" event reveals it character by character */ }
+        else if (ev.type === "draft") patch((t) => ({ ...t, draft: (t.draft ?? "") + ev.text }));      // real provider tokens: unverified until "final"
+        else if (ev.type === "draft_reset") patch((t) => ({ ...t, draft: "" }));
+        else if (ev.type === "token") { /* extractive answers: the "final" event reveals the verified text character by character */ }
         else if (ev.type === "final") {
-          patch((t) => ({ ...t, text: ev.response.answer, resp: ev.response, pending: false, animate: true }));
+          patch((t) => ({ ...t, text: ev.response.answer, resp: ev.response, pending: false, animate: !t.draft, draft: undefined }));
           if (ev.response.conversation_id) setActive(ev.response.conversation_id);
         } else if (ev.type === "error") { setErr(ev.detail); patch((t) => ({ ...t, text: "", pending: false })); }
       }, ctl.signal);
@@ -264,8 +266,9 @@ export function Chat({ workspace, prefill, onPrefillUsed }: { workspace: string;
                   </div>
                 )}
                 <div className="text">
-                  {t.role === "assistant" ? (t.text ? <Typed text={t.text} animate={Boolean(t.animate)} onTick={toBottom} /> : t.pending ? <span className="thinking">Thinking<i>.</i><i>.</i><i>.</i></span> : "") : t.text}
+                  {t.role === "assistant" ? (t.text ? <Typed text={t.text} animate={Boolean(t.animate)} onTick={toBottom} /> : t.pending && t.draft ? <span className="draft">{t.draft}</span> : t.pending ? <span className="thinking">Thinking<i>.</i><i>.</i><i>.</i></span> : "") : t.text}
                 </div>
+                {t.pending && t.draft && <div className="draft-note">Draft while it is being checked against the sources - the verified answer replaces it.</div>}
                 {t.pending && t.steps && t.steps.length > 0 && <div className="steps">{t.steps.map((st, k) => <div key={k}>› {st}</div>)}</div>}
                 {t.resp && <AutoPick resp={t.resp} />}
                 {t.resp?.details?.chart && <Chart spec={t.resp.details.chart} />}

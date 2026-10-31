@@ -22,7 +22,7 @@ from .ingestion import web
 from .ingestion.chunking import chunk_units
 from .ingestion.loaders import TABULAR_KINDS, extract, kind_for
 from .intel.classify import classify
-from .intel.entities import chunk_entities
+from .intel.entities import chunk_entities, chunk_relations
 from .intel.language import detect_language
 from .security.files import validate_upload
 from .security.injection import scan_units
@@ -282,6 +282,8 @@ class Knowledge:
                 self.backend.add(st, staging, source_id, [r["id"] for r in records], vectors, texts)
                 st.write_source(staging, meta, ex.units, records)
                 (staging / "graph.json").write_text(json.dumps({r["id"]: chunk_entities(r["text"]) for r in records if r["text"]}, ensure_ascii=False), encoding="utf-8")
+                rels = {r["id"]: chunk_relations(r["text"]) for r in records if r["text"]}
+                (staging / "relations.json").write_text(json.dumps({k: v for k, v in rels.items() if v}, ensure_ascii=False), encoding="utf-8")
                 if ex.tables:
                     (staging / "tables.json").write_text(json.dumps(ex.tables, ensure_ascii=False), encoding="utf-8")
                 st.commit(staging, source_id)

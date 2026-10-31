@@ -192,24 +192,54 @@ class Assistant:
 
     def ask_stream(self, scope: Scope, req: AskRequest, principal=None, conversation_id: str = "default", history: Optional[list[dict]] = None,
                    summary: Optional[str] = None, notes: Optional[list[str]] = None) -> Iterator[dict]:
-        """Yields {"type": "step"|"token"|"final"|"error", ...}. Steps are real graph progress; the answer text is then streamed in
-        small pieces (provider-side token streaming is not implemented)."""
+        """Yields {"type": "step"|"draft"|"draft_reset"|"token"|"final"|"error", ...}.
+        step = real graph progress. draft = real provider tokens of the answer being generated (only with an LLM configured); the draft is
+        UNVERIFIED and may be replaced: draft_reset marks a regenerated draft, and `final` always carries the verified answer.
+        token = the verified answer re-sent in small pieces; emitted only when no draft was streamed (extractive answers, no LLM)."""
+        import contextvars
+        import queue
+
         self.k.stats.questions += 1
         rid, ctx, init, cfg = self._prepare(scope, req, principal, conversation_id, history, summary, notes)
-        final: Optional[dict] = None
         ctx.usage = Usage()
+        q: queue.Queue = queue.Queue()
+        ctx.on_token = lambda piece: q.put({"type": "draft_reset"} if piece is None else {"type": "draft", "text": piece})
+        stop = threading.Event()
+
+        def work():
+            final = None
+            try:
+                for upd in self.graph.stream(init, cfg, stream_mode="updates"):
+                    if stop.is_set():
+                        return
+                    for node, delta in upd.items():
+                        if delta and delta.get("trace"):
+                            q.put({"type": "step", "node": node, "detail": delta["trace"][-1]})
+                        if delta and delta.get("result"):
+                            final = dict(delta["result"])
+                q.put({"type": "_done", "final": final})
+            except BaseException as e:  # noqa: BLE001 - re-raised in the consumer
+                q.put({"type": "_exc", "exc": e})
+
+        th = threading.Thread(target=contextvars.copy_context().run, args=(work,), daemon=True)
+        th.start()
         try:
-            for upd in self.graph.stream(init, cfg, stream_mode="updates"):
-                for node, delta in upd.items():
-                    if delta and delta.get("trace"):
-                        yield {"type": "step", "node": node, "detail": delta["trace"][-1]}
-                    if delta and delta.get("result"):
-                        final = dict(delta["result"])
-            resp = self._finish(rid, ctx, final)
-            text = resp.answer
-            for i in range(0, len(text), 40):
-                yield {"type": "token", "text": text[i:i + 40]}
-            yield {"type": "final", "response": resp.model_dump()}
+            drafted = False
+            while True:
+                ev = q.get()
+                if ev["type"] == "_exc":
+                    raise ev["exc"]
+                if ev["type"] == "_done":
+                    resp = self._finish(rid, ctx, ev["final"])
+                    if not drafted:
+                        text = resp.answer
+                        for i in range(0, len(text), 40):
+                            yield {"type": "token", "text": text[i:i + 40]}
+                    yield {"type": "final", "response": resp.model_dump()}
+                    return
+                drafted = drafted or ev["type"] == "draft"
+                yield ev
         finally:
+            stop.set()  # client disconnected: the worker stops after its current graph step
             with self._lock:
                 self._ctx.pop(rid, None)

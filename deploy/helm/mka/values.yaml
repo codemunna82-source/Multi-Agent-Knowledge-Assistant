@@ -1,0 +1,53 @@
+# NOT RENDERED OR INSTALLED in the environment this chart was written in (no helm / Kubernetes available): run `helm lint` and
+# `helm template` first, and review the output before using it.
+image:
+  repository: registry.example.com/mka          # build with the repository Dockerfile and push it yourself
+  tag: "3.1"
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# Everything secret lives in ONE existing Secret that you create (kubectl create secret generic mka-secrets --from-literal=...). Keys:
+#   MKA_JWT_SECRET (>= 32 random chars), MKA_DATABASE_URL (postgresql+psycopg2://...), MKA_REDIS_URL, MKA_QDRANT_API_KEY (optional),
+#   OPENAI_API_KEY / GEMINI_API_KEY (optional), MKA_OIDC_CLIENT_SECRET (optional), MKA_METRICS_TOKEN (optional)
+existingSecret: mka-secrets
+
+config:                                          # plain settings -> ConfigMap (see .env.example for every MKA_* option)
+  MKA_ENV: production
+  MKA_AUTH_ENABLED: "true"
+  MKA_ALLOW_SIGNUP: "false"
+  MKA_JOB_BACKEND: redis
+  MKA_VECTOR_STORE: qdrant
+  MKA_QDRANT_URL: http://qdrant:6333
+  MKA_CHECKPOINT_BACKEND: postgres
+  MKA_DATA_DIR: /data
+  MKA_AUTO_MIGRATE: "true"                       # alembic upgrade head at start (advisory lock: safe with several replicas)
+  # MKA_OIDC_ISSUER: https://login.example.com/realms/acme
+  # MKA_OIDC_CLIENT_ID: mka
+  # MKA_OIDC_REDIRECT_URI: https://mka.example.com/auth/oidc/callback
+
+api:
+  replicas: 2
+  resources: { requests: { cpu: 250m, memory: 512Mi }, limits: { memory: 2Gi } }
+worker:
+  replicas: 1
+  resources: { requests: { cpu: 250m, memory: 512Mi }, limits: { memory: 2Gi } }
+scheduler:
+  replicas: 1                                    # one leader at a time (Redis lock); more replicas are safe
+  resources: { requests: { cpu: 50m, memory: 256Mi }, limits: { memory: 512Mi } }
+
+persistence:                                     # API and worker share uploaded files, so the volume must be ReadWriteMany
+  enabled: true
+  size: 20Gi
+  storageClassName: ""
+  accessMode: ReadWriteMany
+
+service: { type: ClusterIP, port: 80 }
+ingress:
+  enabled: false
+  className: ""
+  host: mka.example.com
+  tls: []                                        # [{ secretName: mka-tls, hosts: [mka.example.com] }]
+  annotations: { nginx.ingress.kubernetes.io/proxy-body-size: 100m, nginx.ingress.kubernetes.io/proxy-buffering: "off" }   # buffering off keeps /ask/stream live
+
+podSecurityContext: { runAsNonRoot: true, runAsUser: 10001, fsGroup: 10001 }
+containerSecurityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }

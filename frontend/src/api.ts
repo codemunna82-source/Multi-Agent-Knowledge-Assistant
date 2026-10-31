@@ -78,7 +78,12 @@ const qs = (p: Record<string, string | number | boolean | undefined | null>) => 
 export const api = {
   health: () => req<Health>("/health"),
   signup: (tenant_name: string, email: string, password: string) => req<TokenResponse>("/auth/signup", { method: "POST", body: { tenant_name, email, password } }),
-  login: (email: string, password: string) => req<TokenResponse>("/auth/login", { method: "POST", body: { email, password } }),
+  login: (email: string, password: string, otp?: string) => req<TokenResponse>("/auth/login", { method: "POST", body: { email, password, ...(otp ? { otp } : {}) } }),
+  oidcConfig: () => req<{ enabled: boolean; login_url: string | null }>("/auth/oidc/config"),
+  mfaStatus: () => req<{ enabled: boolean; recovery_codes_left: number }>("/auth/mfa"),
+  mfaSetup: () => req<{ secret: string; otpauth_uri: string }>("/auth/mfa/setup", { method: "POST" }),
+  mfaEnable: (code: string) => req<{ enabled: boolean; recovery_codes: string[] }>("/auth/mfa/enable", { method: "POST", body: { code } }),
+  mfaDisable: (password: string, code: string) => req<{ enabled: boolean }>("/auth/mfa/disable", { method: "POST", body: { password, code } }),
   me: () => req<User>("/auth/me"),
   logout: () => req<{ logged_out: boolean }>("/auth/logout", { method: "POST" }),
 

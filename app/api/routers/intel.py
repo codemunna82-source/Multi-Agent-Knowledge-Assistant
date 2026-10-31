@@ -47,7 +47,8 @@ def graph(entity: str | None = None, to: str | None = None, limit: int = Query(1
             raise HTTPException(404, "Target entity not found")
         p = kg.path(ka[0], kb[0])
         return {"path": [kg.nodes[x].name for x in p] if p else None}
-    return {"entity": kg.nodes[ka[0]].name, "neighbors": [{"name": kg.nodes[n].name, "type": kg.nodes[n].type, "weight": w} for n, w in kg.neighbors(ka[0], limit)]}
+    return {"entity": kg.nodes[ka[0]].name, "relations": [{"subject": kg.nodes[r["subject"]].name, "relation": r["relation"], "object": kg.nodes[r["object"]].name, "evidence": len(r["chunks"])} for r in kg.relations(ka[0])[:limit]],
+            "neighbors": [{"name": kg.nodes[n].name, "type": kg.nodes[n].type, "weight": w} for n, w in kg.neighbors(ka[0], limit)]}
 
 
 @router.post("/transcribe")

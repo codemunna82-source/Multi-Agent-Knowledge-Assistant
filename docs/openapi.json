@@ -260,6 +260,1383 @@
     }
    }
   },
+  "/auth/mfa": {
+   "get": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Status",
+    "operationId": "status_auth_mfa_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/auth/mfa/setup": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Setup",
+    "description": "Step 1: create a (not yet active) secret. Scan the otpauth URI with an authenticator app, then confirm with /auth/mfa/enable.",
+    "operationId": "setup_auth_mfa_setup_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/auth/mfa/enable": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Enable",
+    "description": "Step 2: prove you hold the secret. Returns the recovery codes ONCE (only their hashes are stored).",
+    "operationId": "enable_auth_mfa_enable_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Code"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/auth/mfa/disable": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Disable",
+    "description": "Needs BOTH the password and a current code (or recovery code): a stolen session alone cannot remove the second factor.",
+    "operationId": "disable_auth_mfa_disable_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Disable"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/auth/oidc/config": {
+   "get": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Config",
+    "description": "Public: lets the login page decide whether to show the 'Sign in with SSO' button.",
+    "operationId": "config_auth_oidc_config_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/auth/oidc/login": {
+   "get": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Login",
+    "operationId": "login_auth_oidc_login_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/auth/oidc/callback": {
+   "get": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Callback",
+    "operationId": "callback_auth_oidc_callback_get",
+    "parameters": [
+     {
+      "name": "code",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Code"
+      }
+     },
+     {
+      "name": "state",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "State"
+      }
+     },
+     {
+      "name": "error",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Error"
+      }
+     },
+     {
+      "name": "mka_oidc",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Mka Oidc"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/saved-searches": {
+   "post": {
+    "tags": [
+     "automation"
+    ],
+    "summary": "Watch a name/phrase: every newly ingested document is searched and a match creates an alert",
+    "operationId": "add_search_saved_searches_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SearchBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SearchOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "get": {
+    "tags": [
+     "automation"
+    ],
+    "summary": "List Searches",
+    "operationId": "list_searches_saved_searches_get",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/SearchOut"
+         },
+         "title": "Response List Searches Saved Searches Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/saved-searches/{sid}": {
+   "delete": {
+    "tags": [
+     "automation"
+    ],
+    "summary": "Delete Search",
+    "operationId": "delete_search_saved_searches__sid__delete",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/alerts": {
+   "get": {
+    "tags": [
+     "automation"
+    ],
+    "summary": "Matches of your saved searches (newest first)",
+    "operationId": "alerts_alerts_get",
+    "parameters": [
+     {
+      "name": "unseen",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": false,
+       "title": "Unseen"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 200,
+       "minimum": 1,
+       "description": "page size",
+       "default": 50,
+       "title": "Limit"
+      },
+      "description": "page size"
+     },
+     {
+      "name": "offset",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 0,
+       "default": 0,
+       "title": "Offset"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/alerts/seen": {
+   "post": {
+    "tags": [
+     "automation"
+    ],
+    "summary": "Mark all your alerts as seen",
+    "operationId": "alerts_seen_alerts_seen_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/report-schedules": {
+   "post": {
+    "tags": [
+     "automation"
+    ],
+    "summary": "Generate a report every N hours (run by the scheduler); optional webhook when it is ready",
+    "operationId": "add_schedule_report_schedules_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ScheduleBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "get": {
+    "tags": [
+     "automation"
+    ],
+    "summary": "List Schedules",
+    "operationId": "list_schedules_report_schedules_get",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/report-schedules/{sid}/run": {
+   "post": {
+    "tags": [
+     "automation"
+    ],
+    "summary": "Run a schedule now",
+    "operationId": "run_schedule_now_report_schedules__sid__run_post",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/report-schedules/{sid}": {
+   "patch": {
+    "tags": [
+     "automation"
+    ],
+    "summary": "Toggle Schedule",
+    "operationId": "toggle_schedule_report_schedules__sid__patch",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "enabled",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "boolean",
+       "title": "Enabled"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "automation"
+    ],
+    "summary": "Delete Schedule",
+    "operationId": "delete_schedule_report_schedules__sid__delete",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/connectors": {
+   "post": {
+    "tags": [
+     "automation"
+    ],
+    "summary": "Keep this workspace in sync with a folder, a list of URLs or an S3 prefix (runs on the scheduler, or on demand)",
+    "operationId": "add_connector_connectors_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ConnectorBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "get": {
+    "tags": [
+     "automation"
+    ],
+    "summary": "List Connectors",
+    "operationId": "list_connectors_connectors_get",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/connectors/{cid}/sync": {
+   "post": {
+    "tags": [
+     "automation"
+    ],
+    "summary": "Sync now",
+    "operationId": "sync_now_connectors__cid__sync_post",
+    "parameters": [
+     {
+      "name": "cid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Cid"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/connectors/{cid}": {
+   "delete": {
+    "tags": [
+     "automation"
+    ],
+    "summary": "Delete Connector",
+    "operationId": "delete_connector_connectors__cid__delete",
+    "parameters": [
+     {
+      "name": "cid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Cid"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/annotations": {
+   "post": {
+    "tags": [
+     "automation"
+    ],
+    "summary": "Comment, highlight or bookmark a place in a document you can read",
+    "operationId": "add_annotation_annotations_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AnnotationBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "get": {
+    "tags": [
+     "automation"
+    ],
+    "summary": "Your annotations and the shared ones on a document",
+    "operationId": "list_annotations_annotations_get",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Source Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/annotations/{aid}": {
+   "delete": {
+    "tags": [
+     "automation"
+    ],
+    "summary": "Delete Annotation",
+    "operationId": "delete_annotation_annotations__aid__delete",
+    "parameters": [
+     {
+      "name": "aid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Aid"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/feedback": {
+   "post": {
+    "tags": [
+     "feedback"
+    ],
+    "summary": "Add",
+    "operationId": "add_feedback_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FeedbackBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FeedbackOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "get": {
+    "tags": [
+     "feedback"
+    ],
+    "summary": "Your feedback (admins: the whole organisation)",
+    "operationId": "list_feedback_feedback_get",
+    "parameters": [
+     {
+      "name": "rating",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer",
+         "maximum": 1,
+         "minimum": -1
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Rating"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 200,
+       "minimum": 1,
+       "description": "page size",
+       "default": 50,
+       "title": "Limit"
+      },
+      "description": "page size"
+     },
+     {
+      "name": "offset",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 0,
+       "default": 0,
+       "title": "Offset"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/FeedbackOut"
+         },
+         "title": "Response List Feedback Feedback Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/feedback/summary": {
+   "get": {
+    "tags": [
+     "feedback"
+    ],
+    "summary": "Counts by route (organisation-wide for managers and admins)",
+    "operationId": "summary_feedback_summary_get",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/feedback/eval-dataset": {
+   "get": {
+    "tags": [
+     "feedback"
+    ],
+    "summary": "Thumbs-down feedback that has a question and an expected phrase, as an evaluation dataset for POST /eval/run",
+    "operationId": "eval_dataset_feedback_eval_dataset_get",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/feedback/{feedback_id}": {
+   "delete": {
+    "tags": [
+     "feedback"
+    ],
+    "summary": "Delete",
+    "operationId": "delete_feedback__feedback_id__delete",
+    "parameters": [
+     {
+      "name": "feedback_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Feedback Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/learn/demo-corpus": {
    "post": {
     "tags": [
@@ -510,6 +1887,57 @@
       "application/json": {
        "schema": {
         "$ref": "#/components/schemas/GraphRunBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/learn/chunking": {
+   "post": {
+    "tags": [
+     "learn"
+    ],
+    "summary": "How different chunk sizes cut one of your documents (nothing is re-indexed)",
+    "operationId": "chunking_learn_chunking_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ChunkBody"
        }
       }
      }
@@ -4425,6 +5853,88 @@
     }
    }
   },
+  "/admin/audit/export": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Audit trail for a SIEM: ndjson, csv or CEF (one event per line); never contains question or document text",
+    "operationId": "audit_export_admin_audit_export_get",
+    "parameters": [
+     {
+      "name": "format",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "pattern": "^(ndjson|csv|cef)$",
+       "default": "ndjson",
+       "title": "Format"
+      }
+     },
+     {
+      "name": "since",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "ISO timestamp",
+       "title": "Since"
+      },
+      "description": "ISO timestamp"
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 100000,
+       "minimum": 1,
+       "default": 10000,
+       "title": "Limit"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/admin/audit": {
    "get": {
     "tags": [
@@ -4832,6 +6342,61 @@
  },
  "components": {
   "schemas": {
+   "AnnotationBody": {
+    "properties": {
+     "source_id": {
+      "type": "string",
+      "maxLength": 32,
+      "minLength": 1,
+      "title": "Source Id"
+     },
+     "loc": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Loc",
+      "description": "location the note is about, e.g. {\"page\": 3} or {\"sheet\": \"Q1\", \"row\": 5}"
+     },
+     "quote": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 500
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Quote"
+     },
+     "note": {
+      "type": "string",
+      "maxLength": 2000,
+      "title": "Note",
+      "default": ""
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "comment",
+       "highlight",
+       "bookmark"
+      ],
+      "title": "Kind",
+      "default": "comment"
+     },
+     "shared": {
+      "type": "boolean",
+      "title": "Shared",
+      "default": false
+     }
+    },
+    "type": "object",
+    "required": [
+     "source_id",
+     "loc"
+    ],
+    "title": "AnnotationBody"
+   },
    "AskBody": {
     "properties": {
      "question": {
@@ -5264,6 +6829,31 @@
     ],
     "title": "ChartBody"
    },
+   "ChunkBody": {
+    "properties": {
+     "source_id": {
+      "type": "string",
+      "maxLength": 32,
+      "minLength": 1,
+      "title": "Source Id"
+     },
+     "settings": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "type": "array",
+      "maxItems": 6,
+      "title": "Settings",
+      "description": "[{size, overlap}]"
+     }
+    },
+    "type": "object",
+    "required": [
+     "source_id"
+    ],
+    "title": "ChunkBody"
+   },
    "Citation": {
     "properties": {
      "source_id": {
@@ -5333,6 +6923,58 @@
     ],
     "title": "Citation"
    },
+   "Code": {
+    "properties": {
+     "code": {
+      "type": "string",
+      "maxLength": 32,
+      "title": "Code"
+     }
+    },
+    "type": "object",
+    "required": [
+     "code"
+    ],
+    "title": "Code"
+   },
+   "ConnectorBody": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Name"
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "folder",
+       "urls",
+       "s3"
+      ],
+      "title": "Kind"
+     },
+     "config": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Config",
+      "description": "folder: {path, recursive}; urls: {urls: [...]}; s3: {bucket, prefix}"
+     },
+     "every_hours": {
+      "type": "integer",
+      "maximum": 744.0,
+      "minimum": 1.0,
+      "title": "Every Hours",
+      "default": 24
+     }
+    },
+    "type": "object",
+    "required": [
+     "name",
+     "kind"
+    ],
+    "title": "ConnectorBody"
+   },
    "ConversationOut": {
     "properties": {
      "id": {
@@ -5396,6 +7038,26 @@
     },
     "type": "object",
     "title": "ConversationPatch"
+   },
+   "Disable": {
+    "properties": {
+     "password": {
+      "type": "string",
+      "maxLength": 200,
+      "title": "Password"
+     },
+     "code": {
+      "type": "string",
+      "maxLength": 32,
+      "title": "Code"
+     }
+    },
+    "type": "object",
+    "required": [
+     "password",
+     "code"
+    ],
+    "title": "Disable"
    },
    "EvalCase": {
     "properties": {
@@ -5659,6 +7321,166 @@
      "created_at"
     ],
     "title": "FactOut"
+   },
+   "FeedbackBody": {
+    "properties": {
+     "rating": {
+      "type": "integer",
+      "enum": [
+       1,
+       -1
+      ],
+      "title": "Rating"
+     },
+     "route": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 32
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Route"
+     },
+     "question": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 2000
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Question",
+      "description": "sent only when the user agrees (always needed to turn a thumbs-down into a test case)"
+     },
+     "answer": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 6000
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Answer"
+     },
+     "comment": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 500
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Comment"
+     },
+     "expected": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 1000
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expected",
+      "description": "a phrase the correct answer must contain"
+     },
+     "sources": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "type": "array",
+      "maxItems": 10,
+      "title": "Sources",
+      "description": "[{\"source\": \"file.pdf\", \"location\": \"page 3\"}] the answer cited, or should have cited"
+     }
+    },
+    "type": "object",
+    "required": [
+     "rating"
+    ],
+    "title": "FeedbackBody"
+   },
+   "FeedbackOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "rating": {
+      "type": "integer",
+      "title": "Rating"
+     },
+     "route": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Route"
+     },
+     "question": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Question"
+     },
+     "comment": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Comment"
+     },
+     "expected": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expected"
+     },
+     "created_at": {
+      "type": "string",
+      "title": "Created At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "rating",
+     "route",
+     "question",
+     "comment",
+     "expected",
+     "created_at"
+    ],
+    "title": "FeedbackOut"
    },
    "GraphRunBody": {
     "properties": {
@@ -5947,6 +7769,18 @@
       "type": "string",
       "maxLength": 200,
       "title": "Password"
+     },
+     "otp": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 32
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Otp"
      }
     },
     "type": "object",
@@ -5971,7 +7805,7 @@
        }
       ],
       "title": "Tasks",
-      "description": "subset of: retention_documents, retention_conversations, retention_audit, retention_reports, cleanup_jobs, cleanup_tokens (default: all)"
+      "description": "subset of: retention_documents, retention_conversations, retention_audit, retention_reports, cleanup_jobs, cleanup_tokens, run_report_schedules, sync_connectors (default: all)"
      },
      "dry_run": {
       "type": "boolean",
@@ -6581,6 +8415,183 @@
     "type": "object",
     "title": "RetrievalOptions",
     "description": "Per-request overrides; anything left unset falls back to the server defaults (MKA_*)."
+   },
+   "ScheduleBody": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Name"
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "summary",
+       "executive",
+       "comparison",
+       "research",
+       "analytics",
+       "exact_search"
+      ],
+      "title": "Kind"
+     },
+     "format": {
+      "type": "string",
+      "enum": [
+       "pdf",
+       "docx",
+       "xlsx"
+      ],
+      "title": "Format",
+      "default": "pdf"
+     },
+     "source_ids": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array",
+        "maxItems": 20
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Ids"
+     },
+     "params": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Params"
+     },
+     "title": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 200
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Title"
+     },
+     "every_hours": {
+      "type": "integer",
+      "maximum": 744.0,
+      "minimum": 1.0,
+      "title": "Every Hours"
+     },
+     "webhook_url": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 500
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Webhook Url"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name",
+     "kind",
+     "every_hours"
+    ],
+    "title": "ScheduleBody"
+   },
+   "SearchBody": {
+    "properties": {
+     "term": {
+      "type": "string",
+      "maxLength": 200,
+      "minLength": 2,
+      "title": "Term"
+     },
+     "whole_word": {
+      "type": "boolean",
+      "title": "Whole Word",
+      "default": true
+     },
+     "case_sensitive": {
+      "type": "boolean",
+      "title": "Case Sensitive",
+      "default": false
+     },
+     "webhook_url": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 500
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Webhook Url",
+      "description": "POSTed a JSON event (ids, counts, locations - no document text) when a new document matches"
+     }
+    },
+    "type": "object",
+    "required": [
+     "term"
+    ],
+    "title": "SearchBody"
+   },
+   "SearchOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "term": {
+      "type": "string",
+      "title": "Term"
+     },
+     "whole_word": {
+      "type": "boolean",
+      "title": "Whole Word"
+     },
+     "case_sensitive": {
+      "type": "boolean",
+      "title": "Case Sensitive"
+     },
+     "webhook_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Webhook Url"
+     },
+     "workspace": {
+      "type": "string",
+      "title": "Workspace"
+     },
+     "created_at": {
+      "type": "string",
+      "title": "Created At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "term",
+     "whole_word",
+     "case_sensitive",
+     "webhook_url",
+     "workspace",
+     "created_at"
+    ],
+    "title": "SearchOut"
    },
    "SharingBody": {
     "properties": {

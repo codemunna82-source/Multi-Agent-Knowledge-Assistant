@@ -63,14 +63,18 @@ Legend: ✅ implemented and exercised by an automated test · 🟡 implemented, 
 | Follow-up suggestions only when the sources can answer them | ✅ each candidate is checked with a retrieval pass | `test_verification_selfrag.py::test_followups_are_only_offered_*` |
 | **Auto retrieval strategy** (LangGraph `strategy` node tries ≤3 configurations, keeps the best; ties keep the simpler one) | ✅ rule-proposed candidates, empirical scoring; no model needed | `test_verification_selfrag.py::test_auto_strategy_*`, `test_learn.py::test_graph_run_*` |
 | **Learn lab** (retrieval ablation / compare, graph run trace, LangChain lab, lesson catalog, demo corpus) | ✅ real `langchain_core` objects; model-dependent steps labelled when no LLM | `test_learn.py`, `Learn.test.tsx`, e2e step |
-| ChatGPT-style chat UI, character-by-character reveal | ✅ UI; **the reveal is a display effect on the finished, verified answer — provider-side token streaming is not implemented** | `Chat.test.tsx` |
+| ChatGPT-style chat UI, character-by-character reveal | ✅ UI. With an LLM configured, **real provider tokens** (OpenAI / Gemini SSE) are streamed as an *unverified draft* and replaced by the verified answer; without an LLM (extractive answers) the reveal is a display effect on the finished answer | `Chat.test.tsx`, `test_token_streaming.py` (SSE parsing against `httpx.MockTransport` — **not run against the real providers**) |
 | UI stays usable when the backend is down (banner + retry) | ✅ | `App.test.tsx` |
+| **Two-step sign-in (TOTP)**, own RFC 6238 implementation, replay protection, single-use recovery codes, disable needs password + code | ✅ | `test_mfa.py` (RFC test vectors) |
+| **OpenID Connect SSO** (code flow + PKCE S256, state/nonce, JWKS signature, RS/ES only, iss/aud/exp, verified-email linking, domain allow-list, auto-provision never creates admins) | ✅ against an **in-process mock IdP**; not tried against Okta/Entra/Keycloak. IdP-side MFA is trusted for SSO logins | `test_oidc.py` |
+| Helm chart (`deploy/helm/mka`) | 🟡 written, YAML/values statically checked; **never rendered or installed** (no helm/Kubernetes here) | `test_deploy_files.py` |
+| Saved searches + alerts, scheduled reports (+ SSRF-guarded webhooks), folder / URL-list / S3 connectors, annotations, report-from-chat, chunk-size lab | ✅ (S3 path not tested against real S3: `boto3` not installed) | `test_automation.py` |
 
 ## Knowledge graph and multimodal
 
 | Requirement | Status | Note |
 |---|---|---|
-| Entity extraction, graph retrieval | ✅ NetworkX co-mention graph | relation **types** are not inferred (pending) |
+| Entity extraction, graph retrieval | ✅ NetworkX co-mention graph | typed relations (reports to, works for, manages, approved, signed, acquired, partner of, owns) from a small conservative **pattern set**, not an LLM extractor — `test_relations.py`; older sources need a re-index |
 | Neo4j / graph database | ❌ (decision D6) | in-process graph rebuilt per accessible document set |
 | Image / chart / table / visual QA | 🟡 OCR ✅; vision captions through an LLM tested with a scripted model; reading values out of chart images is not implemented | `test_phase2_ingestion.py::test_image_vision_caption_pipeline` |
 

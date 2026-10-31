@@ -1,0 +1,6 @@
+apiVersion: v2
+name: mka
+description: Multi-Agent Knowledge Assistant - API, ingestion worker and maintenance scheduler (PostgreSQL, Redis and Qdrant are expected to exist already)
+type: application
+version: 0.1.0
+appVersion: "3.1"

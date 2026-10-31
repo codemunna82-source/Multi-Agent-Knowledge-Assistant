@@ -134,3 +134,6 @@ img, svg { max-width:100%; }
 }
 .fb { margin-top:6px; } .fb .icon { border:0; background:transparent; font-size:15px; opacity:.6; padding:2px 6px; } .fb .icon:hover { opacity:1; }
 .notes { margin-top:10px; border-top:1px solid var(--line); } .note { padding:3px 0; }
+
+.draft{opacity:.75}
+.draft-note{font-size:.75rem;color:var(--muted,#6b7280);margin-top:.25rem}

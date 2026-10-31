@@ -162,7 +162,15 @@ class Agents:
                 hist += "Notes the user asked to remember (preferences/context, NOT evidence; do not cite them): " + " | ".join(c.notes) + "\n"
             system = f"{ANSWER_SYSTEM} {SYSTEM_GUARD} Answer in {lang}."
             try:
-                return llm.complete(system, f"{hist}Question: {query}\n\n{ev}"), True, lim
+                prompt = f"{hist}Question: {query}\n\n{ev}"
+                if c.on_token is None:
+                    return llm.complete(system, prompt), True, lim
+                c.on_token(None)  # new draft: the UI discards any earlier (rejected) one
+                parts: list[str] = []
+                for piece in llm.stream(system, prompt):
+                    parts.append(piece)
+                    c.on_token(piece)
+                return "".join(parts).strip(), True, lim
             except ProviderError as e:
                 lim.append(f"LLM unavailable ({e}); showing extracted passages instead.")
         picks = best_sentences(evidence, query)

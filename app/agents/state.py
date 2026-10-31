@@ -37,6 +37,7 @@ class RunCtx:
     summary: Optional[str] = None  # rolling summary of older turns
     notes: list = field(default_factory=list)  # user-saved memory notes relevant to this question (opt-in long-term memory)
     usage: Any = None
+    on_token: Any = None  # optional callable(str | None): receives provider tokens of the draft answer; None = a new draft starts (discard the previous one)
     t0: float = field(default_factory=time.perf_counter)
     _metas: Optional[list] = None
 

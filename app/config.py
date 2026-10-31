@@ -11,7 +11,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 # Docker/Kubernetes secrets: any of these may be supplied as <NAME>_FILE=/run/secrets/xyz instead of the value itself
-FILE_SECRETS = {"jwt_secret": "MKA_JWT_SECRET", "openai_api_key": "OPENAI_API_KEY", "gemini_api_key": "GEMINI_API_KEY", "qdrant_api_key": "MKA_QDRANT_API_KEY",
+FILE_SECRETS = {"jwt_secret": "MKA_JWT_SECRET", "openai_api_key": "OPENAI_API_KEY", "gemini_api_key": "GEMINI_API_KEY", "oidc_client_secret": "MKA_OIDC_CLIENT_SECRET", "qdrant_api_key": "MKA_QDRANT_API_KEY",
                 "brave_api_key": "BRAVE_API_KEY", "langsmith_api_key": "LANGSMITH_API_KEY", "metrics_token": "MKA_METRICS_TOKEN", "database_url": "MKA_DATABASE_URL", "redis_url": "MKA_REDIS_URL"}
 
 
@@ -44,6 +44,17 @@ class Settings(BaseSettings):
     access_token_minutes: int = 15
     refresh_token_days: int = 14
     cors_origins: str = ""  # comma separated; empty = same-origin only
+
+    # --- OpenID Connect single sign-on (authorization-code flow + PKCE). Disabled unless issuer + client id + redirect uri are set.
+    oidc_issuer: Optional[str] = None  # e.g. https://login.example.com/realms/acme (discovery document is read from <issuer>/.well-known/openid-configuration)
+    oidc_client_id: Optional[str] = None
+    oidc_client_secret: Optional[SecretStr] = None  # optional: public clients rely on PKCE alone
+    oidc_redirect_uri: Optional[str] = None  # https://<this app>/auth/oidc/callback - must be registered at the IdP
+    oidc_scopes: str = "openid email profile"
+    oidc_allowed_domains: str = ""  # comma separated e-mail domains allowed to sign in; empty = any verified address the IdP vouches for
+    oidc_auto_provision: bool = False  # create unknown users on first sign-in (needs oidc_tenant_id); otherwise only existing/linked accounts can sign in
+    oidc_tenant_id: Optional[str] = None
+    oidc_default_role: str = "user"
 
     # --- rate limiting ("N/second|minute|hour")
     rate_limit_enabled: bool = True

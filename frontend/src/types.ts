@@ -37,6 +37,8 @@ export interface Message { id: number; role: "user" | "assistant"; content: stri
 export type StreamEvent =
   | { type: "step"; node: string; detail: string }
   | { type: "token"; text: string }
+  | { type: "draft"; text: string }
+  | { type: "draft_reset" }
   | { type: "final"; response: AskResponse }
   | { type: "error"; detail: string };
 

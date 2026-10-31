@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mka.name" . }}-scheduler
+  labels: {{ include "mka.labels" . | nindent 4 }}
+    app.kubernetes.io/component: scheduler
+spec:
+  replicas: {{ .Values.scheduler.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: scheduler
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: scheduler
+    spec:
+      {{- include "mka.pod" (dict "root" . "component" "scheduler" "resources" .Values.scheduler.resources "command" (list "python" "-m" "app.scheduler") ) | nindent 6 }}

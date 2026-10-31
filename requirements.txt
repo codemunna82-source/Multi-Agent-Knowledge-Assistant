@@ -34,7 +34,7 @@ redis>=5.0
 qdrant-client>=1.9
 chromadb>=0.5                # local-development vector store (MKA_VECTOR_STORE=chroma)
 # auth
-pyjwt>=2.8
+pyjwt[crypto]>=2.8   # RS256 verification of OIDC ID tokens needs the cryptography package
 bcrypt>=4.1
 opentelemetry-api>=1.25          # tracing (no-op unless MKA_OTEL_ENDPOINT is set)
 opentelemetry-sdk>=1.25

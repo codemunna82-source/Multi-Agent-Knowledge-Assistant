@@ -2,7 +2,11 @@
 
 Nodes = entities found in chunks (computed at ingestion, stored in each source's graph.json). Edge weight = number of sentences
 in which both entities occur. Everything is derived from, and links back to, verbatim chunks - answers are evidence, not
-model-invented relations. (Relation *types* such as 'works for' would need an LLM triple extractor: not implemented.)"""
+model-invented relations.
+
+Typed relations ('Priya reports to Anjali', 'the budget was approved by ...') come from a small, conservative pattern set applied to the words
+between two neighbouring entities of one sentence (entities.chunk_relations, stored in relations.json). A relation that no pattern recognises is
+still an untyped co-mention edge. Sources ingested before relations.json existed have co-mentions only until they are re-indexed."""
 from __future__ import annotations
 
 import json
@@ -56,6 +60,20 @@ class KnowledgeGraph:
                                     self.G[a][b]["chunks"].append(cid)
                             else:
                                 self.G.add_edge(a, b, weight=1, chunks=[cid])
+        self.rels: list[dict] = []  # typed relations: {subject, relation, object (node keys), chunk}
+        for meta in st.list_sources():
+            if meta["id"] not in allowed:
+                continue
+            rp = st.source_dir(meta["id"]) / "relations.json"
+            if not rp.exists():
+                continue
+            for cid, items in json.loads(rp.read_text(encoding="utf-8")).items():
+                for st_, sv, rel, ot, ov in items:
+                    a, b = f"{st_}:{norm(sv)}", f"{ot}:{norm(ov)}"
+                    if a in self.nodes and b in self.nodes and a != b:
+                        self.rels.append({"subject": a, "relation": rel, "object": b, "chunk": cid})
+                        if not self.G.has_edge(a, b):
+                            self.G.add_edge(a, b, weight=1, chunks=[cid])
         for k in self.nodes:
             self.G.add_node(k)
         self._matchers = sorted(((re.compile(r"(?<!\w)" + r"\s+".join(map(re.escape, n.name.split())) + r"(?!\w)", re.I), k) for k, n in self.nodes.items()),
@@ -77,6 +95,20 @@ class KnowledgeGraph:
 
     def neighbors(self, key: str, k: int = 10) -> list[tuple[str, int]]:
         return sorted(((n, self.G[key][n]["weight"]) for n in self.G.neighbors(key)), key=lambda x: (-x[1], x[0]))[:k]
+
+    def relations(self, key: str, other: str | None = None) -> list[dict]:
+        """Typed relations where `key` is subject or object (optionally only those with `other`), strongest evidence first."""
+        out: dict[tuple, dict] = {}
+        for r in self.rels:
+            if key in (r["subject"], r["object"]) and (other is None or other in (r["subject"], r["object"])):
+                k = (r["subject"], r["relation"], r["object"])
+                e = out.setdefault(k, {**r, "chunks": []})
+                if r["chunk"] not in e["chunks"]:
+                    e["chunks"].append(r["chunk"])
+        return sorted(out.values(), key=lambda r: (-len(r["chunks"]), r["relation"], r["subject"]))
+
+    def describe(self, r: dict) -> str:
+        return f"{self.nodes[r['subject']].name} {r['relation'].replace('_', ' ')} {self.nodes[r['object']].name}"
 
     def path(self, a: str, b: str) -> list[str] | None:
         try:

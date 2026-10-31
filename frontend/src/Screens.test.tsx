@@ -274,3 +274,29 @@ describe("Settings", () => {
     expect(await screen.findByText("3 would be removed")).toBeInTheDocument();
   });
 });
+
+describe("Security (two-step sign-in)", () => {
+  it("enrols, shows recovery codes once, and requires password + code to turn off", async () => {
+    let enabled = false;
+    const { calls } = mockFetch({
+      "/health": { body: {} }, "/memory/preferences": { body: { memory_enabled: true, long_term_memory: false } }, "/memory/facts": { body: [] },
+      "/admin/tenant-settings": { body: {} },
+      "GET /auth/mfa": () => ({ body: { enabled, recovery_codes_left: enabled ? 10 : 0 } }),
+      "POST /auth/mfa/setup": { body: { secret: "JBSWY3DPEHPK3PXP", otpauth_uri: "otpauth://totp/x:a?secret=JBSWY3DPEHPK3PXP" } },
+      "POST /auth/mfa/enable": () => { enabled = true; return { body: { enabled: true, recovery_codes: ["aaaa-bbbb-cccc", "dddd-eeee-ffff"] } }; },
+      "POST /auth/mfa/disable": () => { enabled = false; return { body: { enabled: false } }; },
+    });
+    render(<Settings user={{ ...me, role: "user" }} authEnabled />);
+    await userEvent.click(await screen.findByRole("button", { name: "Set up" }));
+    expect(await screen.findByLabelText("Setup key")).toHaveTextContent("JBSWY3DPEHPK3PXP");
+    await userEvent.type(screen.getByLabelText(/6-digit code it shows/), "123456");
+    await userEvent.click(screen.getByRole("button", { name: "Turn on" }));
+    expect(await screen.findByText(/shown only once/)).toBeInTheDocument();
+    expect(screen.getByText(/aaaa-bbbb-cccc/)).toBeInTheDocument();
+    await userEvent.type(await screen.findByLabelText("Password"), "correct horse battery");
+    await userEvent.type(screen.getByLabelText("Code"), "654321");
+    await userEvent.click(screen.getByRole("button", { name: "Turn off" }));
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith("/auth/mfa/disable"))).toBe(true));
+    expect(JSON.parse(String(calls.find((c) => c.url.endsWith("/auth/mfa/disable"))!.init.body))).toEqual({ password: "correct horse battery", code: "654321" });
+  });
+});

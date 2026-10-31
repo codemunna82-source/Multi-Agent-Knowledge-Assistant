@@ -109,6 +109,7 @@ class SignupRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: str = Field(max_length=320)
     password: str = Field(max_length=200)
+    otp: Optional[str] = Field(default=None, max_length=32)  # 6-digit authenticator code or a recovery code (only when the account has MFA)
 
 
 class UserOut(BaseModel):

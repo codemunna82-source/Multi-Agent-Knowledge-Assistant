@@ -13,6 +13,12 @@ Parameters: `action` (query), `outcome` (query), `limit` (query), `offset` (quer
 
 Responses: 200, 422 · Access: admin
 
+### `GET /admin/audit/export`
+
+Parameters: `format` (query), `since` (query), `limit` (query), `x-session-id` (header)
+
+Responses: 200, 422 · Access: admin
+
 ### `DELETE /admin/data`
 
 Irreversibly erase every document, vector, conversation, job and evaluation of the caller's tenant (users are kept).
@@ -157,6 +163,48 @@ Responses: 200, 422 · Access: public (signup/login/refresh) / any user
 
 Responses: 200 · Access: public (signup/login/refresh) / any user
 
+### `GET /auth/mfa`
+
+Responses: 200 · Access: public (signup/login/refresh) / any user
+
+### `POST /auth/mfa/disable`
+
+Needs BOTH the password and a current code (or recovery code): a stolen session alone cannot remove the second factor.
+
+Body: `application/json` → `Disable`
+
+Responses: 200, 422 · Access: public (signup/login/refresh) / any user
+
+### `POST /auth/mfa/enable`
+
+Step 2: prove you hold the secret. Returns the recovery codes ONCE (only their hashes are stored).
+
+Body: `application/json` → `Code`
+
+Responses: 200, 422 · Access: public (signup/login/refresh) / any user
+
+### `POST /auth/mfa/setup`
+
+Step 1: create a (not yet active) secret. Scan the otpauth URI with an authenticator app, then confirm with /auth/mfa/enable.
+
+Responses: 200 · Access: public (signup/login/refresh) / any user
+
+### `GET /auth/oidc/callback`
+
+Parameters: `code` (query), `state` (query), `error` (query), `mka_oidc` (cookie)
+
+Responses: 200, 422 · Access: public (signup/login/refresh) / any user
+
+### `GET /auth/oidc/config`
+
+Public: lets the login page decide whether to show the 'Sign in with SSO' button.
+
+Responses: 200 · Access: public (signup/login/refresh) / any user
+
+### `GET /auth/oidc/login`
+
+Responses: 200 · Access: public (signup/login/refresh) / any user
+
 ### `POST /auth/refresh`
 
 Exchange a refresh token (body or httpOnly cookie) for a new access token; the refresh token rotates on every use. `optional=true` (used by the browser on page load): a missing or invalid token answers 200 {"authenticated": false} instead of 401, so signed-out visits stay quiet.
@@ -174,6 +222,118 @@ Create a new tenant with its first admin. Disabled in production (use `python -m
 Body: `application/json` → `SignupRequest`
 
 Responses: 201, 422 · Access: public (signup/login/refresh) / any user
+
+## automation
+
+### `GET /alerts`
+
+Parameters: `unseen` (query), `limit` (query), `offset` (query), `x-session-id` (header)
+
+Responses: 200, 422
+
+### `POST /alerts/seen`
+
+Parameters: `x-session-id` (header)
+
+Responses: 200, 422
+
+### `GET /annotations`
+
+Parameters: `source_id` (query, required), `x-session-id` (header)
+
+Responses: 200, 422
+
+### `POST /annotations`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `AnnotationBody`
+
+Responses: 201, 422
+
+### `DELETE /annotations/{aid}`
+
+Parameters: `aid` (path, required), `x-session-id` (header)
+
+Responses: 200, 422
+
+### `GET /connectors`
+
+Parameters: `x-session-id` (header)
+
+Responses: 200, 422
+
+### `POST /connectors`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `ConnectorBody`
+
+Responses: 201, 422
+
+### `DELETE /connectors/{cid}`
+
+Parameters: `cid` (path, required), `x-session-id` (header)
+
+Responses: 200, 422
+
+### `POST /connectors/{cid}/sync`
+
+Parameters: `cid` (path, required), `x-session-id` (header)
+
+Responses: 200, 422
+
+### `GET /report-schedules`
+
+Parameters: `x-session-id` (header)
+
+Responses: 200, 422
+
+### `POST /report-schedules`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `ScheduleBody`
+
+Responses: 201, 422
+
+### `DELETE /report-schedules/{sid}`
+
+Parameters: `sid` (path, required), `x-session-id` (header)
+
+Responses: 200, 422
+
+### `PATCH /report-schedules/{sid}`
+
+Parameters: `sid` (path, required), `enabled` (query, required), `x-session-id` (header)
+
+Responses: 200, 422
+
+### `POST /report-schedules/{sid}/run`
+
+Parameters: `sid` (path, required), `x-session-id` (header)
+
+Responses: 200, 422
+
+### `GET /saved-searches`
+
+Parameters: `x-session-id` (header)
+
+Responses: 200, 422
+
+### `POST /saved-searches`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `SearchBody`
+
+Responses: 201, 422
+
+### `DELETE /saved-searches/{sid}`
+
+Parameters: `sid` (path, required), `x-session-id` (header)
+
+Responses: 200, 422
 
 ## chat
 
@@ -285,6 +445,40 @@ Parameters: `run_id` (path, required), `fmt` (path, required), `x-session-id` (h
 
 Responses: 200, 422 · Access: manager
 
+## feedback
+
+### `GET /feedback`
+
+Parameters: `rating` (query), `limit` (query), `offset` (query), `x-session-id` (header)
+
+Responses: 200, 422
+
+### `POST /feedback`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `FeedbackBody`
+
+Responses: 201, 422
+
+### `GET /feedback/eval-dataset`
+
+Parameters: `x-session-id` (header)
+
+Responses: 200, 422
+
+### `GET /feedback/summary`
+
+Parameters: `x-session-id` (header)
+
+Responses: 200, 422
+
+### `DELETE /feedback/{feedback_id}`
+
+Parameters: `feedback_id` (path, required), `x-session-id` (header)
+
+Responses: 200, 422
+
 ## intelligence
 
 ### `GET /graph`
@@ -332,6 +526,14 @@ Parameters: `job_id` (path, required), `x-session-id` (header)
 Responses: 200, 422 · Access: manager
 
 ## learn
+
+### `POST /learn/chunking`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `ChunkBody`
+
+Responses: 200, 422
 
 ### `POST /learn/demo-corpus`
 

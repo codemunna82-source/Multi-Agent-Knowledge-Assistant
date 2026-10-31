@@ -10,7 +10,7 @@ from app.eval.dataset import EvalDataset
 from .conftest import make_pdf
 
 PW = "correct horse battery"
-PUBLIC = {("POST", "/auth/signup"), ("POST", "/auth/login"), ("POST", "/auth/refresh"), ("GET", "/health"), ("GET", "/")}
+PUBLIC = {("GET", "/auth/oidc/config"), ("GET", "/auth/oidc/login"), ("GET", "/auth/oidc/callback"), ("POST", "/auth/signup"), ("POST", "/auth/login"), ("POST", "/auth/refresh"), ("GET", "/health"), ("GET", "/")}
 
 
 @pytest.fixture

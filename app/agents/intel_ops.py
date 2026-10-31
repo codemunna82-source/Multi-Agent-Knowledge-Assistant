@@ -123,7 +123,7 @@ def run_graph(ag, state) -> dict:
         return Citation(source_id=sid, source=idx.metas[sid]["name"], location=format_loc(ch["loc"], ch.get("loc_end")), excerpt=excerpt(ch["text"]))
 
     keys = kg.find(state["question"])
-    cites, lim = [], ["Relations are co-mentions in the same passage (graph edges link back to the verbatim text); relation types are not inferred."]
+    cites, lim = [], ["Edges are co-mentions in a passage; a relation is named (works for, reports to, approved…) only when the sentence states it in one of a small set of patterns."]
     if len(keys) >= 2:
         a, b = keys[0], keys[1]
         path = kg.path(a, b)
@@ -137,12 +137,27 @@ def run_graph(ag, state) -> dict:
                     if ci:
                         cites.append(ci)
             hops = len(path) - 1
-            ans = (f"“{names[0]}” and “{names[-1]}” are mentioned together in {kg.G[a][b]['weight']} passage(s)." if hops == 1 else
+            typed = kg.relations(a, b) if hops == 1 else []
+            if typed:
+                for r in typed[:3]:
+                    for cid in r["chunks"][:1]:
+                        ci = chunk_cite(cid)
+                        if ci:
+                            cites.append(ci)
+            ans = ("; ".join(kg.describe(r) for r in typed[:3]) + "." if typed else
+                   f"“{names[0]}” and “{names[-1]}” are mentioned together in {kg.G[a][b]['weight']} passage(s)." if hops == 1 else
                    f"“{names[0]}” is connected to “{names[-1]}” through {hops} hops: " + " → ".join(names) + ".")
-            d = result("summarize", ans, confidence="high" if hops == 1 else "medium", citations=cites, limitations=lim, details={"graph": {"path": names, "hops": hops}})
+            d = result("summarize", ans, confidence="high" if hops == 1 else "medium", citations=cites, limitations=lim, details={"graph": {"path": names, "hops": hops, "relations": [kg.describe(r) for r in typed[:5]]}})
     elif len(keys) == 1:
         nb = kg.neighbors(keys[0], 10)
         name = kg.nodes[keys[0]].name
+        typed = kg.relations(keys[0])
+        if typed:
+            for r in typed[:3]:
+                for cid in r["chunks"][:1]:
+                    ci = chunk_cite(cid)
+                    if ci:
+                        cites.append(ci)
         if not nb:
             d = result("summarize", f"“{name}” appears in the documents but is not mentioned together with any other known entity.", confidence="medium", limitations=lim)
         else:
@@ -151,8 +166,9 @@ def run_graph(ag, state) -> dict:
                     ci = chunk_cite(cid)
                     if ci:
                         cites.append(ci)
-            d = result("summarize", f"Entities mentioned together with “{name}”: " + "; ".join(f"{kg.nodes[n].name} ({w})" for n, w in nb) + ".", confidence="high", citations=cites, limitations=lim,
-                       details={"graph": {"entity": name, "neighbors": [{"name": kg.nodes[n].name, "type": kg.nodes[n].type, "weight": w} for n, w in nb]}})
+            rel_txt = ("Stated relations: " + "; ".join(kg.describe(r) for r in typed[:6]) + ". ") if typed else ""
+            d = result("summarize", rel_txt + f"Entities mentioned together with “{name}”: " + "; ".join(f"{kg.nodes[n].name} ({w})" for n, w in nb) + ".", confidence="high", citations=cites, limitations=lim,
+                       details={"graph": {"entity": name, "relations": [kg.describe(r) for r in typed[:10]], "neighbors": [{"name": kg.nodes[n].name, "type": kg.nodes[n].type, "weight": w} for n, w in nb]}})
     else:
         top = kg.top(10)
         if not top:

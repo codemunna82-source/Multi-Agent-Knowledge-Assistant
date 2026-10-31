@@ -69,6 +69,13 @@ RPO/RTO are set by your backup cadence; there is no built-in replication.
 
 Changing the embedding model flags every source *needs re-index*; re-index from the UI/API (`POST /sources/{id}/reindex`).
 
+## 5a. Single sign-on, two-step sign-in, streaming, Kubernetes
+
+* **OIDC SSO** – set `MKA_OIDC_ISSUER`, `MKA_OIDC_CLIENT_ID`, `MKA_OIDC_REDIRECT_URI` (and a client secret if the IdP requires one); the login page then shows "Sign in with single sign-on". Users are matched by (issuer, subject); an existing local account is linked only when the IdP reports `email_verified`. Unknown users are refused unless `MKA_OIDC_AUTO_PROVISION=true` with `MKA_OIDC_TENANT_ID` (role `user`/`manager` only – SSO never creates admins). Use `MKA_OIDC_ALLOWED_DOMAINS` to restrict e-mail domains. SSO logins rely on the IdP for MFA (the local authenticator code is not asked again). Tested against a mock IdP only – verify with your real provider in staging.
+* **Two-step sign-in (TOTP)** – users enrol in *Settings → Two-step sign-in*; ten single-use recovery codes are shown once. A lost device: sign in with a recovery code, then turn MFA off and on again. An administrator who is locked out completely can clear the row: `DELETE FROM user_mfa WHERE user_id = '<id>'`. The TOTP secret is stored unencrypted in the database (protect the database and its backups accordingly).
+* **Token streaming** – with an LLM configured, `/ask/stream` sends `draft` events (raw provider tokens, **unverified**) followed by the `final` event with the verified answer; `draft_reset` marks a regenerated draft. Behind a reverse proxy disable response buffering for `/ask/stream` (nginx: `proxy_buffering off`, already set by the chart's ingress annotation). Without an LLM the answer is extractive and re-sent in pieces (`token` events).
+* **Kubernetes** – `deploy/helm/mka` (API, worker, scheduler; PostgreSQL, Redis and Qdrant must exist; secrets come from one existing Secret). It has not been rendered or installed by the authors – run `helm lint` / `helm template` and review first.
+
 ## 6. Limits and tuning (measured in `docs/PERFORMANCE.md`)
 
 `MKA_MAX_UPLOAD_MB` (50), `MKA_MAX_PDF_PAGES` (5000), `MKA_NODE_TIMEOUT_S` (120), `MKA_JOB_WORKERS`, `MKA_MAX_VERSIONS_PER_DOCUMENT` (5), report size cap (`MKA_REPORT_MAX_MB`), SQL sandbox (3 s, 200 rows per preview call, 2000 max). PyMuPDF is AGPL-3.0/commercial – decide on licensing before distributing; `MKA_PDF_ENGINE=pypdf` avoids it (slower, no page images).

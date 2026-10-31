@@ -117,6 +117,22 @@ describe("Chat experience", () => {
   });
 });
 
+describe("Draft streaming", () => {
+  it("replaces the unverified provider draft with the verified answer", async () => {
+    mockFetch({
+      "/conversations": { body: [] }, "/sources": { body: [] },
+      "POST /ask/stream": () => ({ stream: [sse("draft", { text: "Employees get 30 da" }), sse("draft_reset", {}), sse("draft", { text: "Employees get 25 days" }),
+        sse("final", { response: { ...base, answer: "Verified: 25 days.", citations: [], followups: [], conversation_id: "c9" } })] }),
+    });
+    render(<Chat workspace="w" prefill={null} onPrefillUsed={() => {}} />);
+    await userEvent.type(screen.getByLabelText("Question"), "How many days?");
+    await userEvent.click(screen.getByRole("button", { name: "Ask" }));
+    expect(await screen.findByText("Verified: 25 days.")).toBeInTheDocument();
+    expect(screen.queryByText(/Employees get/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Draft while it is being checked/)).not.toBeInTheDocument();
+  });
+});
+
 describe("Feedback", () => {
   it("thumbs-up sends only the rating; thumbs-down sends question, answer, expected phrase and cited sources", async () => {
     const { calls } = mockFetch({

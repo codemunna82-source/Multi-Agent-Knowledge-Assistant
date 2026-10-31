@@ -7,9 +7,10 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from sqlalchemy import select
 
-from ...db import RevokedToken, Tenant, User
+from ...db import RevokedToken, Tenant, User, UserMfa
 from ...schemas import LoginRequest, RefreshRequest, SignupRequest, TokenResponse, UserOut
 from ...security.auth import AuthError, Principal, RefreshReuse, create_token, hash_password, issue_refresh, revoke_refresh, rotate_refresh, verify_password
+from .mfa import check_second_factor
 from ..deps import Services, get_principal, get_svc, rate_limit
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -66,6 +67,13 @@ def login(body: LoginRequest, request: Request, response: Response, svc: Service
             svc.auditor.record("login", tenant_id=u.tenant_id if u else None, user_id=u.id if u else None, resource=None, outcome="denied",
                                ip=_ip(request), request_id=request.state.request_id)
             raise HTTPException(401, "Invalid email or password")  # same message for unknown user / wrong password / disabled
+        mfa = s.get(UserMfa, u.id)
+        if mfa and mfa.enabled:  # reached only with the right password, so this does not reveal which emails exist
+            if not body.otp:
+                raise HTTPException(401, "MFA code required", headers={"X-MFA-Required": "true"})
+            if not check_second_factor(mfa, body.otp):
+                svc.auditor.record("login", tenant_id=u.tenant_id, user_id=u.id, outcome="denied", detail={"reason": "mfa"}, ip=_ip(request), request_id=request.state.request_id)
+                raise HTTPException(401, "Invalid or already used MFA code", headers={"X-MFA-Required": "true"})
         refresh = issue_refresh(s, svc.settings, u.id, ip=_ip(request))
         out = _respond(svc, response, u, refresh)
     svc.auditor.record("login", tenant_id=out.user.tenant_id, user_id=out.user.id, ip=_ip(request), request_id=request.state.request_id)

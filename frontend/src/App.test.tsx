@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
@@ -58,6 +58,32 @@ describe("Login", () => {
     await userEvent.type(screen.getByLabelText("Password"), "wrongpassword");
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Invalid email or password");
+  });
+
+  it("asks for the authenticator code only after the password step says it is needed, then signs in", async () => {
+    let calls = 0;
+    const seen: unknown[] = [];
+    mockFetch({
+      "/auth/oidc/config": { body: { enabled: false, login_url: null } },
+      "POST /auth/login": (_u: string, init: RequestInit) => { seen.push(JSON.parse(String(init.body))); calls++; return calls === 1
+        ? { status: 401, body: { detail: "MFA code required" } } : { body: { access_token: "t", expires_in: 60, user: { id: "u", tenant_id: "t", email: "a@b.io", role: "user" } } }; },
+    });
+    const onUser = vi.fn();
+    render(<Login onUser={onUser} allowSignup={false} />);
+    expect(screen.queryByLabelText("Authenticator code")).not.toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText("Email"), "a@b.io");
+    await userEvent.type(screen.getByLabelText("Password"), "correct horse battery");
+    await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await userEvent.type(await screen.findByLabelText("Authenticator code"), "123456");
+    await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await waitFor(() => expect(onUser).toHaveBeenCalled());
+    expect(seen[1]).toMatchObject({ email: "a@b.io", otp: "123456" });
+  });
+
+  it("offers single sign-on only when the server has it configured", async () => {
+    mockFetch({ "/auth/oidc/config": { body: { enabled: true, login_url: "/auth/oidc/login" } } });
+    render(<Login onUser={() => {}} allowSignup={false} />);
+    expect(await screen.findByRole("link", { name: /single sign-on/ })).toHaveAttribute("href", "/auth/oidc/login");
   });
 
   it("can switch to sign-up and enforces the password length hint", async () => {

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import time
 from contextlib import contextmanager
@@ -208,6 +209,34 @@ def make_embedder(s: Settings) -> Embedder:
 
 
 # ----------------------------------------------------------------------------- LLM
+def _http_client(timeout: float) -> httpx.Client:
+    """Factory for streaming calls (tests replace it with a client on httpx.MockTransport)."""
+    return httpx.Client(timeout=timeout)
+
+
+def _sse_json(url: str, *, headers: dict, payload: dict, timeout: float) -> Iterator[dict]:
+    """POST and yield the JSON payload of every `data:` line of a Server-Sent-Events response ([DONE] ends the stream)."""
+    try:
+        with _http_client(timeout) as c, c.stream("POST", url, headers=headers, json=payload) as r:
+            if r.status_code >= 400:
+                r.read()
+                raise ProviderError(f"Provider returned HTTP {r.status_code}: {r.text[:200]}")
+            for line in r.iter_lines():
+                if not line.startswith("data:"):
+                    continue
+                body = line[5:].strip()
+                if not body or body == "[DONE]":
+                    if body == "[DONE]":
+                        return
+                    continue
+                try:
+                    yield json.loads(body)
+                except ValueError:
+                    continue  # keep-alive / partial junk: ignore
+    except httpx.HTTPError as e:
+        raise ProviderError(f"Provider stream failed: {e}") from e
+
+
 class LLM:
     available = False
     name = "none"
@@ -218,6 +247,10 @@ class LLM:
 
     def describe_image(self, data: bytes, mime: str, prompt: str) -> str:
         raise ProviderError("No vision-capable LLM configured")
+
+    def stream(self, system: str, user: str) -> Iterator[str]:
+        """Yield the answer in pieces as the provider produces them. Providers without streaming return the whole completion as one piece."""
+        yield self.complete(system, user)
 
     def _meter(self, system: str, user: str, out: str, ptok: Optional[int] = None, ctok: Optional[int] = None) -> None:
         record_llm(self.name, ptok, ctok, system + user, out)
@@ -241,6 +274,25 @@ class OpenAILLM(LLM):
         )
         return data["choices"][0]["message"]["content"].strip()
 
+    def stream(self, system: str, user: str) -> Iterator[str]:
+        self.calls += 1
+        out: list[str] = []
+        ptok = ctok = None
+        for ev in _sse_json(
+            "https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {self.s.secret('openai_api_key')}"},
+            payload={"model": self.s.openai_chat_model, "temperature": 0, "stream": True, "stream_options": {"include_usage": True},
+                     "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]},
+            timeout=self.s.llm_timeout,
+        ):
+            if ev.get("usage"):
+                ptok, ctok = ev["usage"].get("prompt_tokens"), ev["usage"].get("completion_tokens")
+            for ch in ev.get("choices") or []:
+                piece = (ch.get("delta") or {}).get("content")
+                if piece:
+                    out.append(piece)
+                    yield piece
+        self._meter(system, user, "".join(out), ptok, ctok)
 
     def describe_image(self, data: bytes, mime: str, prompt: str) -> str:
         import base64
@@ -283,6 +335,25 @@ class GeminiLLM(LLM):
         u = data.get("usageMetadata") or {}
         self._meter(system, user, out, u.get("promptTokenCount"), u.get("candidatesTokenCount"))
         return out
+
+    def stream(self, system: str, user: str) -> Iterator[str]:
+        self.calls += 1
+        out: list[str] = []
+        ptok = ctok = None
+        for ev in _sse_json(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{self.s.gemini_chat_model}:streamGenerateContent?alt=sse",
+            headers={"x-goog-api-key": self.s.secret("gemini_api_key")},
+            payload={"systemInstruction": {"parts": [{"text": system}]}, "contents": [{"role": "user", "parts": [{"text": user}]}], "generationConfig": {"temperature": 0}},
+            timeout=self.s.llm_timeout,
+        ):
+            u = ev.get("usageMetadata") or {}
+            ptok, ctok = u.get("promptTokenCount", ptok), u.get("candidatesTokenCount", ctok)
+            for cand in ev.get("candidates") or []:
+                for part in (cand.get("content") or {}).get("parts") or []:
+                    if part.get("text"):
+                        out.append(part["text"])
+                        yield part["text"]
+        self._meter(system, user, "".join(out), ptok, ctok)
 
 
 def _gemini_image(self, data: bytes, mime: str, prompt: str) -> str:
