@@ -116,3 +116,35 @@ describe("Chat experience", () => {
     expect(screen.getByLabelText("Question")).toHaveValue("Summarize my documents");
   });
 });
+
+describe("Feedback", () => {
+  it("thumbs-up sends only the rating; thumbs-down sends question, answer, expected phrase and cited sources", async () => {
+    const { calls } = mockFetch({
+      "/conversations": { body: [] }, "/sources": { body: [] }, "POST /feedback": { status: 201, body: { id: "f1" } },
+      "POST /ask/stream": () => ({ stream: [sse("final", { response: { ...base, answer: "Employees accrue 25 days.", citations: [{ source_id: "s1", source: "policy.pdf", location: "page 1", excerpt: "25 days" }], followups: [] } })] }),
+    });
+    render(<Chat workspace="w" prefill={null} onPrefillUsed={() => {}} />);
+    await userEvent.type(screen.getByLabelText("Question"), "How many days?");
+    await userEvent.click(screen.getByRole("button", { name: "Ask" }));
+    await screen.findByText(/Employees accrue/);
+    await userEvent.click(screen.getByRole("button", { name: "Bad answer" }));
+    await userEvent.type(screen.getByLabelText(/What should the answer contain/), "30 days");
+    await userEvent.click(screen.getByRole("button", { name: "Send feedback" }));
+    expect(await screen.findByText(/feedback saved/)).toBeInTheDocument();
+    const body = JSON.parse(String(calls.find((c) => c.url.endsWith("/feedback"))!.init.body));
+    expect(body).toMatchObject({ rating: -1, question: "How many days?", expected: "30 days", sources: [{ source: "policy.pdf", location: "page 1" }] });
+  });
+  it("thumbs-up carries no text", async () => {
+    const { calls } = mockFetch({
+      "/conversations": { body: [] }, "/sources": { body: [] }, "POST /feedback": { status: 201, body: { id: "f1" } },
+      "POST /ask/stream": () => ({ stream: [sse("final", { response: { ...base, answer: "Ok answer", citations: [], followups: [] } })] }),
+    });
+    render(<Chat workspace="w" prefill={null} onPrefillUsed={() => {}} />);
+    await userEvent.type(screen.getByLabelText("Question"), "Anything?");
+    await userEvent.click(screen.getByRole("button", { name: "Ask" }));
+    await screen.findByText(/Ok answer/);
+    await userEvent.click(screen.getByRole("button", { name: "Good answer" }));
+    await screen.findByText(/feedback saved/);
+    expect(JSON.parse(String(calls.find((c) => c.url.endsWith("/feedback"))!.init.body))).toEqual({ rating: 1, route: "semantic" });
+  });
+});

@@ -138,6 +138,11 @@ export const api = {
   downloadReport: (ws: string, id: string) => blob(`/reports/${id}/download`, { workspace: ws }),
   deleteReport: (ws: string, id: string) => req<{ deleted: string }>(`/reports/${id}`, { method: "DELETE", workspace: ws }),
 
+  sendFeedback: (ws: string, body: { rating: 1 | -1; route?: string; question?: string; answer?: string; comment?: string; expected?: string; sources?: { source: string; location: string }[] }) =>
+    req<{ id: string }>("/feedback", { method: "POST", body, workspace: ws }),
+  feedbackSummary: () => req<{ by_route: Record<string, { up: number; down: number }>; up: number; down: number }>("/feedback/summary"),
+  feedbackDataset: (ws: string) => req<{ name: string; cases: unknown[] }>("/feedback/eval-dataset", { workspace: ws }),
+  runEvalDataset: (ws: string, dataset: unknown, name: string) => req<EvalReport>("/eval/run", { method: "POST", body: { dataset, name, use_llm_judge: false }, workspace: ws }),
   learnLessons: () => req<LessonsOut>("/learn/lessons"),
   learnDemoCorpus: (ws: string) => req<{ documents: { name: string; status: string }[] }>("/learn/demo-corpus", { method: "POST", workspace: ws }),
   learnCompare: (ws: string, question: string, presets?: string[]) => req<{ rows: LabRow[] }>("/learn/retrieval/compare", { method: "POST", body: { question, presets }, workspace: ws }),

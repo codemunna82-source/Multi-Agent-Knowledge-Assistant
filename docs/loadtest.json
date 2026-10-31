@@ -1,0 +1,15 @@
+{
+ "users": 16,
+ "requests_per_user": 30,
+ "total": 480,
+ "wall_s": 49.2,
+ "throughput_rps": 9.8,
+ "p50_ms": 1795.8,
+ "p95_ms": 3288.0,
+ "p99_ms": 3612.5,
+ "max_ms": 4100.1,
+ "mean_ms": 1583.2,
+ "errors": 0,
+ "error_sample": [],
+ "config": "offline (hash embedder, no LLM), SQLite, in-process queue, 1 uvicorn worker, 4 vCPU sandbox"
+}

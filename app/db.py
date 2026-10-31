@@ -288,3 +288,127 @@ class Database:
             raise
         finally:
             s.close()
+
+
+# ----------------------------------------------------------------------------- v3.1: feedback, automation, annotations, connectors, MFA
+class Feedback(Base):
+    """Thumbs up/down on an answer. The question text is stored only when the user chose to (needed to turn failures into evaluation cases)."""
+
+    __tablename__ = "feedback"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    user_id: Mapped[str] = mapped_column(String(32))
+    workspace: Mapped[str] = mapped_column(String(64))
+    rating: Mapped[int] = mapped_column(Integer)  # +1 / -1
+    route: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    question: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    answer: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    comment: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    sources: Mapped[list] = mapped_column(JSON, default=list)  # [{"source","location"}] cited in the answer
+    expected: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # what the user says the answer should contain
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    __table_args__ = (Index("ix_feedback_tenant_created", "tenant_id", "created_at"),)
+
+
+class SavedSearch(Base):
+    """A literal term watched across newly ingested documents; matches create alerts."""
+
+    __tablename__ = "saved_searches"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    user_id: Mapped[str] = mapped_column(String(32), index=True)
+    workspace: Mapped[str] = mapped_column(String(64))
+    term: Mapped[str] = mapped_column(String(200))
+    whole_word: Mapped[bool] = mapped_column(default=True)
+    case_sensitive: Mapped[bool] = mapped_column(default=False)
+    webhook_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class Alert(Base):
+    __tablename__ = "alerts"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    user_id: Mapped[str] = mapped_column(String(32), index=True)
+    saved_search_id: Mapped[str] = mapped_column(String(32))
+    term: Mapped[str] = mapped_column(String(200))
+    source_id: Mapped[str] = mapped_column(String(32))
+    source_name: Mapped[str] = mapped_column(String(2048))
+    count: Mapped[int] = mapped_column(Integer)
+    locations: Mapped[list] = mapped_column(JSON, default=list)
+    seen: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    __table_args__ = (Index("ix_alerts_user_seen", "user_id", "seen"),)
+
+
+class ReportSchedule(Base):
+    __tablename__ = "report_schedules"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    user_id: Mapped[str] = mapped_column(String(32))
+    workspace: Mapped[str] = mapped_column(String(64))
+    name: Mapped[str] = mapped_column(String(200))
+    spec: Mapped[dict] = mapped_column(JSON)  # the POST /reports body
+    every_hours: Mapped[int] = mapped_column(Integer)
+    webhook_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    enabled: Mapped[bool] = mapped_column(default=True)
+    last_run_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_status: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class Annotation(Base):
+    __tablename__ = "annotations"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    tenant_id: Mapped[str] = mapped_column(String(64))
+    user_id: Mapped[str] = mapped_column(String(32))
+    workspace: Mapped[str] = mapped_column(String(64))
+    doc_key: Mapped[str] = mapped_column(String(32), index=True)
+    source_id: Mapped[str] = mapped_column(String(32))
+    loc: Mapped[dict] = mapped_column(JSON)
+    quote: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    note: Mapped[str] = mapped_column(String(2000), default="")
+    kind: Mapped[str] = mapped_column(String(10), default="comment")  # comment | highlight | bookmark
+    shared: Mapped[bool] = mapped_column(default=False)  # visible to everyone who can read the document
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    __table_args__ = (Index("ix_annotations_scope_doc", "tenant_id", "doc_key"),)
+
+
+class Connector(Base):
+    """Keeps a workspace in sync with an external place: a mounted folder, a list of URLs, or an S3 prefix (optional boto3)."""
+
+    __tablename__ = "connectors"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    user_id: Mapped[str] = mapped_column(String(32))
+    workspace: Mapped[str] = mapped_column(String(64))
+    kind: Mapped[str] = mapped_column(String(12))  # folder | urls | s3
+    name: Mapped[str] = mapped_column(String(200))
+    config: Mapped[dict] = mapped_column(JSON)
+    every_hours: Mapped[int] = mapped_column(Integer, default=24)
+    enabled: Mapped[bool] = mapped_column(default=True)
+    last_run_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_result: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class UserMfa(Base):
+    """TOTP second factor (RFC 6238). `enabled` becomes true only after the user proved they hold the secret."""
+
+    __tablename__ = "user_mfa"
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    secret: Mapped[str] = mapped_column(String(64))
+    enabled: Mapped[bool] = mapped_column(default=False)
+    last_counter: Mapped[int] = mapped_column(Integer, default=0)  # replay protection: a code is accepted once
+    recovery_hashes: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class OidcIdentity(Base):
+    __tablename__ = "oidc_identities"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    issuer: Mapped[str] = mapped_column(String(300))
+    subject: Mapped[str] = mapped_column(String(300))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    __table_args__ = (UniqueConstraint("issuer", "subject", name="uq_oidc_subject"),)

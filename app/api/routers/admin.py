@@ -96,6 +96,38 @@ def delete_user(user_id: str, ctx: Ctx = Depends(require("manage_users"))):
     return {"deleted": user_id}
 
 
+@router.get("/audit/export", summary="Audit trail for a SIEM: ndjson, csv or CEF (one event per line); never contains question or document text")
+def audit_export(format: str = Query("ndjson", pattern="^(ndjson|csv|cef)$"), since: Optional[str] = Query(None, description="ISO timestamp"), limit: int = Query(10000, ge=1, le=100000), ctx: Ctx = Depends(require("audit"))):
+    import csv
+    import io
+    import json
+    from datetime import datetime
+
+    with ctx.svc.db.session() as s:
+        q = select(AuditEvent).where(AuditEvent.tenant_id == ctx.principal.tenant_id)
+        if since:
+            try:
+                q = q.where(AuditEvent.ts >= datetime.fromisoformat(since))
+            except ValueError:
+                raise HTTPException(422, "since must be an ISO timestamp")
+        rows = s.scalars(q.order_by(AuditEvent.id).limit(limit)).all()
+        ev = [{"id": r.id, "ts": r.ts.isoformat(), "tenant_id": r.tenant_id, "user_id": r.user_id, "action": r.action, "resource": r.resource, "outcome": r.outcome, "ip": r.ip, "request_id": r.request_id,
+               "detail": r.detail} for r in rows]
+    if format == "ndjson":
+        return Response("\n".join(json.dumps(e, ensure_ascii=False) for e in ev) + ("\n" if ev else ""), media_type="application/x-ndjson")
+    if format == "csv":
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        w.writerow(["id", "ts", "tenant_id", "user_id", "action", "resource", "outcome", "ip", "request_id", "detail"])
+        for e in ev:  # cells starting with = + - @ are neutralised (spreadsheet formula injection)
+            w.writerow([("'" + str(v) if isinstance(v, str) and v[:1] in "=+-@" else v) for v in (e["id"], e["ts"], e["tenant_id"], e["user_id"], e["action"], e["resource"], e["outcome"], e["ip"], e["request_id"], json.dumps(e["detail"]) if e["detail"] else "")])
+        return Response(buf.getvalue(), media_type="text/csv")
+    esc = lambda v: str(v if v is not None else "").replace("\\", "\\\\").replace("=", "\\=").replace("|", "\\|").replace("\n", " ")  # noqa: E731
+    lines = [f"CEF:0|MKA|KnowledgeAssistant|3.1|{esc(e['action'])}|{esc(e['action'])}|{1 if e['outcome'] == 'success' else 5}|rt={esc(e['ts'])} suser={esc(e['user_id'])} src={esc(e['ip'])} "
+             f"outcome={esc(e['outcome'])} cs1Label=resource cs1={esc(e['resource'])} cs2Label=requestId cs2={esc(e['request_id'])}" for e in ev]
+    return Response("\n".join(lines) + ("\n" if lines else ""), media_type="text/plain")
+
+
 @router.get("/audit", response_model=list[AuditOut])
 def audit(response: Response, ctx: Ctx = Depends(require("audit")), action: str | None = None, outcome: str | None = None, limit: int = Query(100, ge=1, le=1000), offset: int = Query(0, ge=0)):
     with ctx.svc.db.session() as s:

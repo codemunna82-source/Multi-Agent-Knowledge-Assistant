@@ -235,6 +235,18 @@ await step("plain user: signs in, can chat and search, cannot see Admin/Evaluati
   await page.getByRole("button", { name: "Ask", exact: true }).click();
   await page.getByText(/30 days/).first().waitFor(T);
 });
+await step("phone layout: no horizontal overflow on the main screens at 390 px", async () => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  for (const name of ["Dashboard", "Library", "Chat", "Exact search", "Compare", "Data analyst", "Reports", "History", "Learn lab", "Settings"]) {
+    await page.getByRole("button", { name, exact: true }).click();
+    await page.waitForTimeout(250);
+    const over = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
+    if (over > 1) throw new Error(`${name}: page is ${over}px wider than the phone screen`);
+  }
+  await page.getByRole("button", { name: "Chat", exact: true }).click();
+  await page.getByLabel("Question", { exact: true }).waitFor(T);
+  await page.setViewportSize({ width: 1400, height: 900 });
+});
 await step("no browser console errors", async () => { if (errors.length) throw new Error(errors.join(" | ")); });
 
 if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT, fullPage: true });

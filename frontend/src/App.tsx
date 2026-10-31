@@ -98,7 +98,7 @@ export function App() {
         {page === "reports" && <Reports workspace={workspace} />}
         {page === "history" && <History workspace={workspace} />}
         {page === "learn" && <Learn workspace={workspace} canIngest={atLeast("manager")} />}
-        {page === "evaluation" && atLeast("manager") && <Evaluation />}
+        {page === "evaluation" && atLeast("manager") && <Evaluation workspace={workspace} />}
         {page === "settings" && <Settings user={shownUser} authEnabled={Boolean(health?.auth_enabled)} />}
         {page === "admin" && atLeast("admin") && <Admin me={shownUser} />}
       </main>

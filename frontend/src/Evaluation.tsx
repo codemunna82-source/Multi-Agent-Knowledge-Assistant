@@ -46,7 +46,7 @@ export function ReportView({ rep }: { rep: EvalReport }) {
   );
 }
 
-export function Evaluation() {
+export function Evaluation({ workspace = "default" }: { workspace?: string }) {
   const runs = useLoad(() => api.evalRuns(), []);
   const [report, setReport] = useState<EvalReport | null>(null);
   const [busy, setBusy] = useState(false);
@@ -57,6 +57,15 @@ export function Evaluation() {
     setErr(null);
     try { const r = await api.runEval({ sample: true, extended, compare_strategies: !extended, name: extended ? "Extended corpus (v3 features)" : "Sample corpus" }); setReport(r); void runs.reload(); } catch (e) { setErr(e instanceof Error ? e.message : "Failed"); } finally { setBusy(false); }
   }
+  const [fb, setFb] = useState<string | null>(null);
+  async function runFeedback() {
+    setBusy(true); setErr(null); setFb(null);
+    try {
+      const ds = await api.feedbackDataset(workspace);
+      setReport(await api.runEvalDataset(workspace, ds, "Regression on my feedback"));
+      void runs.reload();
+    } catch (e) { setFb(e instanceof Error ? e.message : "Failed"); } finally { setBusy(false); }
+  }
   async function open(id: string) {
     try { setReport(await api.evalRun(id)); } catch (e) { setErr(e instanceof Error ? e.message : "Failed"); }
   }
@@ -66,9 +75,11 @@ export function Evaluation() {
       <div className="card">
         <div className="row"><h2 style={{ margin: 0 }}>Evaluation</h2><span className="grow" />
           <button className="primary" onClick={() => void runSample()} disabled={busy}>{busy ? "Running…" : "Run sample evaluation"}</button>
+          <button onClick={() => void runFeedback()} disabled={busy} title="Turns thumbs-down answers (with an expected phrase or sources) into test cases and runs them on this workspace">Run on my feedback</button>
           <button onClick={() => void runSample(true)} disabled={busy} title="versions, comparison, contradictions, Hindi, analytics, parallel agents">Run extended evaluation</button></div>
         <p className="muted small">Runs the built-in synthetic corpus (PDF, DOCX, XLSX, CSV, MD, TXT, JSON) through the real pipeline in a throw-away workspace and compares retrieval strategies. To evaluate your own documents, POST a dataset to <code>/eval/run</code>.</p>
         {err && <div className="error" role="alert">{err}</div>}
+        {fb && <div className="muted small" role="status">{fb}</div>}
         <table><thead><tr><th>Run</th><th>When</th><th>Cases</th><th>Recall@5</th><th>MRR</th><th>p50 ms</th><th /></tr></thead>
           <tbody>{(runs.data ?? []).map((r) => <tr key={r.id}><td>{r.name}</td><td className="small">{r.created_at}</td><td>{r.cases}</td><td>{pct(r["recall@5"])}</td><td>{num(r.mrr)}</td><td>{num(r.latency_p50, 1)}</td><td><button className="small" onClick={() => void open(r.id)}>Open</button></td></tr>)}
             {!runs.data?.length && <tr><td colSpan={7} className="muted">No runs yet.</td></tr>}</tbody></table>

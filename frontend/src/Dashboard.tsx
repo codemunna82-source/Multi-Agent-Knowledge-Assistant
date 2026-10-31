@@ -4,7 +4,8 @@ import { Badge, useLoad } from "./ui";
 
 export function Dashboard({ workspace, user, health, go }: { workspace: string; user: User; health: Health | null; go: (page: string) => void }) {
   const docs = useLoad(() => api.sources(workspace), [workspace]);
-  const jobs = useLoad(() => api.jobs(workspace), [workspace]);
+  const canSeeJobs = user.role !== "user";  // /jobs is a manager permission; plain users would only get a 403
+  const jobs = useLoad(() => (canSeeJobs ? api.jobs(workspace) : Promise.resolve({ items: [], total: 0 })), [workspace, canSeeJobs]);
   const convs = useLoad(() => api.conversations(workspace), [workspace]);
   const reports = useLoad(() => api.reports(workspace), [workspace]);
   const items = docs.data?.items ?? [];

@@ -59,6 +59,40 @@ function AutoPick({ resp }: { resp: Partial<AskResponse> }) {
   );
 }
 
+function FeedbackBar({ workspace, question, resp }: { workspace: string; question: string; resp: Partial<AskResponse> }) {
+  const [state, setState] = useState<"idle" | "form" | "sent">("idle");
+  const [expected, setExpected] = useState("");
+  const [comment, setComment] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const sources = (resp.citations ?? []).slice(0, 5).map((c) => ({ source: c.source, location: c.location }));
+  async function send(rating: 1 | -1) {
+    try {
+      await api.sendFeedback(workspace, rating === 1 ? { rating, route: resp.route } : { rating, route: resp.route, question, answer: resp.answer, expected: expected || undefined, comment: comment || undefined, sources });
+      setState("sent");
+    } catch (e) { setErr(e instanceof Error ? e.message : "Could not send"); }
+  }
+  if (state === "sent") return <div className="muted small" role="status">Thanks — feedback saved.</div>;
+  return (
+    <div className="fb">
+      <div className="row small">
+        <button className="icon" aria-label="Good answer" title="Good answer" onClick={() => void send(1)}>👍</button>
+        <button className="icon" aria-label="Bad answer" title="Bad answer" aria-expanded={state === "form"} onClick={() => setState(state === "form" ? "idle" : "form")}>👎</button>
+      </div>
+      {state === "form" && (
+        <form className="col" onSubmit={(e) => { e.preventDefault(); void send(-1); }}>
+          <label htmlFor="fbexp">What should the answer contain? (optional — lets this become a regression test)</label>
+          <input id="fbexp" type="text" value={expected} onChange={(e) => setExpected(e.target.value)} placeholder="e.g. 25 days" />
+          <label htmlFor="fbcom">Comment (optional)</label>
+          <input id="fbcom" type="text" value={comment} onChange={(e) => setComment(e.target.value)} />
+          <p className="muted small" style={{ margin: 0 }}>Sends this question and answer to your organisation's feedback list.</p>
+          <div className="row"><button className="small primary">Send feedback</button></div>
+        </form>
+      )}
+      {err && <div className="error small" role="alert">{err}</div>}
+    </div>
+  );
+}
+
 const STARTERS = ["Summarize my documents", "Does a specific name appear in these files?", "Which employee has the highest sales?", "Compare two of my documents"];
 
 function fromMessage(m: Message): Turn {
@@ -231,6 +265,7 @@ export function Chat({ workspace, prefill, onPrefillUsed }: { workspace: string;
                 {t.resp?.followups && t.resp.followups.length > 0 && !t.pending && (
                   <div className="chips" aria-label="Follow-up questions">{t.resp.followups.map((f) => <button key={f} onClick={() => void send(f)}>{f}</button>)}</div>
                 )}
+                {t.role === "assistant" && t.resp && !t.pending && !t.resp.details?.private && i > 0 && <FeedbackBar workspace={workspace} question={turns[i - 1]?.text ?? ""} resp={t.resp} />}
                 {t.resp?.usage && t.resp.latency_ms && (
                   <div className="muted small" style={{ marginTop: 6 }}>
                     {t.resp.latency_ms.toFixed(0)} ms · {(t.resp.usage.prompt_tokens ?? 0) + (t.resp.usage.completion_tokens ?? 0) + (t.resp.usage.embed_tokens ?? 0)} tokens · ${(t.resp.usage.cost_usd ?? 0).toFixed(5)}
