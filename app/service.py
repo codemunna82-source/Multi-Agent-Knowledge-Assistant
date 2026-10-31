@@ -88,12 +88,12 @@ class Knowledge:
     def ingest_file(self, scope: Scope, src: Path, filename: str, owner_id: str = "anonymous", visibility: str = "tenant", progress=None,
                     allow_duplicate: Optional[bool] = None) -> dict:
         allow = self.settings.allow_duplicate_uploads if allow_duplicate is None else allow_duplicate
-        return self._guarded(filename, lambda: self._ingest(scope, uuid.uuid4().hex, filename, kind_for(filename), src_file=src, owner_id=owner_id, visibility=visibility,
+        return self._guarded(filename, lambda: self._ingest_and_alert(scope, uuid.uuid4().hex, filename, kind_for(filename), src_file=src, owner_id=owner_id, visibility=visibility,
                                                             progress=progress, allow_duplicate=allow, content_hash=sha256_file(src)))
 
     def ingest_url(self, scope: Scope, url: str, owner_id: str = "anonymous", visibility: str = "tenant", progress=None, allow_duplicate: Optional[bool] = None) -> dict:
         allow = self.settings.allow_duplicate_uploads if allow_duplicate is None else allow_duplicate
-        return self._guarded(url, lambda: self._ingest(scope, uuid.uuid4().hex, url, "url", url=url, owner_id=owner_id, visibility=visibility, progress=progress, allow_duplicate=allow))
+        return self._guarded(url, lambda: self._ingest_and_alert(scope, uuid.uuid4().hex, url, "url", url=url, owner_id=owner_id, visibility=visibility, progress=progress, allow_duplicate=allow))
 
     def reindex(self, scope: Scope, source_id: str, principal=None, progress=None) -> dict:
         """Rebuild the text/chunks/vectors of an existing version in place (same id, same version number)."""
@@ -138,10 +138,22 @@ class Knowledge:
         m.ingest_seconds.observe(time.perf_counter() - t0)
         return out
 
+    def _ingest_and_alert(self, scope: Scope, *a, **kw) -> dict:
+        """_ingest + saved-search alerts for the new document (a failure in the alerting never fails the ingestion)."""
+        meta = self._ingest(scope, *a, **kw)
+        try:
+            from . import automation
+
+            automation.on_ingested(self, scope, meta)
+        except Exception:  # noqa: BLE001
+            log.exception("post-ingest automation failed for %s", meta.get("name"))
+        return meta
+
     def _guarded_inner(self, name: str, fn) -> dict:
         try:
             meta = fn()
             self.stats.ingested += 1
+
             return {"status": "ready", "name": name, "source": meta, "error": None, "retryable": False}
         except Duplicate as d:
             return {"status": "duplicate", "name": name, "source": d.existing, "error": None, "retryable": False, "duplicate_of": d.existing["id"]}

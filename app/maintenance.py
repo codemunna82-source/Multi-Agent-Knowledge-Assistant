@@ -20,7 +20,7 @@ from .db import AuditEvent, Conversation, Document, Job, RefreshToken, Report, R
 from .storage import Scope
 
 log = logging.getLogger("mka.maintenance")
-TASKS = ("retention_documents", "retention_conversations", "retention_audit", "retention_reports", "cleanup_jobs", "cleanup_tokens")
+TASKS = ("retention_documents", "retention_conversations", "retention_audit", "retention_reports", "cleanup_jobs", "cleanup_tokens", "run_report_schedules", "sync_connectors")
 
 
 def _cutoff(days: int, now: datetime) -> datetime:
@@ -115,6 +115,50 @@ def cleanup_jobs(k, now, dry_run, only=None, **_) -> dict:
         if n and not dry_run:
             s.execute(delete(Job).where(*cond))
     return {"removed": n}
+
+
+def run_report_schedules(k, now, dry_run, only=None, assistant=None, auditor=None, **_) -> dict:
+    from . import automation
+    from .db import ReportSchedule
+
+    with k.db.session() as s:
+        q = select(ReportSchedule).where(ReportSchedule.enabled.is_(True))
+        rows = [r for r in s.scalars(q if only is None else q.where(ReportSchedule.tenant_id == only)) if automation.due(r.last_run_at, r.every_hours, now)]
+        s.expunge_all()
+    if dry_run:
+        return {"removed": 0, "due": [r.name for r in rows]}
+    if rows and assistant is None:
+        from .agents import Assistant
+
+        assistant = Assistant(k)
+    out = []
+    for r in rows:
+        status = automation.run_schedule(k, assistant, r)
+        with k.db.session() as s:
+            row = s.get(ReportSchedule, r.id)
+            row.last_run_at, row.last_status = now, status[:300]
+        out.append({"schedule": r.name, "status": status})
+    return {"removed": 0, "ran": out}
+
+
+def sync_connectors(k, now, dry_run, only=None, assistant=None, auditor=None, **_) -> dict:
+    from . import automation
+    from .db import Connector
+
+    with k.db.session() as s:
+        q = select(Connector).where(Connector.enabled.is_(True))
+        rows = [c for c in s.scalars(q if only is None else q.where(Connector.tenant_id == only)) if automation.due(c.last_run_at, c.every_hours, now)]
+        s.expunge_all()
+    if dry_run:
+        return {"removed": 0, "due": [c.name for c in rows]}
+    out = []
+    for c in rows:
+        res = automation.sync(k, c)
+        with k.db.session() as s:
+            row = s.get(Connector, c.id)
+            row.last_run_at, row.last_result = now, res
+        out.append({"connector": c.name, **{a: b for a, b in res.items() if a != "errors"}, "errors": len(res["errors"])})
+    return {"removed": 0, "ran": out}
 
 
 def cleanup_tokens(k, now, dry_run, only=None, **_) -> dict:

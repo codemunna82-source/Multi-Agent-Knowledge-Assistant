@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import re
-import time
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -14,7 +13,8 @@ from sqlalchemy import func, select
 from ...core import ProviderError
 from ...db import Report
 from ...reports import build as builders
-from ...reports.render import MIME, render
+from ...reports.render import MIME
+from ...reports.service import ReportTooLarge, generate
 from ..deps import Ctx, page_params, require
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -61,38 +61,18 @@ def _slug(s: str) -> str:
 @router.post("", response_model=ReportOut, status_code=201, summary="Generate a report from your documents (synchronous; large documents can take a while)")
 def create_report(body: ReportBody, ctx: Ctx = Depends(require("report", "ask"))):
     svc = ctx.svc
-    k, s = svc.knowledge, svc.settings
-    params = dict(body.params)
-    if body.title:
-        params["title"] = body.title
-    t0 = time.perf_counter()
     try:
-        doc = builders.build(body.kind, k, svc.assistant, ctx.scope, ctx.principal, body.source_ids, params)
+        row = generate(svc.knowledge, svc.assistant, ctx.principal, ctx.scope, body.kind, body.format, body.source_ids, body.params, body.title)
     except builders.ReportError as e:
         raise HTTPException(422, str(e))
     except KeyError as e:
         raise HTTPException(404, str(e.args[0]))
     except ProviderError as e:
         raise HTTPException(502, f"Model/API error: {e}")
-    if body.title and body.kind != "research":
-        doc.title = body.title
-    doc.generated_by = ctx.principal.email or ctx.principal.user_id
-    data = render(doc, body.format, s.report_font)
-    if len(data) > s.report_max_mb * 1024 * 1024:
-        raise HTTPException(413, f"The report would be larger than {s.report_max_mb} MB; narrow the selection")
-    with svc.db.session() as ses:
-        row = Report(tenant_id=ctx.principal.tenant_id, user_id=ctx.principal.user_id, workspace=ctx.scope.workspace, kind=body.kind, format=body.format, title=doc.title[:300],
-                     status="ready", params={**{k_: v for k_, v in params.items() if k_ != "questions"}, "questions": len(params.get("questions") or []), "source_ids": body.source_ids,
-                                             "elapsed_ms": round((time.perf_counter() - t0) * 1000)}, size_bytes=len(data))
-        ses.add(row)
-        ses.flush()
-        path = Path(s.data_dir) / "tenants" / ctx.principal.tenant_id / "reports" / f"{row.id}.{body.format}"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(data)
-        row.path = str(path)
-        ses.flush()
-        out = _out(row)
-    ctx.audit("report_create", out.id, detail={"kind": body.kind, "format": body.format, "bytes": len(data)})
+    except ReportTooLarge as e:
+        raise HTTPException(413, str(e))
+    out = _out(row)
+    ctx.audit("report_create", out.id, detail={"kind": body.kind, "format": body.format, "bytes": row.size_bytes})
     return out
 
 

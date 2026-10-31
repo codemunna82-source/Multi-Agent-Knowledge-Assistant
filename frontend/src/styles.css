@@ -133,3 +133,4 @@ img, svg { max-width:100%; }
   .autopick table, .cite { font-size:12px; }
 }
 .fb { margin-top:6px; } .fb .icon { border:0; background:transparent; font-size:15px; opacity:.6; padding:2px 6px; } .fb .icon:hover { opacity:1; }
+.notes { margin-top:10px; border-top:1px solid var(--line); } .note { padding:3px 0; }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, askStream } from "./api";
+import { api, askStream, saveBlob } from "./api";
 import { Chart } from "./Chart";
 import { Preview } from "./Preview";
 import type { AskResponse, Citation, Message, RetrievalOptions } from "./types";
@@ -64,6 +64,14 @@ function FeedbackBar({ workspace, question, resp }: { workspace: string; questio
   const [expected, setExpected] = useState("");
   const [comment, setComment] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  async function exportReport() {
+    setExporting(true); setErr(null);
+    try {
+      const r = await api.createReport(workspace, { kind: "research", format: "pdf", params: { questions: [question], title: question.slice(0, 80) } });
+      saveBlob(await api.downloadReport(workspace, r.id), "answer-report.pdf");
+    } catch (e) { setErr(e instanceof Error ? e.message : "Export failed"); } finally { setExporting(false); }
+  }
   const sources = (resp.citations ?? []).slice(0, 5).map((c) => ({ source: c.source, location: c.location }));
   async function send(rating: 1 | -1) {
     try {
@@ -76,6 +84,7 @@ function FeedbackBar({ workspace, question, resp }: { workspace: string; questio
     <div className="fb">
       <div className="row small">
         <button className="icon" aria-label="Good answer" title="Good answer" onClick={() => void send(1)}>👍</button>
+        <button className="icon" aria-label="Export this answer as a report" title="Export as a PDF report with sources" disabled={exporting} onClick={() => void exportReport()}>{exporting ? "…" : "⬇"}</button>
         <button className="icon" aria-label="Bad answer" title="Bad answer" aria-expanded={state === "form"} onClick={() => setState(state === "form" ? "idle" : "form")}>👎</button>
       </div>
       {state === "form" && (

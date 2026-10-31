@@ -6,6 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from ...core import format_loc
 from ...learn import lab, lc
 from ...learn.catalog import LESSONS
 from ...rag import RetrievalOptions, resolve
@@ -128,6 +129,35 @@ def graph_run(body: GraphRunBody, ctx: Ctx = Depends(require("ask", "ask"))):
     out = ctx.svc.assistant.trace_run(ctx.scope, req, ctx.principal)
     ctx.audit("learn_graph_run", None, detail={"steps": len(out["steps"])})
     return out
+
+
+class ChunkBody(BaseModel):
+    source_id: str = Field(min_length=1, max_length=32)
+    settings: list[dict] = Field(default_factory=lambda: [{"size": 400, "overlap": 50}, {"size": 1000, "overlap": 150}, {"size": 2500, "overlap": 300}], max_length=6, description="[{size, overlap}]")
+
+
+@router.post("/chunking", summary="How different chunk sizes cut one of your documents (nothing is re-indexed)")
+def chunking(body: ChunkBody, ctx: Ctx = Depends(require("ask", "ask"))):
+    from ...ingestion.chunking import chunk_units
+
+    st = ctx.svc.knowledge.store(ctx.scope)
+    meta = st.get_source(body.source_id, ctx.principal)
+    if not meta:
+        raise HTTPException(404, "Source not found")
+    units = [u for _, u in st.iter_units([body.source_id])][:3000]
+    rows = []
+    for cfg in body.settings:
+        size, overlap = int(cfg.get("size", 1000)), int(cfg.get("overlap", 150))
+        if not (100 <= size <= 8000 and 0 <= overlap < size // 2):
+            raise HTTPException(422, "size must be 100-8000 and overlap below half of it")
+        chunks = chunk_units(units, size, overlap)
+        lens = [len(c.text) for c in chunks]
+        rows.append({"size": size, "overlap": overlap, "chunks": len(chunks), "avg_chars": round(sum(lens) / len(lens)) if lens else 0, "min_chars": min(lens, default=0), "max_chars": max(lens, default=0),
+                     "tiny_chunks": sum(1 for n in lens if n < size * 0.2), "locations": len({str(c.loc) for c in chunks}),
+                     "samples": [{"location": format_loc(c.loc, getattr(c, "loc_end", None)), "chars": len(c.text), "text": " ".join(c.text.split())[:220]} for c in chunks[:3]]})
+    ctx.audit("learn_chunking", None)
+    return {"source": meta["name"], "units": len(units), "rows": rows,
+            "reading": "Smaller chunks match precisely but lose context (parent-child retrieval recovers it); larger chunks keep context but dilute the match. Chunks never cross a page/sheet/section, so 'tiny' chunks are the ends of those units."}
 
 
 @router.post("/langchain", summary="Real langchain_core objects on your documents: retriever, LCEL chain, tool schema, parser, history")

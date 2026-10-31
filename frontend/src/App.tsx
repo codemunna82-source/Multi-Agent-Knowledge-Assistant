@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Admin } from "./Admin";
 import { Analyst } from "./Analyst";
 import { api, hasToken, setToken, silentRefresh } from "./api";
+import { Automation } from "./Automation";
 import { Chat } from "./Chat";
 import { Compare } from "./Compare";
 import { Dashboard } from "./Dashboard";
@@ -16,7 +17,7 @@ import { Settings } from "./Settings";
 import { applyTheme, loadTheme } from "./theme";
 import type { Health, Role, User } from "./types";
 
-type Page = "dashboard" | "documents" | "chat" | "search" | "compare" | "analyst" | "reports" | "history" | "learn" | "evaluation" | "settings" | "admin";
+type Page = "dashboard" | "documents" | "chat" | "search" | "compare" | "analyst" | "reports" | "history" | "learn" | "automation" | "evaluation" | "settings" | "admin";
 const DEV_USER: User = { id: "anonymous", tenant_id: "default", email: "anonymous@local", role: "admin" };
 const WS_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const RANK: Record<Role, number> = { user: 0, manager: 1, admin: 2 };
@@ -64,7 +65,7 @@ export function App() {
   const atLeast = (r: Role) => RANK[shownUser.role] >= RANK[r];
   const nav: [Page, string, boolean][] = [
     ["dashboard", "Dashboard", true], ["documents", "Library", true], ["chat", "Chat", true], ["search", "Exact search", true], ["compare", "Compare", true], ["analyst", "Data analyst", true],
-    ["reports", "Reports", true], ["history", "History", true], ["learn", "Learn lab", true], ["evaluation", "Evaluation", atLeast("manager")], ["settings", "Settings", true], ["admin", "Admin", atLeast("admin")],
+    ["reports", "Reports", true], ["history", "History", true], ["learn", "Learn lab", true], ["automation", "Automation", true], ["evaluation", "Evaluation", atLeast("manager")], ["settings", "Settings", true], ["admin", "Admin", atLeast("admin")],
   ];
   const go = (p: string) => setPage(p as Page);
 
@@ -97,6 +98,7 @@ export function App() {
         {page === "analyst" && <Analyst workspace={workspace} />}
         {page === "reports" && <Reports workspace={workspace} />}
         {page === "history" && <History workspace={workspace} />}
+        {page === "automation" && <Automation workspace={workspace} canIngest={atLeast("manager")} />}
         {page === "learn" && <Learn workspace={workspace} canIngest={atLeast("manager")} />}
         {page === "evaluation" && atLeast("manager") && <Evaluation workspace={workspace} />}
         {page === "settings" && <Settings user={shownUser} authEnabled={Boolean(health?.auth_enabled)} />}

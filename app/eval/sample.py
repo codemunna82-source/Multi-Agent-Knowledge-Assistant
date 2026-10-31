@@ -126,7 +126,24 @@ def _xlsx() -> bytes:
         ws.append(r)
     buf = io.BytesIO()
     wb.save(buf)
-    return buf.getvalue()
+    return _normalise_zip(buf.getvalue())
+
+
+def _normalise_zip(data: bytes) -> bytes:
+    """openpyxl stamps the save time into docProps and the zip entries; rewrite with fixed values so the bytes (and hash) are reproducible."""
+    import re
+    import zipfile
+
+    out = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(data)) as zin, zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+        for name in sorted(zin.namelist()):
+            raw = zin.read(name)
+            if name == "docProps/core.xml":
+                raw = re.sub(rb"(<dcterms:(?:created|modified)[^>]*>)[^<]*", rb"\g<1>2024-01-01T00:00:00Z", raw)
+            zi = zipfile.ZipInfo(name, date_time=(2024, 1, 1, 0, 0, 0))
+            zi.compress_type = zipfile.ZIP_DEFLATED
+            zout.writestr(zi, raw)
+    return out.getvalue()
 
 
 def _csv(rows) -> bytes:

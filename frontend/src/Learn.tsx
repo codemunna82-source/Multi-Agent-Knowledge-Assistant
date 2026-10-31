@@ -4,7 +4,7 @@ import { GraphDiagram } from "./GraphDiagram";
 import type { GraphInfo, GraphRun, LabRow, LcDemo, Lesson, LessonsOut } from "./types";
 import { Badge, Tabs, errText, useLoad } from "./ui";
 
-type Lab = "lessons" | "retrieval" | "graph" | "langchain";
+type Lab = "lessons" | "retrieval" | "chunking" | "graph" | "langchain";
 const DEFAULT_Q = "How many weeks of parental leave do partners get?";
 
 function QuestionBar({ question, setQuestion, onDemo, demoMsg, demos }: { question: string; setQuestion: (q: string) => void; onDemo: () => void; demoMsg: string | null; demos: LessonsOut["demo_questions"] }) {
@@ -42,12 +42,13 @@ export function Learn({ workspace, canIngest }: { workspace: string; canIngest: 
         <p className="muted">Every technique below is real code from this project. Pick a question, switch techniques on one at a time, and watch what changes: which passages come back, how many characters reach the model, which graph node ran and what it wrote.
           {data && !data.llm_available && " No language model is configured, so model-dependent steps (multi-query, HyDE, LLM re-ranking, Self-RAG) show their deterministic fallbacks and say so."}
           {data && ` Embedder: ${data.embedder}.`}</p>
-        <Tabs label="Labs" value={lab} onChange={setLab} tabs={[["lessons", "Lessons"], ["retrieval", "Retrieval lab"], ["graph", "Agent graph"], ["langchain", "LangChain lab"]]} />
+        <Tabs label="Labs" value={lab} onChange={setLab} tabs={[["lessons", "Lessons"], ["retrieval", "Retrieval lab"], ["chunking", "Chunking lab"], ["graph", "Agent graph"], ["langchain", "LangChain lab"]]} />
       </div>
       {lessons.error && <div className="error" role="alert">{lessons.error}</div>}
       {data && lab !== "lessons" && <QuestionBar question={question} setQuestion={setQuestion} onDemo={() => void demo()} demoMsg={canIngest ? demoMsg : "Ask a manager to load the demo documents."} demos={data.demo_questions} />}
       {data && lab === "lessons" && <Lessons data={data} onTry={tryIt} />}
       {data && lab === "retrieval" && <RetrievalLab workspace={workspace} question={question} presets={data.presets} initial={preset} />}
+      {lab === "chunking" && <ChunkLab workspace={workspace} />}
       {lab === "graph" && <GraphLab workspace={workspace} question={question} initial={preset} />}
       {lab === "langchain" && <LangChainLab workspace={workspace} question={question} />}
     </div>
@@ -120,6 +121,10 @@ function RetrievalLab({ workspace, question, presets, initial }: { workspace: st
   const [rows, setRows] = useState<LabRow[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  type Saved = { q: string; rows: { name: string; grade: string; n: number; top: string | null; chars: number }[] };
+  const readSaved = (): Saved | null => { try { const v = localStorage.getItem("mka_lab_run"); return v ? (JSON.parse(v) as Saved) : null; } catch { return null; } };
+  const [saved, setSaved] = useState<Saved | null>(readSaved);
+  const [showDiff, setShowDiff] = useState(false);
   async function run() {
     setBusy(true); setErr(null);
     try { setRows((mode === "ablation" ? await api.learnAblation(workspace, question) : await api.learnCompare(workspace, question, picked)).rows); } catch (e) { setErr(errText(e)); setRows(null); } finally { setBusy(false); }
@@ -137,7 +142,43 @@ function RetrievalLab({ workspace, question, presets, initial }: { workspace: st
           <tbody>{rows.map((r) => <RowView key={r.name} r={r} base={rows[0]} />)}</tbody>
         </table></div>
       )}
+      {rows && (
+        <div className="row small">
+          <button className="small" onClick={() => { try { localStorage.setItem("mka_lab_run", JSON.stringify({ q: question, rows: rows.map((r) => ({ name: r.name, grade: r.grade, n: r.hits.length, top: r.hits[0]?.location ?? null, chars: r.hits.reduce((a, h) => a + h.chars_to_model, 0) })) })); setSaved(readSaved()); } catch { /* storage may be blocked */ } }}>Save this run</button>
+          {saved && <span className="muted">Saved run for “{saved.q}”.</span>}
+          {saved && <button className="small" onClick={() => setShowDiff(!showDiff)}>{showDiff ? "Hide" : "Compare with saved"}</button>}
+        </div>
+      )}
+      {rows && saved && showDiff && (
+        <table aria-label="Saved run comparison"><thead><tr><th>Setting</th><th>Grade (saved → now)</th><th>Passages</th><th>Chars to model</th></tr></thead>
+          <tbody>{rows.map((r) => { const o = saved.rows.find((x) => x.name === r.name); const now = r.hits.reduce((a, h) => a + h.chars_to_model, 0);
+            return <tr key={r.name}><td>{r.name}</td><td>{o ? (o.grade === r.grade ? `${r.grade} (same)` : `${o.grade} → ${r.grade}`) : "new row"}</td><td>{o ? `${o.n} → ${r.hits.length}` : r.hits.length}</td><td>{o ? `${o.chars} → ${now}` : now}</td></tr>; })}</tbody></table>
+      )}
       {rows && <p className="muted small">Grade: <b>correct</b> = confident match, <b>ambiguous</b> = weak, <b>incorrect</b> = the system abstains instead of guessing. “Chars to model” is the amount of text that would be put in the prompt — parent-child adds context, compression removes noise.</p>}
+    </div>
+  );
+}
+
+function ChunkLab({ workspace }: { workspace: string }) {
+  const src = useLoad(() => api.sources(workspace, { limit: 100 }), [workspace]);
+  const docs = (src.data?.items ?? []).filter((d) => !d.tabular);
+  const [id, setId] = useState("");
+  const [res, setRes] = useState<Awaited<ReturnType<typeof api.learnChunking>> | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  async function go() { setErr(null); try { setRes(await api.learnChunking(workspace, id || docs[0].id)); } catch (e) { setErr(errText(e)); setRes(null); } }
+  return (
+    <div className="card" aria-label="Chunking lab">
+      <h2 style={{ marginTop: 0 }}>How chunk size cuts a document</h2>
+      <p className="muted small">Nothing is re-indexed: the stored text is only re-cut for the experiment. Chunks never cross a page, sheet or section boundary.</p>
+      <div className="row"><select aria-label="Document" value={id} onChange={(e) => setId(e.target.value)}>{docs.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
+        <button className="primary" disabled={!docs.length} onClick={() => void go()}>Cut with 400 / 1000 / 2500 characters</button></div>
+      {!docs.length && <p className="muted small">Load the demo documents first.</p>}
+      {err && <div className="error" role="alert">{err}</div>}
+      {res && <>
+        <table aria-label="Chunking results"><thead><tr><th>Size / overlap</th><th>Chunks</th><th>Average</th><th>Min–max</th><th>Tiny (&lt;20%)</th></tr></thead>
+          <tbody>{res.rows.map((r) => <tr key={r.size}><td>{r.size} / {r.overlap}</td><td>{r.chunks}</td><td>{r.avg_chars}</td><td>{r.min_chars}–{r.max_chars}</td><td>{r.tiny_chunks}</td></tr>)}</tbody></table>
+        {res.rows.map((r) => <details key={r.size}><summary className="small">First chunks at {r.size} characters</summary>{r.samples.map((s, i) => <div className="cite" key={i}><b>{s.location}</b> <span className="muted small">{s.chars} chars</span><div>{s.text}</div></div>)}</details>)}
+        <p className="muted small">{res.reading}</p></>}
     </div>
   );
 }

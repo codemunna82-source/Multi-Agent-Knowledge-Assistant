@@ -59,7 +59,7 @@ def test_database_can_run_migrations_on_start(tmp_path):
     url = f"sqlite:///{tmp_path}/n.db"
     db = Database(url, run_migrations=True)
     with db.engine.connect() as c:
-        assert c.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0002"
+        assert c.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0003"
     migrate(url)  # idempotent
 
 
@@ -411,7 +411,7 @@ def test_registry_flow_on_postgres(tmp_path):
     with eng.connect() as conn:
         assert conn.execute(text("select count(*) from documents")).scalar() == 2
         assert conn.execute(text("select count(*) from documents where is_current")).scalar() == 1
-        assert conn.execute(text("select version_num from alembic_version")).scalar() == "0002"
+        assert conn.execute(text("select version_num from alembic_version")).scalar() == "0003"
 
 
 # ------------------------------------------------------------------------------------------- tenant settings, pagination everywhere

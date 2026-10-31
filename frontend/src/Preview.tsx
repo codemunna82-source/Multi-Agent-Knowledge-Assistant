@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
 import type { Citation } from "./types";
-import { Modal, errText } from "./ui";
+import { Modal, errText, useLoad } from "./ui";
 
 /** Citation navigation: PDF pages are shown as images with the cited text highlighted (prev/next page); other formats show the stored passage with neighbours. */
 export function Preview({ workspace, citation, onClose }: { workspace: string; citation: Citation; onClose: () => void }) {
@@ -36,6 +36,17 @@ export function Preview({ workspace, citation, onClose }: { workspace: string; c
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, highlight, citation.source_id]);
 
+  const notes = useLoad(() => (citation.source_id === "web" ? Promise.resolve([]) : api.annotations(workspace, citation.source_id)), [citation.source_id]);
+  const [note, setNote] = useState("");
+  const [shared, setShared] = useState(false);
+  const [nerr, setNerr] = useState<string | null>(null);
+  async function addNote(kind: "comment" | "bookmark") {
+    try {
+      await api.addAnnotation(workspace, { source_id: citation.source_id, loc: page !== null ? { page } : (loc as Record<string, unknown>), quote: citation.excerpt.slice(0, 300) || undefined, note, kind, shared });
+      setNote(""); setNerr(null); void notes.reload();
+    } catch (e) { setNerr(errText(e)); }
+  }
+
   return (
     <Modal title={`${citation.source} — ${citation.location}`} onClose={onClose}>
       {citation.origin === "web" && <p className="muted small">External web page (not one of your documents): <code>{citation.source}</code></p>}
@@ -58,6 +69,22 @@ export function Preview({ workspace, citation, onClose }: { workspace: string; c
         </div>
       )}
       {err && <div className="error" role="alert">{err}</div>}
+      {citation.source_id !== "web" && (
+        <div className="notes" aria-label="Notes">
+          <h3>Notes</h3>
+          {(notes.data ?? []).map((n) => (
+            <div key={n.id} className="small note"><b>{n.kind}</b>{n.shared ? " · shared" : ""} <code>{JSON.stringify(n.loc)}</code> {n.note}
+              {n.mine && <button className="small" aria-label="Delete note" onClick={async () => { await api.deleteAnnotation(n.id); void notes.reload(); }}>×</button>}</div>
+          ))}
+          <div className="row">
+            <input type="text" aria-label="Note" placeholder={`Add a note${page !== null ? ` on page ${page}` : ""}…`} value={note} onChange={(e) => setNote(e.target.value)} style={{ flex: 1 }} />
+            <label className="check small"><input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} />share</label>
+            <button className="small primary" disabled={!note.trim()} onClick={() => void addNote("comment")}>Add note</button>
+            <button className="small" onClick={() => void addNote("bookmark")}>Bookmark</button>
+          </div>
+          {nerr && <div className="error small" role="alert">{nerr}</div>}
+        </div>
+      )}
     </Modal>
   );
 }

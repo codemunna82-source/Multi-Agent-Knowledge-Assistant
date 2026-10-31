@@ -19,7 +19,7 @@ describe("App shell", () => {
     mockFetch({ "/health": { body: health(false) }, ...EMPTY });
     render(<App />);
     expect(await screen.findByText(/Development mode/)).toBeInTheDocument();
-    for (const t of ["Dashboard", "Library", "Chat", "Exact search", "Compare", "Data analyst", "Reports", "History", "Learn lab", "Evaluation", "Settings", "Admin"]) expect(screen.getByRole("button", { name: t })).toBeInTheDocument();
+    for (const t of ["Dashboard", "Library", "Chat", "Exact search", "Compare", "Data analyst", "Reports", "History", "Learn lab", "Automation", "Evaluation", "Settings", "Admin"]) expect(screen.getByRole("button", { name: t })).toBeInTheDocument();
   });
 
   it("requires login when auth is enabled and role-gates the tabs", async () => {
