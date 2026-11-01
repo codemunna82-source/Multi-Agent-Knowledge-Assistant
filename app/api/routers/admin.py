@@ -84,6 +84,9 @@ def delete_user(user_id: str, ctx: Ctx = Depends(require("manage_users"))):
         for c in s.scalars(select(Conversation).where(Conversation.user_id == user_id)):
             s.delete(c)
         s.execute(delete(MemoryFact).where(MemoryFact.user_id == user_id))
+        from ...academy.service import erase_user
+
+        erase_user(s, user_id)          # learning progress is personal data too
         s.execute(delete(RefreshToken).where(RefreshToken.user_id == user_id))
         reports = s.scalars(select(Report).where(Report.user_id == user_id)).all()
         paths = [r.path for r in reports if r.path]

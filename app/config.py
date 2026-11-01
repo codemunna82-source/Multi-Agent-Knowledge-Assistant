@@ -74,6 +74,8 @@ class Settings(BaseSettings):
     rate_limit_ask: str = "30/minute"
     rate_limit_ingest: str = "20/minute"
     rate_limit_auth: str = "10/minute"
+    rate_limit_code: str = "12/minute"  # Academy code runner (per user)
+    rate_limit_playground: str = "40/minute"  # Academy playgrounds that call models/embedders
 
     # --- chunking
     stream_timeout_s: float = 300.0  # /ask/stream: an answer still running after this many seconds is stopped with an error event

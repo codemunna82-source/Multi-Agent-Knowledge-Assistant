@@ -16,7 +16,7 @@ ROLES = ("user", "manager", "admin")
 LEGACY_ROLES = {"viewer": "user", "editor": "manager"}  # v2.0 names, still accepted at the API boundary
 # permission -> minimum role
 PERMISSIONS = {
-    "ask": "user", "read": "user", "search": "user", "summarize": "user", "compare": "user", "analytics": "user", "web": "user", "report": "user", "memory": "user",
+    "ask": "user", "read": "user", "search": "user", "summarize": "user", "compare": "user", "analytics": "user", "web": "user", "report": "user", "memory": "user", "learn": "user",
     "ingest": "manager", "delete_own": "manager", "share": "manager", "evaluate": "manager",
     "delete_any": "admin", "manage_users": "admin", "audit": "admin", "settings": "admin", "purge": "admin",
 }

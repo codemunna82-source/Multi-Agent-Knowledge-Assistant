@@ -200,6 +200,21 @@ export const api = {
 };
 
 /** Server-Sent Events over fetch (EventSource cannot send Authorization headers). */
+export const academy = {
+  catalog: () => req<import("./academy/types").Catalog>("/academy/catalog"),
+  lesson: (id: string) => req<import("./academy/types").Lesson>(`/academy/lessons/${id}`),
+  glossary: () => req<Record<string, import("./academy/types").Term>>("/academy/glossary"),
+  search: (q: string) => req<(import("./academy/types").LessonCard & { glossary?: string; term?: string })[]>(`/academy/search${qs({ q })}`),
+  progress: () => req<import("./academy/types").Progress>("/academy/progress"),
+  setProgress: (id: string, body: { status?: "in_progress" | "done"; step?: number; bookmarked?: boolean }) => req<{ lesson: string; status: string; step: number; bookmarked: boolean }>(`/academy/progress/${id}`, { method: "PUT", body }),
+  submitQuiz: (answers: Record<string, number>) => req<import("./academy/types").QuizOut>("/academy/quiz/submit", { method: "POST", body: { answers } }),
+  daily: () => req<{ questions: (import("./academy/types").QuizQuestion & { lesson: string })[] }>("/academy/daily"),
+  interview: (category?: string) => req<import("./academy/types").InterviewItem[]>(`/academy/interview${qs({ category })}`),
+  projects: () => req<import("./academy/types").ProjectCard[]>("/academy/projects"),
+  project: (id: string) => req<import("./academy/types").Project>(`/academy/projects/${id}`),
+  setProject: (id: string, done_steps: number[]) => req<{ done_steps: number[] }>(`/academy/projects/${id}/progress`, { method: "PUT", body: { done_steps } }),
+};
+
 export async function askStream(ws: string, body: AskBody, onEvent: (e: StreamEvent) => void, signal?: AbortSignal): Promise<void> {
   const r = await fetch("/ask/stream", { method: "POST", headers: headers(ws, { "Content-Type": "application/json" }), body: JSON.stringify(body), signal });
   if (!r.ok || !r.body) throw new ApiError(r.status, errMessage(await parse(r), r.status));

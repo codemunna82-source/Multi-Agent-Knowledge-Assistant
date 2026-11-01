@@ -412,3 +412,58 @@ class OidcIdentity(Base):
     subject: Mapped[str] = mapped_column(String(300))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     __table_args__ = (UniqueConstraint("issuer", "subject", name="uq_oidc_subject"),)
+
+
+# ----------------------------------------------------------------------------- AI Learning Academy (per user; no FK so the open dev mode's "anonymous" user works too)
+class AcademyProgress(Base):
+    __tablename__ = "academy_progress"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    lesson_id: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(16), default="in_progress")  # in_progress | done
+    step: Mapped[int] = mapped_column(Integer, default=0)  # resume point: index of the last section the learner reached
+    bookmarked: Mapped[bool] = mapped_column(default=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    __table_args__ = (UniqueConstraint("user_id", "lesson_id", name="uq_academy_progress"),)
+
+
+class AcademyQuizAttempt(Base):
+    __tablename__ = "academy_quiz_attempts"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    lesson_id: Mapped[str] = mapped_column(String(64))
+    question_id: Mapped[str] = mapped_column(String(96))
+    correct: Mapped[bool] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class AcademyExercise(Base):
+    __tablename__ = "academy_exercises"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    lesson_id: Mapped[str] = mapped_column(String(64))
+    kind: Mapped[str] = mapped_column(String(16))  # exercise | debug
+    passed: Mapped[bool] = mapped_column(default=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+    __table_args__ = (UniqueConstraint("user_id", "lesson_id", "kind", name="uq_academy_exercise"),)
+
+
+class AcademyActivity(Base):
+    __tablename__ = "academy_activity"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    day: Mapped[str] = mapped_column(String(10))  # YYYY-MM-DD (UTC)
+    count: Mapped[int] = mapped_column(Integer, default=0)
+    __table_args__ = (UniqueConstraint("user_id", "day", name="uq_academy_activity"),)
+
+
+class AcademyProject(Base):
+    __tablename__ = "academy_projects"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    project_id: Mapped[str] = mapped_column(String(64))
+    done_steps: Mapped[list] = mapped_column(JSON, default=list)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+    __table_args__ = (UniqueConstraint("user_id", "project_id", name="uq_academy_project"),)
