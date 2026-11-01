@@ -3,6 +3,7 @@ import { academy } from "../api";
 import { errText, useLoad } from "../ui";
 import { Dashboard } from "./Dashboard";
 import { LessonView } from "./LessonView";
+import { Playground } from "./Playground";
 import { QuizPanel } from "./QuizPanel";
 import { SidePanel } from "./SidePanel";
 import type { Lang, Level, LessonCard } from "./types";
@@ -13,7 +14,7 @@ const loadLang = (): Lang => { try { const v = localStorage.getItem(LANG_KEY); i
 const LANGS: [Lang, string][] = [["en", "English"], ["hi", "हिंदी"], ["hinglish", "Hinglish"]];
 const NAV: [Exclude<View["kind"], "lesson">, string][] = [["dashboard", "Dashboard"], ["roadmap", "Roadmap"], ["playground", "Playground"], ["projects", "Projects"], ["interview", "Interview prep"], ["daily", "Daily practice"]];
 
-export function Academy({ workspace: _workspace }: { workspace: string }) {
+export function Academy({ workspace }: { workspace: string }) {
   const catalog = useLoad(() => academy.catalog(), []);
   const progress = useLoad(() => academy.progress(), []);
   const glossary = useLoad(() => academy.glossary(), []);
@@ -98,7 +99,8 @@ export function Academy({ workspace: _workspace }: { workspace: string }) {
             {daily.error && <div className="error" role="alert">{errText(daily.error)}</div>}
             {daily.data && <QuizPanel questions={daily.data.questions} label="Daily practice" onGraded={() => void progress.reload()} />}</div>
         )}
-        {(view.kind === "playground" || view.kind === "projects" || view.kind === "interview") && <div className="muted">This section is coming in the next phase.</div>}
+        {view.kind === "playground" && <Playground workspace={workspace} />}
+        {(view.kind === "projects" || view.kind === "interview") && <div className="muted">This section is coming in the next phase.</div>}
       </main>
 
       <SidePanel lang={lang} term={term} termId={termId} lesson={lesson.data} progress={progress.data} cards={cards} onOpen={openLesson} onClose={() => setTermId(null)} />

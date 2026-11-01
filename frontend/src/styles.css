@@ -240,3 +240,12 @@ button.ac-card { display:flex; flex-direction:column; gap:4px; text-align:left; 
 .ac-help { background:var(--soft); border-left:3px solid var(--accent); padding:6px 10px; border-radius:6px; margin:6px 0; font-size:13px; } .ac-setup { background:var(--soft); border-radius:6px; padding:6px 10px; margin:6px 0; font-size:13px; }
 .ac-explain { font-size:13px; padding-left:20px; } .ac-explain code { background:var(--code-bg); padding:0 4px; border-radius:4px; } .ac-task { border-left:3px solid var(--accent); }
 .out { background:var(--code-bg); border-radius:8px; padding:8px; margin:4px 0; overflow:auto; font:12.5px/1.5 ui-monospace,Menlo,monospace; white-space:pre-wrap; }
+
+/* ---- Academy playgrounds ---- */
+.ac-caps { list-style:none; display:grid; gap:2px; padding:8px 10px; margin:6px 0; background:var(--soft); border-radius:8px; } .ac-pgtabs { flex-wrap:wrap; margin:8px 0; }
+.ac-output { white-space:pre-wrap; border:1px solid var(--line); border-radius:8px; padding:10px; margin:8px 0; background:var(--bg); line-height:1.6; min-height:1.5em; }
+.ac-variants { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:10px; } .ac-variant { border:1px solid var(--line); border-radius:10px; padding:10px; } .ac-variant textarea { font:12.5px/1.5 ui-monospace,Menlo,monospace; }
+.ac-stage { border:1px solid var(--line); border-radius:8px; padding:6px 10px; margin:6px 0; } .ac-stage summary { cursor:pointer; } .ac-chunks { font-size:13px; padding-left:22px; } .ac-chunks li { margin:3px 0; }
+.chunk-bars { display:flex; align-items:flex-end; gap:2px; height:48px; margin:6px 0; } .chunk-bars i { flex:1; min-width:3px; background:var(--accent); border-radius:2px 2px 0 0; }
+tr.picked td { background:var(--soft); } .ac-node { flex-wrap:wrap; gap:6px; margin:4px 0; } .ac-builder h3 { margin:12px 0 4px; } .ac-tools { border:1px solid var(--line); border-radius:8px; margin:8px 0; } .ac-tools .check { display:flex; gap:6px; margin:2px 0; }
+.ac-trace { list-style:none; padding:0; margin:8px 0; display:grid; gap:6px; } .ac-trace li { border-left:3px solid var(--line); padding:4px 10px; } .ac-trace .t-tool_result { border-color:var(--ok); } .ac-trace .t-tool_blocked, .ac-trace .t-error { border-color:var(--bad); } .ac-trace .t-final { border-color:var(--accent); font-weight:600; }

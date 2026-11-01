@@ -213,10 +213,42 @@ export const academy = {
   codeStatus: () => req<import("./academy/types").CodeStatus>("/academy/code/status"),
   runCode: (body: { language: string; code: string; lesson_id?: string; task?: "scratch" | "example" | "exercise" | "debug"; example?: number }) => req<import("./academy/types").RunOut>("/academy/code/run", { method: "POST", body }),
   solution: (id: string, kind: "exercise" | "debug") => req<{ solution: string; expected_output: string }>(`/academy/lessons/${id}/solution/${kind}`),
+  pgCaps: () => req<import("./academy/types").PgCaps>("/academy/playground/capabilities"),
+  pgLlm: (body: import("./academy/types").LlmParams) => req<import("./academy/types").LlmRun>("/academy/playground/llm", { method: "POST", body }),
+  pgCompare: (body: { variants: { name: string; system: string; prompt: string }[]; temperature: number; max_tokens: number }) => req<import("./academy/types").CompareRun>("/academy/playground/prompts/compare", { method: "POST", body }),
+  pgEmbed: (texts: string[]) => req<import("./academy/types").EmbedRun>("/academy/playground/embeddings", { method: "POST", body: { texts } }),
+  pgRag: (form: FormData) => req<import("./academy/types").RagRun>("/academy/playground/rag", { method: "POST", form }),
+  pgLangchain: (body: unknown) => req<import("./academy/types").LcRun>("/academy/playground/langchain", { method: "POST", body }),
+  pgPresets: () => req<Record<string, import("./academy/types").GraphPreset>>("/academy/playground/langgraph/presets"),
+  pgGraphRun: (body: { spec: unknown; input: Record<string, unknown>; max_steps: number }) => req<import("./academy/types").GraphRun>("/academy/playground/langgraph/run", { method: "POST", body }),
+  pgGraphResume: (body: { thread_id: string; state_update?: Record<string, unknown>; max_steps?: number }) => req<import("./academy/types").GraphRun>("/academy/playground/langgraph/resume", { method: "POST", body }),
+  pgAgentTools: () => req<Record<string, string>>("/academy/playground/agent/tools"),
+  pgAgent: (body: { task: string; tools: string[]; max_steps: number }) => req<import("./academy/types").AgentRun>("/academy/playground/agent/run", { method: "POST", body }),
   projects: () => req<import("./academy/types").ProjectCard[]>("/academy/projects"),
   project: (id: string) => req<import("./academy/types").Project>(`/academy/projects/${id}`),
   setProject: (id: string, done_steps: number[]) => req<{ done_steps: number[] }>(`/academy/projects/${id}/progress`, { method: "PUT", body: { done_steps } }),
 };
+
+/** Generic Server-Sent Events over fetch (EventSource cannot send Authorization headers). */
+export async function sseFetch<T>(path: string, ws: string, body: unknown, onEvent: (e: T) => void, signal?: AbortSignal): Promise<void> {
+  const r = await fetch(path, { method: "POST", headers: headers(ws, { "Content-Type": "application/json" }), body: JSON.stringify(body), signal });
+  if (!r.ok || !r.body) throw new ApiError(r.status, errMessage(await parse(r), r.status));
+  const reader = r.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let i: number;
+    while ((i = buf.indexOf("\n\n")) >= 0) {
+      const block = buf.slice(0, i);
+      buf = buf.slice(i + 2);
+      const data = block.split("\n").find((l) => l.startsWith("data:"));
+      if (data) onEvent(JSON.parse(data.slice(5).trim()) as T);
+    }
+  }
+}
 
 export async function askStream(ws: string, body: AskBody, onEvent: (e: StreamEvent) => void, signal?: AbortSignal): Promise<void> {
   const r = await fetch("/ask/stream", { method: "POST", headers: headers(ws, { "Content-Type": "application/json" }), body: JSON.stringify(body), signal });

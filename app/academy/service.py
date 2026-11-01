@@ -241,7 +241,7 @@ def overview(s, user_id: str) -> dict:
     for lid, qid, ok, _ in attempts:
         latest[qid] = (lid, ok)              # only the most recent attempt of each question counts
     by_lesson: dict[str, list[bool]] = {}
-    for qid, (lid, ok) in latest.items():
+    for _qid, (lid, ok) in latest.items():
         by_lesson.setdefault(lid, []).append(ok)
     quiz = {lid: {"correct": sum(v), "total": len(v), "percent": round(100 * sum(v) / len(v))} for lid, v in by_lesson.items()}
     days = {d for (d,) in s.execute(select(AcademyActivity.day).where(AcademyActivity.user_id == user_id))}

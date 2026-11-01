@@ -70,6 +70,17 @@ class Recorder(BaseCallbackHandler):
     def on_retriever_end(self, documents, *, run_id, **kw):
         self._end(run_id, f"{len(documents)} documents: " + "; ".join(f"{d.metadata.get('source')} {d.metadata.get('location')}" for d in documents[:4]))
 
+    def on_chat_model_start(self, serialized, messages, *, run_id, **kw):
+        flat = " | ".join(f"{type(m).__name__.replace('Message', '')}: {m.content}" for batch in messages for m in batch)
+        self._start("model", serialized, flat, run_id, kw)
+
+    def on_llm_start(self, serialized, prompts, *, run_id, **kw):
+        self._start("model", serialized, " | ".join(prompts), run_id, kw)
+
+    def on_llm_end(self, response, *, run_id, **kw):
+        g = response.generations[0][0] if response.generations and response.generations[0] else None
+        self._end(run_id, getattr(g, "text", "") if g else "")
+
     def on_tool_start(self, serialized, input_str, *, run_id, **kw):
         self._start("tool", serialized, input_str, run_id, kw)
 

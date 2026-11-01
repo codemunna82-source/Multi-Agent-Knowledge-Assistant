@@ -252,6 +252,13 @@ class LLM:
         """Yield the answer in pieces as the provider produces them. Providers without streaming return the whole completion as one piece."""
         yield self.complete(system, user)
 
+    # the Academy playground lets learners choose sampling parameters; the main pipeline keeps using complete()/stream() (temperature 0)
+    def generate(self, system: str, user: str, temperature: Optional[float] = None, max_tokens: Optional[int] = None) -> str:
+        return self.complete(system, user)
+
+    def generate_stream(self, system: str, user: str, temperature: Optional[float] = None, max_tokens: Optional[int] = None) -> Iterator[str]:
+        yield from self.stream(system, user)
+
     def _meter(self, system: str, user: str, out: str, ptok: Optional[int] = None, ctok: Optional[int] = None) -> None:
         record_llm(self.name, ptok, ctok, system + user, out)
 
@@ -264,27 +271,35 @@ class OpenAILLM(LLM):
             raise ProviderError("OPENAI_API_KEY is not set")
         self.s, self.name = s, f"openai:{s.openai_chat_model}"
 
+    def _payload(self, system: str, user: str, temperature: Optional[float], max_tokens: Optional[int], stream: bool) -> dict:
+        p: dict = {"model": self.s.openai_chat_model, "temperature": 0 if temperature is None else temperature, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}
+        if max_tokens:
+            p["max_completion_tokens"] = max_tokens
+        if stream:
+            p.update({"stream": True, "stream_options": {"include_usage": True}})
+        return p
+
     def complete(self, system: str, user: str) -> str:
+        return self.generate(system, user)
+
+    def generate(self, system: str, user: str, temperature: Optional[float] = None, max_tokens: Optional[int] = None) -> str:
         self.calls += 1
-        data = _post_json(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {self.s.secret('openai_api_key')}"},
-            payload={"model": self.s.openai_chat_model, "temperature": 0, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]},
-            timeout=self.s.llm_timeout,
-        )
-        return data["choices"][0]["message"]["content"].strip()
+        data = _post_json("https://api.openai.com/v1/chat/completions", headers={"Authorization": f"Bearer {self.s.secret('openai_api_key')}"},
+                          payload=self._payload(system, user, temperature, max_tokens, False), timeout=self.s.llm_timeout)
+        out = data["choices"][0]["message"]["content"].strip()
+        u = data.get("usage") or {}
+        self._meter(system, user, out, u.get("prompt_tokens"), u.get("completion_tokens"))
+        return out
 
     def stream(self, system: str, user: str) -> Iterator[str]:
+        yield from self.generate_stream(system, user)
+
+    def generate_stream(self, system: str, user: str, temperature: Optional[float] = None, max_tokens: Optional[int] = None) -> Iterator[str]:
         self.calls += 1
         out: list[str] = []
         ptok = ctok = None
-        for ev in _sse_json(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {self.s.secret('openai_api_key')}"},
-            payload={"model": self.s.openai_chat_model, "temperature": 0, "stream": True, "stream_options": {"include_usage": True},
-                     "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]},
-            timeout=self.s.llm_timeout,
-        ):
+        for ev in _sse_json("https://api.openai.com/v1/chat/completions", headers={"Authorization": f"Bearer {self.s.secret('openai_api_key')}"},
+                            payload=self._payload(system, user, temperature, max_tokens, True), timeout=self.s.llm_timeout):
             if ev.get("usage"):
                 ptok, ctok = ev["usage"].get("prompt_tokens"), ev["usage"].get("completion_tokens")
             for ch in ev.get("choices") or []:
@@ -317,6 +332,16 @@ class GeminiLLM(LLM):
         self.s, self.name = s, f"gemini:{s.gemini_chat_model}"
 
     def complete(self, system: str, user: str) -> str:
+        return self.generate(system, user)
+
+    @staticmethod
+    def _gen_cfg(temperature: Optional[float], max_tokens: Optional[int]) -> dict:
+        cfg: dict = {"temperature": 0 if temperature is None else temperature}
+        if max_tokens:
+            cfg["maxOutputTokens"] = max_tokens
+        return cfg
+
+    def generate(self, system: str, user: str, temperature: Optional[float] = None, max_tokens: Optional[int] = None) -> str:
         self.calls += 1
         data = _post_json(
             f"https://generativelanguage.googleapis.com/v1beta/models/{self.s.gemini_chat_model}:generateContent",
@@ -324,7 +349,7 @@ class GeminiLLM(LLM):
             payload={
                 "systemInstruction": {"parts": [{"text": system}]},
                 "contents": [{"role": "user", "parts": [{"text": user}]}],
-                "generationConfig": {"temperature": 0},
+                "generationConfig": self._gen_cfg(temperature, max_tokens),
             },
             timeout=self.s.llm_timeout,
         )
@@ -337,13 +362,16 @@ class GeminiLLM(LLM):
         return out
 
     def stream(self, system: str, user: str) -> Iterator[str]:
+        yield from self.generate_stream(system, user)
+
+    def generate_stream(self, system: str, user: str, temperature: Optional[float] = None, max_tokens: Optional[int] = None) -> Iterator[str]:
         self.calls += 1
         out: list[str] = []
         ptok = ctok = None
         for ev in _sse_json(
             f"https://generativelanguage.googleapis.com/v1beta/models/{self.s.gemini_chat_model}:streamGenerateContent?alt=sse",
             headers={"x-goog-api-key": self.s.secret("gemini_api_key")},
-            payload={"systemInstruction": {"parts": [{"text": system}]}, "contents": [{"role": "user", "parts": [{"text": user}]}], "generationConfig": {"temperature": 0}},
+            payload={"systemInstruction": {"parts": [{"text": system}]}, "contents": [{"role": "user", "parts": [{"text": user}]}], "generationConfig": self._gen_cfg(temperature, max_tokens)},
             timeout=self.s.llm_timeout,
         ):
             u = ev.get("usageMetadata") or {}
