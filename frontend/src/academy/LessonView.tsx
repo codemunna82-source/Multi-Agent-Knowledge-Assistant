@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { academy } from "../api";
-import { CodeLab } from "./CodeLab";
+import { CodeLab, TaskLab } from "./CodeLab";
 import { QuizPanel } from "./QuizPanel";
 import { RichText } from "./RichText";
 import type { Lang, Lesson, LessonCard, Progress } from "./types";
@@ -88,7 +88,10 @@ export function LessonView({ lesson, lang, progress, cards, order, onTerm, onOpe
       {block("code", t.code, <>{lesson.code.map((c, i) => <CodeLab key={`${lesson.id}-${i}`} example={c} lessonId={lesson.id} index={i} />)}</>)}
       {block("interview", t.interview, <>{rich(lesson.text.interview[lang])}<details><summary>More interview questions</summary>{lesson.interview_questions.map((q) => <div key={q.q} className="ac-iq"><b>{q.q}</b><p>{q.a}</p></div>)}</details></>)}
       {block("mistakes", t.mistakes, <ul>{lesson.text.mistakes[lang].map((m, i) => <li key={i}><RichText text={m} onTerm={onTerm} /></li>)}</ul>)}
-      {block("practice", t.practice, <div className="ac-assign"><b>Mini assignment</b><p>{lesson.assignment}</p></div>)}
+      {block("practice", t.practice, <>
+        <TaskLab key={`${lesson.id}-ex`} task={lesson.exercise} kind="exercise" lessonId={lesson.id} title="Practical exercise" onResult={onChanged} />
+        {lesson.debug && <TaskLab key={`${lesson.id}-dbg`} task={lesson.debug} kind="debug" lessonId={lesson.id} title="Debugging challenge" onResult={onChanged} />}
+        <div className="ac-assign"><b>Mini assignment</b><p>{lesson.assignment}</p></div></>)}
       {block("quiz", t.quiz, <QuizPanel questions={lesson.quiz} onGraded={onChanged} label={`Quiz: ${lesson.title.en}`} />)}
 
       <footer className="ac-foot">

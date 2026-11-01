@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockFetch } from "../testutil";
 import { Academy } from "./Academy";
 
+vi.mock("./CodeEditor", () => ({ default: ({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) => <textarea aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} /> }));
+
 afterEach(() => vi.unstubAllGlobals());
 beforeEach(() => { try { localStorage.clear(); } catch { /* ignore */ } });
 
@@ -21,11 +23,12 @@ const lesson = {
   quiz: [{ id: "what-is-llm.q1", q: "What does an LLM predict?", options: ["Whole answer", "Next token"], kind: "concept" }],
 };
 const progress = (extra: object = {}) => ({ lessons: {}, done: 0, total: 1, percent: 0, categories: [{ id: "llm", title: "LLM Fundamentals", lessons: 1, done: 0, percent: 0 }], quiz: {}, exercises: {}, streak: 2, active_days: 2, weak: [], bookmarks: [], continue: { lesson: "what-is-llm", step: 0 }, recommended: ["what-is-llm"], projects: {}, ...extra });
+const codeStatus = { available: true, reason: null, languages: ["python"], timeout_s: 10, memory_mb: 1536, network: false, setup: null, preinstalled: [], limits: { code_bytes: 20000, output_bytes: 64000 } };
 const glossary = { llm: { term: "LLM", en: "Large Language Model", hi: "बड़ा भाषा model", hinglish: "Bada language model" } };
 
 function setup(extra: Record<string, unknown> = {}) {
   return mockFetch({
-    "/academy/catalog": { body: catalog }, "/academy/glossary": { body: glossary }, "/academy/lessons/what-is-llm": { body: lesson },
+    "/academy/catalog": { body: catalog }, "/academy/code/status": { body: codeStatus }, "/academy/glossary": { body: glossary }, "/academy/lessons/what-is-llm": { body: lesson },
     "PUT /academy/progress": { body: { lesson: "what-is-llm", status: "in_progress", step: 0, bookmarked: false } }, "GET /academy/progress": { body: progress() }, ...extra,
   });
 }

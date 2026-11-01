@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
+from ...academy import sandbox
 from ...academy import service as ac
-from ...db import AcademyProject
+from ...db import AcademyExercise, AcademyProject
 from ..deps import Ctx, require
 
 router = APIRouter(prefix="/academy", tags=["academy"])
@@ -121,3 +122,68 @@ def project_progress(project_id: str, body: ProjectBody, ctx: Ctx = Learn):
             row.done_steps = steps
         ac.touch_activity(s, ctx.principal.user_id)
     return {"project": project_id, "done_steps": steps}
+
+
+# ----------------------------------------------------------------------------- code runner (sandboxed)
+@router.get("/code/status", summary="Whether code can be executed on this server, and what is enforced")
+def code_status(ctx: Ctx = Learn):
+    ok, why = sandbox.available(ctx.svc.settings)
+    s = ctx.svc.settings
+    return {"available": ok, "reason": why or None, "languages": list(sandbox.LANGS) if ok else [], "timeout_s": s.sandbox_timeout_s, "memory_mb": s.sandbox_memory_mb, "network": False,
+            "limits": {"code_bytes": sandbox.MAX_CODE_BYTES, "output_bytes": sandbox.MAX_OUTPUT_BYTES}, "setup": None if ok else sandbox.SETUP_HELP,
+            "preinstalled": ["python standard library", "numpy", "pydantic", "langchain-core", "langgraph"]}
+
+
+class RunBody(BaseModel):
+    language: Literal["python", "javascript"] = "python"
+    code: str = Field(min_length=1, max_length=sandbox.MAX_CODE_BYTES)
+    lesson_id: Optional[str] = Field(default=None, max_length=64)
+    task: Literal["scratch", "example", "exercise", "debug"] = "scratch"
+    example: int = Field(default=0, ge=0, le=20)
+
+
+@router.post("/code/run", summary="Run learner code in an isolated sandbox (no network, CPU/memory/time/output limits); exercises are graded on the output")
+def code_run(body: RunBody, ctx: Ctx = Depends(require("learn", "code"))):
+    expected: Optional[str] = None
+    lesson_id = body.lesson_id
+    if body.task != "scratch":
+        x = _lesson(lesson_id or "")
+        if body.task == "example":
+            codes = x["code"]
+            if body.example >= len(codes) or not codes[body.example].get("runnable"):
+                raise HTTPException(422, "That example is not runnable")
+            expected = codes[body.example].get("expected_output")
+        else:
+            task = x.get(body.task)
+            if not task:
+                raise HTTPException(404, f"This lesson has no {body.task}")
+            expected = task["expected_output"]
+    try:
+        r = sandbox.run(ctx.svc.settings, body.language, body.code)
+    except sandbox.Busy as e:
+        raise HTTPException(429, str(e), headers={"Retry-After": "5"})
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    passed = None
+    if expected is not None and r.unavailable is None:
+        passed = bool(r.ok and r.stdout.strip() == expected.strip())
+        if body.task in ("exercise", "debug"):
+            with ctx.svc.db.session() as s:
+                ac.record_exercise(s, ctx.principal.user_id, lesson_id, body.task, passed)
+    ctx.audit("academy_code_run", lesson_id, "denied" if r.unavailable else "success", {"language": body.language, "task": body.task, "bytes": len(body.code), "exit": r.exit_code, "ms": r.ms, "timed_out": r.timed_out})
+    return {"ok": r.ok, "stdout": r.stdout, "stderr": r.stderr, "exit_code": r.exit_code, "ms": r.ms, "timed_out": r.timed_out, "truncated": r.truncated, "unavailable": r.unavailable,
+            "notes": r.notes, "error_help": sandbox.explain_error(r.stderr) if r.stderr else None, "passed": passed, "expected": expected if body.task == "example" else None}
+
+
+@router.get("/lessons/{lesson_id}/solution/{kind}", summary="The reference solution of an exercise or debug task, available after at least one attempt")
+def solution(lesson_id: str, kind: Literal["exercise", "debug"], ctx: Ctx = Learn):
+    x = _lesson(lesson_id)
+    task = x.get(kind)
+    if not task:
+        raise HTTPException(404, f"This lesson has no {kind}")
+    with ctx.svc.db.session() as s:
+        row = s.scalar(select(AcademyExercise).where(AcademyExercise.user_id == ctx.principal.user_id, AcademyExercise.lesson_id == lesson_id, AcademyExercise.kind == kind))
+        tried = bool(row and row.attempts >= 1)
+    if not tried:
+        raise HTTPException(403, "Try the task at least once first - then the solution is unlocked.")
+    return {"solution": task["solution"], "expected_output": task["expected_output"]}

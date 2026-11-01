@@ -78,6 +78,10 @@ class Settings(BaseSettings):
     rate_limit_playground: str = "40/minute"  # Academy playgrounds that call models/embedders
 
     # --- chunking
+    sandbox: Literal["auto", "off"] = "auto"  # Academy code runner: "auto" uses Linux namespaces when the host allows them, otherwise code execution is DISABLED (never run in-process)
+    sandbox_timeout_s: float = 10.0
+    sandbox_memory_mb: int = 1536  # address-space limit of the child (RLIMIT_AS); Python + LangGraph imports need several hundred MB
+    sandbox_concurrency: int = 2  # simultaneous runs per server process
     stream_timeout_s: float = 300.0  # /ask/stream: an answer still running after this many seconds is stopped with an error event
     chunk_size: int = 1000
     chunk_strategy: Literal["size", "structure"] = "size"  # structure = a heading always starts a new chunk and is repeated on the pieces of a long section

@@ -228,3 +228,15 @@ button.ac-card { display:flex; flex-direction:column; gap:4px; text-align:left; 
 .viz-host { margin:6px 0; }
 @media (max-width:700px) { .bar-row { grid-template-columns:80px 1fr auto; } .viz-flow button { font-size:11px; } }
 @media (prefers-reduced-motion: reduce) { .viz-detail, .viz-flow button, .bar-track i, .ctx-bar i { animation:none; transition:none; } }
+
+/* ---- Academy code lab ---- */
+.cm-host { border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--code-bg); font-size:13px; }
+.cm-host .cm-editor { background:transparent; color:var(--fg); } .cm-host .cm-gutters { background:var(--soft); color:var(--muted); border-right:1px solid var(--line); } .cm-host .cm-activeLine { background:rgba(120,120,160,.1); }
+.cm-host .cm-cursor { border-left-color:var(--fg); } .cm-host .cm-selectionBackground, .cm-host .cm-editor.cm-focused .cm-selectionBackground { background:rgba(59,91,219,.25) !important; }
+.cm-host .cm-keyword, .cm-host .ͼb { color:var(--hl-kw); } .cm-host .cm-string, .cm-host .ͼe { color:var(--hl-str); } .cm-host .cm-comment, .cm-host .ͼ5 { color:var(--hl-com); }
+.cm-fallback { width:100%; font:13px/1.5 ui-monospace,Menlo,monospace; background:var(--code-bg); color:var(--fg); }
+.ac-code-bar { gap:6px; margin:8px 0; flex-wrap:wrap; }
+.ac-console { border:1px solid var(--line); border-radius:8px; padding:8px; margin:6px 0; background:var(--bg); } .ac-console pre { margin:4px 0; white-space:pre-wrap; word-break:break-word; font:12.5px/1.5 ui-monospace,Menlo,monospace; } .ac-console .err, .err { color:var(--bad); }
+.ac-help { background:var(--soft); border-left:3px solid var(--accent); padding:6px 10px; border-radius:6px; margin:6px 0; font-size:13px; } .ac-setup { background:var(--soft); border-radius:6px; padding:6px 10px; margin:6px 0; font-size:13px; }
+.ac-explain { font-size:13px; padding-left:20px; } .ac-explain code { background:var(--code-bg); padding:0 4px; border-radius:4px; } .ac-task { border-left:3px solid var(--accent); }
+.out { background:var(--code-bg); border-radius:8px; padding:8px; margin:4px 0; overflow:auto; font:12.5px/1.5 ui-monospace,Menlo,monospace; white-space:pre-wrap; }
