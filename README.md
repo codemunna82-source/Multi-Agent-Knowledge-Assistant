@@ -63,6 +63,7 @@ docker compose exec api python -m app.cli create-tenant --name "ACME" --email ad
 | Security | JWT + rotating httpOnly refresh token, roles user/manager/admin, tenant isolation, document sharing, audit, rate limits, injection/SSRF defences, retention + erasure, user-controlled memory |
 | Operations | PostgreSQL + Alembic, Redis queue, scheduler, `/metrics`, OpenTelemetry, backup/restore scripts |
 | Learn | **Learn lab**: ablate/compare retrieval techniques, see the LangGraph run step by step, real LangChain objects on your documents — [`docs/LEARNING.md`](docs/LEARNING.md); **✨ Auto** lets a graph node pick the best retrieval setting per question |
+| Academy | **AI Learning Academy** (in the app): 24 lessons in English / Hindi / Hinglish, glossary, quizzes, toy-model visualisations, 7 playgrounds on the real backend, a sandboxed Python/JS runner, 10 guided projects with tested code, interview prep, daily practice, progress and streaks — [`docs/ACADEMY.md`](docs/ACADEMY.md) |
 | UI | ChatGPT-style chat (character-by-character reveal), 14+ screens (dashboard, library, chat, citation preview, exact search, comparison, analyst, reports, history, settings, admin, …), light/dark |
 
 Measured on 4 vCPU (offline config): 1,000-page PDF ingest 5.6 s · exact search 0.1 s with the correct count · complete `/ask` ~90 ms · 200,000-row CSV profile 1.3 s, SQL group-by 65 ms.

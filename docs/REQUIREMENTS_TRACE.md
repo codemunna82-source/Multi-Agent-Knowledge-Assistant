@@ -129,3 +129,16 @@ API groups: auth, users/roles, documents, ingestion jobs, chat + streaming, exac
 | Migrations, health checks, JSON logging, monitoring | ✅ |
 | Deployment and backup/recovery documentation | ✅ `OPERATIONS.md`; `scripts/backup.sh` + `restore.sh` were run against PostgreSQL (dump → empty database → restore → login and question answered) |
 | Production-shaped run (API + worker as separate processes, PostgreSQL, Redis) | ✅ `scripts/prod_smoke.py` |
+
+## AI Learning Academy
+
+| Requirement | Status |
+|---|---|
+| Integrated section, design system reuse, 3-pane responsive UI, light/dark, search, breadcrumbs, next/previous | ✅ `Academy.test.tsx`, e2e |
+| 15 categories, 24 lessons, EN/Hindi/Hinglish, glossary terms, quizzes with explanations | ✅ (24 of a larger planned curriculum – roadmap marks planned topics) `test_academy_content.py` |
+| Interactive visualisations (Play/Pause/Reset/Step, editable inputs) | ✅ toy models, labelled as such; `viz.test.tsx` |
+| 7 playgrounds incl. RAG with upload, rerank before/after, citations | ✅ `test_academy_playground.py`; live LLM/cross-encoder 🟡 never run against real providers |
+| Code editor, Run/Reset/Copy, console, error explanation | ✅ CodeMirror (Monaco rejected: CSP forbids CDN/blob workers) |
+| Secure isolated runner with limits, auth, honest when unsupported | ✅ Linux namespaces + prlimit + chroot (`test_academy_sandbox.py`); 🟡 needs user namespaces; no cgroups/seccomp |
+| 10 guided projects | ✅ each project's own tests run in `test_academy_projects.py` |
+| Progress, streak, weak topics, bookmarks, resume, daily practice, interview prep | ✅ |

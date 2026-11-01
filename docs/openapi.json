@@ -6,6 +6,1328 @@
   "version": "3.0.0"
  },
  "paths": {
+  "/academy/catalog": {
+   "get": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "Categories with their lessons, and the beginner-to-production roadmap",
+    "operationId": "catalog_academy_catalog_get",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/lessons/{lesson_id}": {
+   "get": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "One lesson in English, Hindi and Hinglish (quiz answers and exercise solutions are not included)",
+    "operationId": "lesson_academy_lessons__lesson_id__get",
+    "parameters": [
+     {
+      "name": "lesson_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Lesson Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/glossary": {
+   "get": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "Technical terms with English, Hindi and Hinglish definitions",
+    "operationId": "glossary_academy_glossary_get",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/search": {
+   "get": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "Search",
+    "operationId": "search_academy_search_get",
+    "parameters": [
+     {
+      "name": "q",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 100,
+       "title": "Q"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/progress": {
+   "get": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "Your progress: lessons, categories, quiz scores, streak, weak topics, bookmarks, where to continue",
+    "operationId": "progress_academy_progress_get",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/progress/{lesson_id}": {
+   "put": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "Put Progress",
+    "operationId": "put_progress_academy_progress__lesson_id__put",
+    "parameters": [
+     {
+      "name": "lesson_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Lesson Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ProgressBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/quiz/submit": {
+   "post": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "Grade answers on the server; returns the right answer and why every option is right or wrong",
+    "operationId": "quiz_submit_academy_quiz_submit_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/QuizBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/daily": {
+   "get": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "Five practice questions for today (weak topics first); answers are only revealed after submitting",
+    "operationId": "daily_academy_daily_get",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/interview": {
+   "get": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "Interview questions with concise model answers, filterable by category",
+    "operationId": "interview_academy_interview_get",
+    "parameters": [
+     {
+      "name": "category",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Category"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/projects": {
+   "get": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "Guided end-to-end projects",
+    "operationId": "projects_academy_projects_get",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/projects/{project_id}": {
+   "get": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "Project",
+    "operationId": "project_academy_projects__project_id__get",
+    "parameters": [
+     {
+      "name": "project_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Project Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/projects/{project_id}/progress": {
+   "put": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "Project Progress",
+    "operationId": "project_progress_academy_projects__project_id__progress_put",
+    "parameters": [
+     {
+      "name": "project_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Project Id"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ProjectBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/code/status": {
+   "get": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "Whether code can be executed on this server, and what is enforced",
+    "operationId": "code_status_academy_code_status_get",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/code/run": {
+   "post": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "Run learner code in an isolated sandbox (no network, CPU/memory/time/output limits); exercises are graded on the output",
+    "operationId": "code_run_academy_code_run_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RunBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/lessons/{lesson_id}/solution/{kind}": {
+   "get": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "The reference solution of an exercise or debug task, available after at least one attempt",
+    "operationId": "solution_academy_lessons__lesson_id__solution__kind__get",
+    "parameters": [
+     {
+      "name": "lesson_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Lesson Id"
+      }
+     },
+     {
+      "name": "kind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "enum": [
+        "exercise",
+        "debug"
+       ],
+       "type": "string",
+       "title": "Kind"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/playground/capabilities": {
+   "get": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "What the playgrounds can really do on this server (LLM, embedder, cross-encoder, code runner)",
+    "operationId": "pg_capabilities_academy_playground_capabilities_get",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/playground/llm": {
+   "post": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "Run the configured LLM with chosen sampling parameters; reports tokens and latency",
+    "operationId": "pg_llm_academy_playground_llm_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LlmBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/playground/llm/stream": {
+   "post": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "Server-Sent Events: token events as the model produces them, then done with usage and time to first token",
+    "operationId": "pg_llm_stream_academy_playground_llm_stream_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LlmBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/playground/prompts/compare": {
+   "post": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "Run 2-3 prompt variants side by side and compare the outputs",
+    "operationId": "pg_compare_academy_playground_prompts_compare_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/app__api__routers__academy__CompareBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/playground/embeddings": {
+   "post": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "Embed 2-10 sentences with the configured embedder; vector size, similarity matrix and ranking",
+    "operationId": "pg_embed_academy_playground_embeddings_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/EmbedBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/playground/rag": {
+   "post": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "An ephemeral RAG pipeline on an uploaded PDF/TXT/CSV or pasted text; every stage is returned (nothing is stored)",
+    "operationId": "pg_rag_academy_playground_rag_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "$ref": "#/components/schemas/Body_pg_rag_academy_playground_rag_post"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/playground/langchain": {
+   "post": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "Run a real langchain_core pipeline (prompt | model | parser, optionally parallel); every component's input and output",
+    "operationId": "pg_langchain_academy_playground_langchain_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/app__api__routers__academy__LcBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/playground/langgraph/presets": {
+   "get": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "Ready-made graphs: loop, conditional routing, human approval, supervisor",
+    "operationId": "pg_presets_academy_playground_langgraph_presets_get",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/playground/langgraph/run": {
+   "post": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "Build and run a graph on the real LangGraph library; steps, state after each step, checkpoints. Pauses at interrupt_before nodes.",
+    "operationId": "pg_graph_run_academy_playground_langgraph_run_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/GraphBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/playground/langgraph/resume": {
+   "post": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "Continue a paused graph, optionally after editing its state (human-in-the-loop)",
+    "operationId": "pg_graph_resume_academy_playground_langgraph_resume_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ResumeBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/playground/agent/tools": {
+   "get": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "The tools an agent may be given in the playground",
+    "operationId": "pg_agent_tools_academy_playground_agent_tools_get",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/academy/playground/agent/run": {
+   "post": {
+    "tags": [
+     "academy"
+    ],
+    "summary": "Run an agent with an explicit tool allow-list; operational steps only (tool, input, result), never private reasoning",
+    "operationId": "pg_agent_academy_playground_agent_run_post",
+    "parameters": [
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AgentBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/auth/signup": {
    "post": {
     "tags": [
@@ -1988,7 +3310,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/LcBody"
+        "$ref": "#/components/schemas/app__api__routers__learn__LcBody"
        }
       }
      }
@@ -6395,6 +7717,36 @@
  },
  "components": {
   "schemas": {
+   "AgentBody": {
+    "properties": {
+     "task": {
+      "type": "string",
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Task"
+     },
+     "tools": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 6,
+      "title": "Tools"
+     },
+     "max_steps": {
+      "type": "integer",
+      "maximum": 6.0,
+      "minimum": 1.0,
+      "title": "Max Steps",
+      "default": 4
+     }
+    },
+    "type": "object",
+    "required": [
+     "task"
+    ],
+    "title": "AgentBody"
+   },
    "AnnotationBody": {
     "properties": {
      "source_id": {
@@ -6792,6 +8144,90 @@
     ],
     "title": "AuditOut"
    },
+   "Body_pg_rag_academy_playground_rag_post": {
+    "properties": {
+     "file": {
+      "anyOf": [
+       {
+        "type": "string",
+        "contentMediaType": "application/octet-stream"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "File"
+     },
+     "text": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Text"
+     },
+     "question": {
+      "type": "string",
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Question"
+     },
+     "chunk_size": {
+      "type": "integer",
+      "maximum": 3000.0,
+      "minimum": 100.0,
+      "title": "Chunk Size",
+      "default": 500
+     },
+     "chunk_overlap": {
+      "type": "integer",
+      "maximum": 500.0,
+      "minimum": 0.0,
+      "title": "Chunk Overlap",
+      "default": 50
+     },
+     "top_k": {
+      "type": "integer",
+      "maximum": 8.0,
+      "minimum": 1.0,
+      "title": "Top K",
+      "default": 3
+     },
+     "mode": {
+      "type": "string",
+      "enum": [
+       "vector",
+       "keyword",
+       "hybrid"
+      ],
+      "title": "Mode",
+      "default": "hybrid"
+     },
+     "rerank": {
+      "type": "string",
+      "enum": [
+       "none",
+       "lexical",
+       "cross_encoder"
+      ],
+      "title": "Rerank",
+      "default": "lexical"
+     },
+     "answer": {
+      "type": "boolean",
+      "title": "Answer",
+      "default": true
+     }
+    },
+    "type": "object",
+    "required": [
+     "question"
+    ],
+    "title": "Body_pg_rag_academy_playground_rag_post"
+   },
    "Body_transcribe_transcribe_post": {
     "properties": {
      "audio": {
@@ -6996,6 +8432,65 @@
     ],
     "title": "Code"
    },
+   "CondSpec": {
+    "properties": {
+     "source": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,19}$",
+      "title": "Source"
+     },
+     "key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,19}$",
+      "title": "Key"
+     },
+     "op": {
+      "type": "string",
+      "enum": [
+       "==",
+       "!=",
+       "<",
+       "<=",
+       ">",
+       ">=",
+       "contains"
+      ],
+      "title": "Op",
+      "default": "=="
+     },
+     "value": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "integer"
+       },
+       {
+        "type": "number"
+       }
+      ],
+      "title": "Value"
+     },
+     "then": {
+      "type": "string",
+      "title": "Then"
+     },
+     "otherwise": {
+      "type": "string",
+      "title": "Otherwise"
+     }
+    },
+    "type": "object",
+    "required": [
+     "source",
+     "key",
+     "value",
+     "then",
+     "otherwise"
+    ],
+    "title": "CondSpec"
+   },
    "ConnectorBody": {
     "properties": {
      "name": {
@@ -7117,6 +8612,24 @@
      "code"
     ],
     "title": "Disable"
+   },
+   "EmbedBody": {
+    "properties": {
+     "texts": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 10,
+      "minItems": 2,
+      "title": "Texts"
+     }
+    },
+    "type": "object",
+    "required": [
+     "texts"
+    ],
+    "title": "EmbedBody"
    },
    "EvalCase": {
     "properties": {
@@ -7541,6 +9054,31 @@
     ],
     "title": "FeedbackOut"
    },
+   "GraphBody": {
+    "properties": {
+     "spec": {
+      "$ref": "#/components/schemas/GraphSpec"
+     },
+     "input": {
+      "additionalProperties": true,
+      "type": "object",
+      "maxProperties": 10,
+      "title": "Input"
+     },
+     "max_steps": {
+      "type": "integer",
+      "maximum": 25.0,
+      "minimum": 2.0,
+      "title": "Max Steps",
+      "default": 15
+     }
+    },
+    "type": "object",
+    "required": [
+     "spec"
+    ],
+    "title": "GraphBody"
+   },
    "GraphRunBody": {
     "properties": {
      "question": {
@@ -7580,6 +9118,79 @@
      "question"
     ],
     "title": "GraphRunBody"
+   },
+   "GraphSpec": {
+    "properties": {
+     "state": {
+      "additionalProperties": {
+       "type": "string",
+       "enum": [
+        "str",
+        "int",
+        "list"
+       ]
+      },
+      "type": "object",
+      "maxProperties": 10,
+      "minProperties": 1,
+      "title": "State"
+     },
+     "nodes": {
+      "items": {
+       "$ref": "#/components/schemas/NodeSpec"
+      },
+      "type": "array",
+      "maxItems": 12,
+      "minItems": 1,
+      "title": "Nodes"
+     },
+     "edges": {
+      "items": {
+       "prefixItems": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "string"
+        }
+       ],
+       "type": "array",
+       "maxItems": 2,
+       "minItems": 2
+      },
+      "type": "array",
+      "maxItems": 30,
+      "title": "Edges"
+     },
+     "conditional": {
+      "items": {
+       "$ref": "#/components/schemas/CondSpec"
+      },
+      "type": "array",
+      "maxItems": 6,
+      "title": "Conditional"
+     },
+     "entry": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,19}$",
+      "title": "Entry"
+     },
+     "interrupt_before": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 4,
+      "title": "Interrupt Before"
+     }
+    },
+    "type": "object",
+    "required": [
+     "state",
+     "nodes",
+     "entry"
+    ],
+    "title": "GraphSpec"
    },
    "HTTPValidationError": {
     "properties": {
@@ -7767,55 +9378,40 @@
     ],
     "title": "LabBody"
    },
-   "LcBody": {
+   "LlmBody": {
     "properties": {
-     "question": {
+     "system": {
       "type": "string",
-      "maxLength": 1000,
-      "minLength": 2,
-      "title": "Question"
+      "maxLength": 4000,
+      "title": "System",
+      "default": "You are a helpful assistant."
      },
-     "source_ids": {
-      "anyOf": [
-       {
-        "items": {
-         "type": "string"
-        },
-        "type": "array",
-        "maxItems": 20
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Source Ids"
+     "prompt": {
+      "type": "string",
+      "maxLength": 8000,
+      "minLength": 1,
+      "title": "Prompt"
      },
-     "top_k": {
+     "temperature": {
+      "type": "number",
+      "maximum": 2.0,
+      "minimum": 0.0,
+      "title": "Temperature",
+      "default": 0.7
+     },
+     "max_tokens": {
       "type": "integer",
-      "maximum": 10.0,
+      "maximum": 1000.0,
       "minimum": 1.0,
-      "title": "Top K",
-      "default": 5
-     },
-     "term": {
-      "anyOf": [
-       {
-        "type": "string",
-        "maxLength": 200
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Term",
-      "description": "literal term for the tool demo (default: guessed from the question)"
+      "title": "Max Tokens",
+      "default": 300
      }
     },
     "type": "object",
     "required": [
-     "question"
+     "prompt"
     ],
-    "title": "LcBody"
+    "title": "LlmBody"
    },
    "LoginRequest": {
     "properties": {
@@ -8030,6 +9626,81 @@
     "type": "object",
     "title": "NoSession"
    },
+   "NodeSpec": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,19}$",
+      "title": "Id"
+     },
+     "type": {
+      "type": "string",
+      "enum": [
+       "set",
+       "increment",
+       "append",
+       "uppercase",
+       "concat",
+       "noop"
+      ],
+      "title": "Type",
+      "default": "noop"
+     },
+     "key": {
+      "anyOf": [
+       {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,19}$"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Key"
+     },
+     "value": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "integer"
+       },
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Value"
+     },
+     "by": {
+      "type": "integer",
+      "maximum": 1000.0,
+      "minimum": -1000.0,
+      "title": "By",
+      "default": 1
+     },
+     "template": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 200
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Template"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id"
+    ],
+    "title": "NodeSpec"
+   },
    "PrefsBody": {
     "properties": {
      "memory_enabled": {
@@ -8078,6 +9749,65 @@
     ],
     "title": "PrefsOut"
    },
+   "ProgressBody": {
+    "properties": {
+     "status": {
+      "anyOf": [
+       {
+        "type": "string",
+        "pattern": "^(in_progress|done)$"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Status"
+     },
+     "step": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 50.0,
+        "minimum": 0.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Step"
+     },
+     "bookmarked": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Bookmarked"
+     }
+    },
+    "type": "object",
+    "title": "ProgressBody"
+   },
+   "ProjectBody": {
+    "properties": {
+     "done_steps": {
+      "items": {
+       "type": "integer"
+      },
+      "type": "array",
+      "maxItems": 60,
+      "title": "Done Steps"
+     }
+    },
+    "type": "object",
+    "required": [
+     "done_steps"
+    ],
+    "title": "ProjectBody"
+   },
    "PurgeRequest": {
     "properties": {
      "confirm": {
@@ -8090,6 +9820,25 @@
      "confirm"
     ],
     "title": "PurgeRequest"
+   },
+   "QuizBody": {
+    "properties": {
+     "answers": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "type": "object",
+      "maxProperties": 40,
+      "minProperties": 1,
+      "title": "Answers",
+      "description": "question id -> index of the chosen option"
+     }
+    },
+    "type": "object",
+    "required": [
+     "answers"
+    ],
+    "title": "QuizBody"
    },
    "RefreshRequest": {
     "properties": {
@@ -8287,6 +10036,41 @@
     ],
     "title": "ReportOut"
    },
+   "ResumeBody": {
+    "properties": {
+     "thread_id": {
+      "type": "string",
+      "maxLength": 40,
+      "minLength": 4,
+      "title": "Thread Id"
+     },
+     "state_update": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object",
+        "maxProperties": 10
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "State Update"
+     },
+     "max_steps": {
+      "type": "integer",
+      "maximum": 25.0,
+      "minimum": 2.0,
+      "title": "Max Steps",
+      "default": 15
+     }
+    },
+    "type": "object",
+    "required": [
+     "thread_id"
+    ],
+    "title": "ResumeBody"
+   },
    "RetrievalOptions": {
     "properties": {
      "mode": {
@@ -8474,6 +10258,60 @@
     "type": "object",
     "title": "RetrievalOptions",
     "description": "Per-request overrides; anything left unset falls back to the server defaults (MKA_*)."
+   },
+   "RunBody": {
+    "properties": {
+     "language": {
+      "type": "string",
+      "enum": [
+       "python",
+       "javascript"
+      ],
+      "title": "Language",
+      "default": "python"
+     },
+     "code": {
+      "type": "string",
+      "maxLength": 20000,
+      "minLength": 1,
+      "title": "Code"
+     },
+     "lesson_id": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 64
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Lesson Id"
+     },
+     "task": {
+      "type": "string",
+      "enum": [
+       "scratch",
+       "example",
+       "exercise",
+       "debug"
+      ],
+      "title": "Task",
+      "default": "scratch"
+     },
+     "example": {
+      "type": "integer",
+      "maximum": 20.0,
+      "minimum": 0.0,
+      "title": "Example",
+      "default": 0
+     }
+    },
+    "type": "object",
+    "required": [
+     "code"
+    ],
+    "title": "RunBody"
    },
    "ScheduleBody": {
     "properties": {
@@ -9322,6 +11160,34 @@
     ],
     "title": "ValidationError"
    },
+   "Variant": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "maxLength": 40,
+      "minLength": 1,
+      "title": "Name"
+     },
+     "system": {
+      "type": "string",
+      "maxLength": 4000,
+      "title": "System",
+      "default": ""
+     },
+     "prompt": {
+      "type": "string",
+      "maxLength": 8000,
+      "minLength": 1,
+      "title": "Prompt"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name",
+     "prompt"
+    ],
+    "title": "Variant"
+   },
    "WebBody": {
     "properties": {
      "query": {
@@ -9337,6 +11203,113 @@
      "query"
     ],
     "title": "WebBody"
+   },
+   "app__api__routers__academy__CompareBody": {
+    "properties": {
+     "variants": {
+      "items": {
+       "$ref": "#/components/schemas/Variant"
+      },
+      "type": "array",
+      "maxItems": 3,
+      "minItems": 2,
+      "title": "Variants"
+     },
+     "temperature": {
+      "type": "number",
+      "maximum": 2.0,
+      "minimum": 0.0,
+      "title": "Temperature",
+      "default": 0.0
+     },
+     "max_tokens": {
+      "type": "integer",
+      "maximum": 1000.0,
+      "minimum": 1.0,
+      "title": "Max Tokens",
+      "default": 250
+     }
+    },
+    "type": "object",
+    "required": [
+     "variants"
+    ],
+    "title": "CompareBody"
+   },
+   "app__api__routers__academy__LcBody": {
+    "properties": {
+     "pattern": {
+      "type": "string",
+      "enum": [
+       "sequence",
+       "parallel"
+      ],
+      "title": "Pattern",
+      "default": "sequence"
+     },
+     "system": {
+      "type": "string",
+      "maxLength": 500,
+      "title": "System",
+      "default": "You are a {role}."
+     },
+     "template": {
+      "type": "string",
+      "maxLength": 800,
+      "minLength": 1,
+      "title": "Template",
+      "default": "{question}"
+     },
+     "variables": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "type": "object",
+      "maxProperties": 10,
+      "title": "Variables"
+     },
+     "model": {
+      "type": "string",
+      "enum": [
+       "fake",
+       "configured"
+      ],
+      "title": "Model",
+      "default": "fake"
+     },
+     "fake_reply": {
+      "type": "string",
+      "maxLength": 400,
+      "title": "Fake Reply",
+      "default": "Paris, France, Europe"
+     },
+     "parser": {
+      "type": "string",
+      "enum": [
+       "str",
+       "list",
+       "json"
+      ],
+      "title": "Parser",
+      "default": "str"
+     },
+     "temperature": {
+      "type": "number",
+      "maximum": 2.0,
+      "minimum": 0.0,
+      "title": "Temperature",
+      "default": 0.0
+     },
+     "max_tokens": {
+      "type": "integer",
+      "maximum": 1000.0,
+      "minimum": 1.0,
+      "title": "Max Tokens",
+      "default": 200
+     }
+    },
+    "type": "object",
+    "title": "LcBody"
    },
    "app__api__routers__features__CompareBody": {
     "properties": {
@@ -9417,6 +11390,56 @@
      "question"
     ],
     "title": "CompareBody"
+   },
+   "app__api__routers__learn__LcBody": {
+    "properties": {
+     "question": {
+      "type": "string",
+      "maxLength": 1000,
+      "minLength": 2,
+      "title": "Question"
+     },
+     "source_ids": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array",
+        "maxItems": 20
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Ids"
+     },
+     "top_k": {
+      "type": "integer",
+      "maximum": 10.0,
+      "minimum": 1.0,
+      "title": "Top K",
+      "default": 5
+     },
+     "term": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 200
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Term",
+      "description": "literal term for the tool demo (default: guessed from the question)"
+     }
+    },
+    "type": "object",
+    "required": [
+     "question"
+    ],
+    "title": "LcBody"
    }
   }
  }

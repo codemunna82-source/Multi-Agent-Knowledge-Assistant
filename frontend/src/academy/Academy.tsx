@@ -3,7 +3,9 @@ import { academy } from "../api";
 import { errText, useLoad } from "../ui";
 import { Dashboard } from "./Dashboard";
 import { LessonView } from "./LessonView";
+import { Interview } from "./Interview";
 import { Playground } from "./Playground";
+import { Projects } from "./Projects";
 import { QuizPanel } from "./QuizPanel";
 import { SidePanel } from "./SidePanel";
 import type { Lang, Level, LessonCard } from "./types";
@@ -100,7 +102,8 @@ export function Academy({ workspace }: { workspace: string }) {
             {daily.data && <QuizPanel questions={daily.data.questions} label="Daily practice" onGraded={() => void progress.reload()} />}</div>
         )}
         {view.kind === "playground" && <Playground workspace={workspace} />}
-        {(view.kind === "projects" || view.kind === "interview") && <div className="muted">This section is coming in the next phase.</div>}
+        {view.kind === "projects" && <Projects onChanged={() => void progress.reload()} />}
+        {view.kind === "interview" && <Interview categories={Object.fromEntries((catalog.data?.categories ?? []).map((c) => [c.id, c.title.en]))} />}
       </main>
 
       <SidePanel lang={lang} term={term} termId={termId} lesson={lesson.data} progress={progress.data} cards={cards} onOpen={openLesson} onClose={() => setTermId(null)} />

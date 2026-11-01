@@ -10,12 +10,6 @@ sys.path.insert(0, ".")
 path = sys.argv[1]
 mod = importlib.import_module(path.replace("/", ".").removesuffix(".py"))
 src = open(path, encoding="utf-8").read()
-for x in mod.LESSONS:
-    jobs = [(c["code"], c["language"]) for c in x["code"] if c.get("runnable")]
-    jobs += [(x[k]["solution"], "python") for k in ("exercise", "debug") if x.get(k)]
-    for code, lang in jobs:
-        # only examples whose expected output is the placeholder are run
-        pass
 marker = '"expected_output": "__FILL__"'
 for x in mod.LESSONS:
     entries = [(c["code"], c["language"], c.get("expected_output")) for c in x["code"] if c.get("runnable")]

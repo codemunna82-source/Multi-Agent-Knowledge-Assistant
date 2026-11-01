@@ -5,6 +5,196 @@ machine-readable: [`openapi.json`](openapi.json).
 
 **Conventions** — `Authorization: Bearer <JWT>` (when `MKA_AUTH_ENABLED=true`); `X-Session-ID: <workspace>` selects the document workspace inside your tenant (default `default`); `X-Request-ID` is echoed back and stored in the audit log; errors are `{ "detail": ... }` with 401/403/404/409/413/422/429/502 as appropriate; `429` carries `Retry-After`.
 
+## academy
+
+### `GET /academy/catalog`
+
+Parameters: `x-session-id` (header)
+
+Responses: 200, 422
+
+### `POST /academy/code/run`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `RunBody`
+
+Responses: 200, 422
+
+### `GET /academy/code/status`
+
+Parameters: `x-session-id` (header)
+
+Responses: 200, 422
+
+### `GET /academy/daily`
+
+Parameters: `x-session-id` (header)
+
+Responses: 200, 422
+
+### `GET /academy/glossary`
+
+Parameters: `x-session-id` (header)
+
+Responses: 200, 422
+
+### `GET /academy/interview`
+
+Parameters: `category` (query), `x-session-id` (header)
+
+Responses: 200, 422
+
+### `GET /academy/lessons/{lesson_id}`
+
+Parameters: `lesson_id` (path, required), `x-session-id` (header)
+
+Responses: 200, 422
+
+### `GET /academy/lessons/{lesson_id}/solution/{kind}`
+
+Parameters: `lesson_id` (path, required), `kind` (path, required), `x-session-id` (header)
+
+Responses: 200, 422
+
+### `POST /academy/playground/agent/run`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `AgentBody`
+
+Responses: 200, 422
+
+### `GET /academy/playground/agent/tools`
+
+Parameters: `x-session-id` (header)
+
+Responses: 200, 422
+
+### `GET /academy/playground/capabilities`
+
+Parameters: `x-session-id` (header)
+
+Responses: 200, 422
+
+### `POST /academy/playground/embeddings`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `EmbedBody`
+
+Responses: 200, 422
+
+### `POST /academy/playground/langchain`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `app__api__routers__academy__LcBody`
+
+Responses: 200, 422
+
+### `GET /academy/playground/langgraph/presets`
+
+Parameters: `x-session-id` (header)
+
+Responses: 200, 422
+
+### `POST /academy/playground/langgraph/resume`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `ResumeBody`
+
+Responses: 200, 422
+
+### `POST /academy/playground/langgraph/run`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `GraphBody`
+
+Responses: 200, 422
+
+### `POST /academy/playground/llm`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `LlmBody`
+
+Responses: 200, 422
+
+### `POST /academy/playground/llm/stream`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `LlmBody`
+
+Responses: 200, 422
+
+### `POST /academy/playground/prompts/compare`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `app__api__routers__academy__CompareBody`
+
+Responses: 200, 422
+
+### `POST /academy/playground/rag`
+
+Parameters: `x-session-id` (header)
+
+Body: `multipart/form-data` → `Body_pg_rag_academy_playground_rag_post`
+
+Responses: 200, 422
+
+### `GET /academy/progress`
+
+Parameters: `x-session-id` (header)
+
+Responses: 200, 422
+
+### `PUT /academy/progress/{lesson_id}`
+
+Parameters: `lesson_id` (path, required), `x-session-id` (header)
+
+Body: `application/json` → `ProgressBody`
+
+Responses: 200, 422
+
+### `GET /academy/projects`
+
+Parameters: `x-session-id` (header)
+
+Responses: 200, 422
+
+### `GET /academy/projects/{project_id}`
+
+Parameters: `project_id` (path, required), `x-session-id` (header)
+
+Responses: 200, 422
+
+### `PUT /academy/projects/{project_id}/progress`
+
+Parameters: `project_id` (path, required), `x-session-id` (header)
+
+Body: `application/json` → `ProjectBody`
+
+Responses: 200, 422
+
+### `POST /academy/quiz/submit`
+
+Parameters: `x-session-id` (header)
+
+Body: `application/json` → `QuizBody`
+
+Responses: 200, 422
+
+### `GET /academy/search`
+
+Parameters: `q` (query, required), `x-session-id` (header)
+
+Responses: 200, 422
+
 ## admin
 
 ### `GET /admin/audit`
@@ -565,7 +755,7 @@ Responses: 200, 422
 
 Parameters: `x-session-id` (header)
 
-Body: `application/json` → `LcBody`
+Body: `application/json` → `app__api__routers__learn__LcBody`
 
 Responses: 200, 422
 

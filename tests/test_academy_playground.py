@@ -139,9 +139,13 @@ def test_llm_stream_is_cancelled_when_the_client_disconnects(tmp_path):
 
     s = Settings(data_dir=str(tmp_path / "d"), _env_file=None, rate_limit_playground="10000/minute")
     app = create_app(s, Knowledge(s, llm=Slow()))
-    sock = socket.socket(); sock.bind(("127.0.0.1", 0)); port = sock.getsockname()[1]; sock.close()
+    sock = socket.socket()
+    sock.bind(("127.0.0.1", 0))
+    port = sock.getsockname()[1]
+    sock.close()
     srv = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
-    th = threading.Thread(target=srv.run, daemon=True); th.start()
+    th = threading.Thread(target=srv.run, daemon=True)
+    th.start()
     for _ in range(100):
         if srv.started:
             break

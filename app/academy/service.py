@@ -132,6 +132,9 @@ def _all_text(node) -> list[str]:
 def public_lesson(x: dict) -> dict:
     """The lesson as the learner may see it: quiz answers/explanations, exercise solutions stay on the server."""
     y = copy.deepcopy(x)
+    for k in ("viz", "prereq", "sources", "code", "projects", "tags"):
+        if y.get(k) is None:
+            y[k] = []                             # lists are always lists on the wire; a lesson that has no animation must not send null
     for q in y["quiz"]:
         for k in SECRET_LESSON_KEYS:
             q.pop(k, None)

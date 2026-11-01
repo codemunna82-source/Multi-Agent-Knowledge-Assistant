@@ -84,7 +84,7 @@ export function LessonView({ lesson, lang, progress, cards, order, onTerm, onOpe
       {block("technical", t.technical, rich(lesson.text.technical[lang]))}
       {block("why", t.why, rich(lesson.text.why[lang]))}
       {block("example", t.example, rich(lesson.text.example[lang]))}
-      {block("visual", t.visual, lesson.viz.length ? <VizHost ids={lesson.viz} lang={lang} /> : <p className="muted small">This topic has no animation; use the code and practice sections.</p>)}
+      {block("visual", t.visual, (lesson.viz?.length ?? 0) > 0 ? <VizHost ids={lesson.viz!} lang={lang} /> : <p className="muted small">This topic has no animation; use the code and practice sections.</p>)}
       {block("code", t.code, <>{lesson.code.map((c, i) => <CodeLab key={`${lesson.id}-${i}`} example={c} lessonId={lesson.id} index={i} />)}</>)}
       {block("interview", t.interview, <>{rich(lesson.text.interview[lang])}<details><summary>More interview questions</summary>{lesson.interview_questions.map((q) => <div key={q.q} className="ac-iq"><b>{q.q}</b><p>{q.a}</p></div>)}</details></>)}
       {block("mistakes", t.mistakes, <ul>{lesson.text.mistakes[lang].map((m, i) => <li key={i}><RichText text={m} onTerm={onTerm} /></li>)}</ul>)}

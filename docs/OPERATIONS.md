@@ -94,3 +94,10 @@ Changing the embedding model flags every source *needs re-index*; re-index from 
 | Hindi text garbled in a PDF report | reportlab does not shape Devanagari: export DOCX/XLSX or set `MKA_REPORT_FONT` (shaping still not applied) |
 | `answers say "needs re-index"` | embedding model changed since ingestion |
 | `agent step timed out` | raise `MKA_NODE_TIMEOUT_S`, check provider latency (`mka_agent_node_seconds`) |
+
+## AI Learning Academy
+
+* **Code runner** (`POST /academy/code/run`) never executes learner code in the API process. On Linux it starts a child under `unshare --user --map-root-user --net --mount --pid`, `prlimit` limits (CPU, memory, file size, open files) and a `chroot` into a minimal read-only root with a 32 MB tmpfs `/tmp`; there is no network and no access to the server's files or environment. `GET /academy/code/status` says whether it is available. **If the host forbids unprivileged user namespaces (the default Docker seccomp profile does), the runner reports "unavailable" and executes nothing** – run the container with a profile that allows `unshare`/`clone` of user namespaces, or leave the feature off. There are no cgroups or seccomp filters in this sandbox; for hostile multi-tenant use put it behind gVisor/Firecracker.
+* Settings: `MKA_SANDBOX` (`auto`/`off`), `MKA_SANDBOX_TIMEOUT_S`, `MKA_SANDBOX_MEMORY_MB`, `MKA_SANDBOX_CONCURRENCY` (a full queue returns 429), `MKA_RATE_LIMIT_CODE`, `MKA_RATE_LIMIT_PLAYGROUND`.
+* **Playgrounds** call the configured LLM/embedder. Without an LLM they say so and show the exact request instead of inventing an answer.
+* Progress, quiz attempts, bookmarks and project steps live in the `academy_*` tables (migration 0005) and are removed with the user (`DELETE /admin/users/{id}`).

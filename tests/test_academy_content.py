@@ -54,3 +54,10 @@ def test_non_runnable_examples_say_what_they_need_and_do_not_claim_output():
 def test_every_lesson_cites_official_looking_https_sources():
     for lid, x in ac.lessons().items():
         assert all(s["url"].startswith("https://") and s["title"] for s in x["sources"]), lid
+
+
+def test_public_lessons_never_send_null_lists():
+    for lid, x in ac.lessons().items():
+        y = ac.public_lesson(x)
+        for k in ("viz", "prereq", "sources", "code", "projects", "tags", "quiz"):
+            assert isinstance(y[k], list), (lid, k)

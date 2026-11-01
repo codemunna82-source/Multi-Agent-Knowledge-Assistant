@@ -36,14 +36,14 @@ const stop = () => server.kill("SIGTERM");
 process.on("exit", stop);
 
 let failures = 0;
-const step = async (name, fn) => { try { await fn(); console.log("  ✓", name); } catch (e) { failures++; console.log("  ✗", name, "\n    ", String(e.message).split("\n")[0]); if (process.env.DEBUG_E2E) console.log("    page text:", (await page.locator("body").innerText()).slice(0, 1800).replace(/\n/g, " | ")); } };
+const step = async (name, fn) => { try { await fn(); console.log("  ✓", name); } catch (e) { failures++; console.log("  ✗", name, "\n    ", String(e.stack).split("\n").filter((l) => !l.includes("node_modules")).slice(0, 3).join(" ")); if (process.env.DEBUG_E2E) console.log("    page text:", (await page.locator("body").innerText()).slice(0, 1800).replace(/\n/g, " | ")); } };
 
 for (let i = 0; i < 60; i++) { try { if ((await fetch(`${base}/health`)).ok) break; } catch { /* starting */ } await new Promise((r) => setTimeout(r, 250)); }
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
 const errors = [];
-page.on("pageerror", (e) => errors.push(e.message));
+page.on("pageerror", (e) => errors.push(e.message + (process.env.DEBUG_E2E ? " " + String(e.stack).split("\n").slice(0, 3).join(" ") : "")));
 // 422s are the deliberate rejections in this script (DROP TABLE in the SQL sandbox, a note containing a password)
 page.on("console", (m) => m.type() === "error" && !m.text().includes("favicon") && !/status of 422/.test(m.text()) && errors.push(m.text()));
 page.on("dialog", (d) => d.accept());
@@ -233,6 +233,28 @@ await step("learn lab: demo documents, ablation, graph run with auto strategy, L
   await page.getByLabel("Workspace").fill("default");
   await page.getByLabel("Workspace").press("Enter");
 });
+await step("academy: dashboard, lesson with Hinglish switch, quiz, projects with code, interview prep, daily practice", async () => {
+  await page.getByRole("button", { name: "AI Learning Academy", exact: true }).click();
+  await page.getByRole("region", { name: "Continue learning" }).waitFor(T);
+  await page.getByRole("button", { name: /Start →|Resume →/ }).click();
+  await page.getByRole("heading", { level: 1 }).first().waitFor(T);
+  const before = await page.getByRole("heading", { level: 1 }).first().innerText();
+  await page.getByRole("group", { name: "Explanation language" }).getByRole("button", { name: "Hinglish" }).click();
+  await page.waitForTimeout(400);
+  if (!(await page.getByRole("group", { name: "Explanation language" }).getByRole("button", { name: "Hinglish" }).getAttribute("aria-pressed") === "true")) throw new Error("language did not switch");
+  if (!before) throw new Error("lesson did not render");
+  await page.getByRole("button", { name: "Projects", exact: true }).click();
+  await page.getByRole("button", { name: /PDF Chatbot/ }).click();
+  await page.getByRole("heading", { name: "Complete code" }).waitFor(T);
+  await page.getByRole("tab", { name: "core.py" }).click();
+  await page.getByText(/class Store/).first().waitFor(T);
+  await page.getByRole("button", { name: "Interview prep", exact: true }).click();
+  await page.locator("details.ac-qa").first().waitFor(T);
+  await page.getByRole("button", { name: "Daily practice", exact: true }).click();
+  await page.getByRole("heading", { name: "Daily practice" }).waitFor(T);
+  await page.getByRole("button", { name: "Playground", exact: true }).click();
+  await page.getByLabel("What is available on this server").waitFor(T);
+});
 await step("plain user: signs in, can chat and search, cannot see Admin/Evaluation or upload", async () => {
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.getByRole("heading", { name: "Sign in" }).waitFor(T);
@@ -251,7 +273,7 @@ await step("plain user: signs in, can chat and search, cannot see Admin/Evaluati
 });
 await step("phone layout: no horizontal overflow on the main screens at 390 px", async () => {
   await page.setViewportSize({ width: 390, height: 800 });
-  for (const name of ["Dashboard", "Library", "Chat", "Exact search", "Compare", "Data analyst", "Reports", "History", "Learn lab", "Settings"]) {
+  for (const name of ["Dashboard", "Library", "Chat", "Exact search", "Compare", "Data analyst", "Reports", "History", "Learn lab", "AI Learning Academy", "Settings"]) {
     await page.getByRole("button", { name, exact: true }).click();
     await page.waitForTimeout(250);
     const over = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);

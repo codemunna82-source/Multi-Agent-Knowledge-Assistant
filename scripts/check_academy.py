@@ -1,7 +1,5 @@
 """Authoring check for Academy content: structural validation + executes every runnable example, exercise solution and debug solution
 (in-process here for speed; tests/test_academy_content.py runs the same code inside the sandbox) and compares the output."""
-import contextlib
-import io
 import subprocess
 import sys
 
