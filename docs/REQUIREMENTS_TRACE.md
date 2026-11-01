@@ -67,6 +67,10 @@ Legend: ✅ implemented and exercised by an automated test · 🟡 implemented, 
 | UI stays usable when the backend is down (banner + retry) | ✅ | `App.test.tsx` |
 | **Two-step sign-in (TOTP)**, own RFC 6238 implementation, replay protection, single-use recovery codes, disable needs password + code | ✅ | `test_mfa.py` (RFC test vectors) |
 | **OpenID Connect SSO** (code flow + PKCE S256, state/nonce, JWKS signature, RS/ES only, iss/aud/exp, verified-email linking, domain allow-list, auto-provision never creates admins) | ✅ against an **in-process mock IdP**; not tried against Okta/Entra/Keycloak. IdP-side MFA is trusted for SSO logins | `test_oidc.py` |
+| TOTP seeds encrypted at rest (Fernet, `MKA_DATA_KEY`; plaintext rows stay readable; migration 0004) | ✅ key rotation is manual; losing the key means users re-enrol | `test_s1_features.py` |
+| Structure-aware chunking (`MKA_CHUNK_STRATEGY=structure`; default stays `size`; compare in the Chunk Lab) | ✅ heading detection is heuristic; retrieval-quality gain **not measured** on real documents | `test_chunk_structure.py` |
+| Slack-format webhooks and e-mail (`mailto:` targets via SMTP) for alerts and scheduled reports; audit shipping to a SIEM (`ship_audit`, NDJSON / Splunk HEC, at-least-once) | ✅ against fake SMTP / fake collector only | `test_s1_features.py` |
+| Admin "Usage & quality" panel (`/admin/insights`) | ✅ counts only stored (non-incognito) answers | `test_s1_features.py`, `Screens.test.tsx` |
 | Helm chart (`deploy/helm/mka`) | 🟡 written, YAML/values statically checked; **never rendered or installed** (no helm/Kubernetes here) | `test_deploy_files.py` |
 | Saved searches + alerts, scheduled reports (+ SSRF-guarded webhooks), folder / URL-list / S3 connectors, annotations, report-from-chat, chunk-size lab | ✅ (S3 path not tested against real S3: `boto3` not installed) | `test_automation.py` |
 

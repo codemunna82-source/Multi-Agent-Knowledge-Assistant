@@ -171,13 +171,13 @@ function ChunkLab({ workspace }: { workspace: string }) {
       <h2 style={{ marginTop: 0 }}>How chunk size cuts a document</h2>
       <p className="muted small">Nothing is re-indexed: the stored text is only re-cut for the experiment. Chunks never cross a page, sheet or section boundary.</p>
       <div className="row"><select aria-label="Document" value={id} onChange={(e) => setId(e.target.value)}>{docs.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
-        <button className="primary" disabled={!docs.length} onClick={() => void go()}>Cut with 400 / 1000 / 2500 characters</button></div>
+        <button className="primary" disabled={!docs.length} onClick={() => void go()}>Cut with 400 / 1000 / 1000 + headings / 2500</button></div>
       {!docs.length && <p className="muted small">Load the demo documents first.</p>}
       {err && <div className="error" role="alert">{err}</div>}
       {res && <>
         <table aria-label="Chunking results"><thead><tr><th>Size / overlap</th><th>Chunks</th><th>Average</th><th>Min–max</th><th>Tiny (&lt;20%)</th></tr></thead>
-          <tbody>{res.rows.map((r) => <tr key={r.size}><td>{r.size} / {r.overlap}</td><td>{r.chunks}</td><td>{r.avg_chars}</td><td>{r.min_chars}–{r.max_chars}</td><td>{r.tiny_chunks}</td></tr>)}</tbody></table>
-        {res.rows.map((r) => <details key={r.size}><summary className="small">First chunks at {r.size} characters</summary>{r.samples.map((s, i) => <div className="cite" key={i}><b>{s.location}</b> <span className="muted small">{s.chars} chars</span><div>{s.text}</div></div>)}</details>)}
+          <tbody>{res.rows.map((r) => <tr key={`${r.size}-${r.structure}`}><td>{r.size} / {r.overlap}{r.structure ? " + headings" : ""}</td><td>{r.chunks}</td><td>{r.avg_chars}</td><td>{r.min_chars}–{r.max_chars}</td><td>{r.tiny_chunks}</td></tr>)}</tbody></table>
+        {res.rows.map((r) => <details key={`${r.size}-${r.structure}`}><summary className="small">First chunks at {r.size} characters{r.structure ? " (heading-aware)" : ""}</summary>{r.samples.map((s, i) => <div className="cite" key={i}><b>{s.location}</b> <span className="muted small">{s.chars} chars</span><div>{s.text}</div></div>)}</details>)}
         <p className="muted small">{res.reading}</p></>}
     </div>
   );

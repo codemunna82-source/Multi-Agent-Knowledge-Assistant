@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from ...db import User, UserMfa
-from ...security import totp
+from ...security import secretbox, totp
 from ...security.auth import Principal, verify_password
 from ..deps import Services, get_principal, get_svc, rate_limit
 
@@ -22,11 +22,11 @@ class Disable(BaseModel):
     code: str = Field(max_length=32)
 
 
-def check_second_factor(row: UserMfa, code: Optional[str]) -> bool:
+def check_second_factor(row: UserMfa, code: Optional[str], settings) -> bool:
     """Accept a TOTP code once (replay-protected) or an unused recovery code. Mutates `row`; the caller commits."""
     if not code:
         return False
-    counter = totp.verify(row.secret, code, row.last_counter)
+    counter = totp.verify(secretbox.open_(settings, row.secret), code, row.last_counter)
     if counter is not None:
         row.last_counter = counter
         return True
@@ -53,9 +53,9 @@ def setup(request: Request, p: Principal = Depends(get_principal), svc: Services
             raise HTTPException(409, "MFA is already enabled; disable it first to enrol a new device")
         secret = totp.new_secret()
         if row:
-            row.secret, row.last_counter = secret, 0
+            row.secret, row.last_counter = secretbox.seal(svc.settings, secret), 0
         else:
-            s.add(UserMfa(user_id=p.user_id, secret=secret, enabled=False, recovery_hashes=[]))
+            s.add(UserMfa(user_id=p.user_id, secret=secretbox.seal(svc.settings, secret), enabled=False, recovery_hashes=[]))
     return {"secret": secret, "otpauth_uri": totp.provisioning_uri(secret, p.email)}
 
 
@@ -66,7 +66,7 @@ def enable(body: Code, request: Request, p: Principal = Depends(get_principal), 
         row = s.get(UserMfa, p.user_id)
         if not row or row.enabled:
             raise HTTPException(409, "Start with POST /auth/mfa/setup")
-        counter = totp.verify(row.secret, body.code, row.last_counter)
+        counter = totp.verify(secretbox.open_(svc.settings, row.secret), body.code, row.last_counter)
         if counter is None:
             raise HTTPException(422, "That code is not valid. Check the clock on your device and try the next code.")
         codes = totp.new_recovery_codes()
@@ -82,7 +82,7 @@ def disable(body: Disable, request: Request, p: Principal = Depends(get_principa
         u, row = s.get(User, p.user_id), s.get(UserMfa, p.user_id)
         if not row or not row.enabled:
             raise HTTPException(409, "MFA is not enabled")
-        if not (u and verify_password(body.password, u.password_hash) and check_second_factor(row, body.code)):
+        if not (u and verify_password(body.password, u.password_hash) and check_second_factor(row, body.code, svc.settings)):
             svc.auditor.record("mfa_disable", tenant_id=p.tenant_id, user_id=p.user_id, outcome="denied", request_id=request.state.request_id)
             raise HTTPException(401, "Password or code is wrong")
         s.delete(row)

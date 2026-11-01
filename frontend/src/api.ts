@@ -1,4 +1,4 @@
-import type {
+import type { Insights,
   Anomalies, AskBody, GraphInfo, GraphRun, LabRow, LcDemo, LessonsOut, RetrievalOptions, AskResponse, AuditEvent, ChartSpec, Conversation, ContradictionResult, DiffResult, EvalReport, EvalSummary, ExactResult, Health, IngestResult, Job, MemoryFact,
   MemoryPrefs, Message, Paged, Profile, QueuedItem, ReportItem, Sharing, SourceInfo, SqlResult, SqlTable, StreamEvent, SummaryOut, TenantSettings, TimelineEvent, TokenResponse, Trend, User,
 } from "./types";
@@ -165,7 +165,7 @@ export const api = {
   annotations: (ws: string, sourceId: string) => req<{ id: string; loc: Record<string, unknown>; quote: string | null; note: string; kind: string; shared: boolean; mine: boolean }[]>(`/annotations${qs({ source_id: sourceId })}`, { workspace: ws }),
   addAnnotation: (ws: string, body: { source_id: string; loc: Record<string, unknown>; quote?: string; note: string; kind: string; shared: boolean }) => req<{ id: string }>("/annotations", { method: "POST", body, workspace: ws }),
   deleteAnnotation: (id: string) => req<{ deleted: string }>(`/annotations/${id}`, { method: "DELETE" }),
-  learnChunking: (ws: string, source_id: string) => req<{ source: string; units: number; reading: string; rows: { size: number; overlap: number; chunks: number; avg_chars: number; min_chars: number; max_chars: number; tiny_chunks: number; samples: { location: string; chars: number; text: string }[] }[] }>("/learn/chunking", { method: "POST", body: { source_id }, workspace: ws }),
+  learnChunking: (ws: string, source_id: string) => req<{ source: string; units: number; reading: string; rows: { size: number; overlap: number; structure?: boolean; chunks: number; avg_chars: number; min_chars: number; max_chars: number; tiny_chunks: number; samples: { location: string; chars: number; text: string }[] }[] }>("/learn/chunking", { method: "POST", body: { source_id }, workspace: ws }),
   learnLessons: () => req<LessonsOut>("/learn/lessons"),
   learnDemoCorpus: (ws: string) => req<{ documents: { name: string; status: string }[] }>("/learn/demo-corpus", { method: "POST", workspace: ws }),
   learnCompare: (ws: string, question: string, presets?: string[]) => req<{ rows: LabRow[] }>("/learn/retrieval/compare", { method: "POST", body: { question, presets }, workspace: ws }),
@@ -190,6 +190,7 @@ export const api = {
   createUser: (email: string, password: string, role: string) => req<User>("/admin/users", { method: "POST", body: { email, password, role } }),
   updateUser: (id: string, patch: { role?: string; is_active?: boolean }) => req<User>(`/admin/users/${id}`, { method: "PATCH", body: patch }),
   deleteUser: (id: string) => req<{ deleted: string }>(`/admin/users/${id}`, { method: "DELETE" }),
+  insights: (days = 30) => req<Insights>(`/admin/insights${qs({ days })}`),
   audit: (action?: string) => req<AuditEvent[]>(`/admin/audit${qs({ limit: 200, action })}`),
   settings: () => req<Record<string, unknown>>("/admin/settings"),
   tenantSettings: () => req<TenantSettings>("/admin/tenant-settings"),

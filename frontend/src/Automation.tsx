@@ -32,9 +32,9 @@ function Alerts({ workspace }: { workspace: string }) {
       <form className="card" onSubmit={(e) => { e.preventDefault(); void add(); }} aria-label="Add watch">
         <h2 style={{ marginTop: 0 }}>Watch a name or phrase</h2>
         <div className="row"><input type="text" aria-label="Term to watch" placeholder="e.g. Anjali Rao, INV-2041" value={term} onChange={(e) => setTerm(e.target.value)} style={{ flex: 1, minWidth: 200 }} />
-          <input type="text" aria-label="Webhook URL (optional)" placeholder="https://hooks.example.com/… (optional)" value={hook} onChange={(e) => setHook(e.target.value)} style={{ flex: 1, minWidth: 200 }} />
+          <input type="text" aria-label="Webhook URL (optional)" placeholder="https://hooks.slack.com/… or mailto:you@example.com (optional)" value={hook} onChange={(e) => setHook(e.target.value)} style={{ flex: 1, minWidth: 200 }} />
           <button className="primary" disabled={term.trim().length < 2}>Watch</button></div>
-        <p className="muted small">Every newly ingested document you may read is searched; a match creates an alert (and POSTs ids, counts and locations — never document text — to the webhook).</p>
+        <p className="muted small">Every newly ingested document you may read is searched; a match creates an alert (and POSTs ids, counts and locations — never document text — to the webhook or e-mail). Slack incoming-webhook URLs get a readable message; e-mail needs SMTP configured on the server.</p>
         {err && <div className="error" role="alert">{err}</div>}
         <div className="chips">{(watches.data ?? []).map((w) => <span key={w.id} className="badge">{w.term}{w.webhook_url ? " 🔗" : ""} <button className="small" aria-label={`Stop watching ${w.term}`} onClick={async () => { await api.deleteSavedSearch(w.id); void watches.reload(); }}>×</button></span>)}</div>
       </form>

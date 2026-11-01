@@ -20,7 +20,7 @@ from .db import AuditEvent, Conversation, Document, Job, RefreshToken, Report, R
 from .storage import Scope
 
 log = logging.getLogger("mka.maintenance")
-TASKS = ("retention_documents", "retention_conversations", "retention_audit", "retention_reports", "cleanup_jobs", "cleanup_tokens", "run_report_schedules", "sync_connectors")
+TASKS = ("retention_documents", "retention_conversations", "retention_audit", "retention_reports", "cleanup_jobs", "cleanup_tokens", "run_report_schedules", "sync_connectors", "ship_audit")
 
 
 def _cutoff(days: int, now: datetime) -> datetime:
@@ -159,6 +159,14 @@ def sync_connectors(k, now, dry_run, only=None, assistant=None, auditor=None, **
             row.last_run_at, row.last_result = now, res
         out.append({"connector": c.name, **{a: b for a, b in res.items() if a != "errors"}, "errors": len(res["errors"])})
     return {"removed": 0, "ran": out}
+
+
+def ship_audit(k, now, dry_run, only=None, **_) -> dict:
+    if only:
+        return {"removed": 0, "skipped": "global task: run by the scheduler"}
+    from . import siem
+
+    return siem.ship(k, dry_run)
 
 
 def cleanup_tokens(k, now, dry_run, only=None, **_) -> dict:

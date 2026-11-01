@@ -133,7 +133,7 @@ def graph_run(body: GraphRunBody, ctx: Ctx = Depends(require("ask", "ask"))):
 
 class ChunkBody(BaseModel):
     source_id: str = Field(min_length=1, max_length=32)
-    settings: list[dict] = Field(default_factory=lambda: [{"size": 400, "overlap": 50}, {"size": 1000, "overlap": 150}, {"size": 2500, "overlap": 300}], max_length=6, description="[{size, overlap}]")
+    settings: list[dict] = Field(default_factory=lambda: [{"size": 400, "overlap": 50}, {"size": 1000, "overlap": 150}, {"size": 1000, "overlap": 150, "structure": True}, {"size": 2500, "overlap": 300}], max_length=6, description="[{size, overlap, structure?}]")
 
 
 @router.post("/chunking", summary="How different chunk sizes cut one of your documents (nothing is re-indexed)")
@@ -150,9 +150,10 @@ def chunking(body: ChunkBody, ctx: Ctx = Depends(require("ask", "ask"))):
         size, overlap = int(cfg.get("size", 1000)), int(cfg.get("overlap", 150))
         if not (100 <= size <= 8000 and 0 <= overlap < size // 2):
             raise HTTPException(422, "size must be 100-8000 and overlap below half of it")
-        chunks = chunk_units(units, size, overlap)
+        structure = bool(cfg.get("structure", False))
+        chunks = chunk_units(units, size, overlap, structure=structure)
         lens = [len(c.text) for c in chunks]
-        rows.append({"size": size, "overlap": overlap, "chunks": len(chunks), "avg_chars": round(sum(lens) / len(lens)) if lens else 0, "min_chars": min(lens, default=0), "max_chars": max(lens, default=0),
+        rows.append({"size": size, "overlap": overlap, "structure": structure, "chunks": len(chunks), "avg_chars": round(sum(lens) / len(lens)) if lens else 0, "min_chars": min(lens, default=0), "max_chars": max(lens, default=0),
                      "tiny_chunks": sum(1 for n in lens if n < size * 0.2), "locations": len({str(c.loc) for c in chunks}),
                      "samples": [{"location": format_loc(c.loc, getattr(c, "loc_end", None)), "chars": len(c.text), "text": " ".join(c.text.split())[:220]} for c in chunks[:3]]})
     ctx.audit("learn_chunking", None)

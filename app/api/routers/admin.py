@@ -238,3 +238,52 @@ def run_maintenance(body: MaintenanceBody, ctx: Ctx = Depends(require("purge")))
         raise HTTPException(422, str(e))
     ctx.audit("maintenance_run", None, detail={"tasks": body.tasks or "all", "dry_run": body.dry_run})
     return {"dry_run": body.dry_run, "results": res}
+
+
+@router.get("/insights", summary="Usage and quality overview from stored (non-incognito) conversations and feedback; contains counts and source names, no question text")
+def insights(days: int = Query(30, ge=1, le=365), ctx: Ctx = Depends(require("audit"))):
+    from collections import Counter
+    from datetime import UTC, datetime, timedelta
+
+    from ...db import Conversation, Feedback, Message
+
+    since = datetime.now(UTC) - timedelta(days=days)
+    tid = ctx.principal.tenant_id
+    per_day: Counter = Counter()
+    routes: Counter = Counter()
+    conf: Counter = Counter()
+    cited: Counter = Counter()
+    n = verified = unverified = abstained = 0
+    cost = 0.0
+    tokens = 0
+    with ctx.svc.db.session() as s:
+        q = (select(Message.created_at, Message.meta).join(Conversation, Conversation.id == Message.conversation_id)
+             .where(Conversation.tenant_id == tid, Message.role == "assistant", Message.created_at >= since).order_by(Message.id.desc()).limit(50000))
+        for ts, meta in s.execute(q):
+            meta = meta or {}
+            n += 1
+            per_day[ts.date().isoformat()] += 1
+            routes[(meta.get("route") or "unknown").split("+")[0]] += 1
+            conf[meta.get("confidence") or "unknown"] += 1
+            if meta.get("verified"):
+                verified += 1
+            else:
+                unverified += 1
+            u = meta.get("usage") or {}
+            cost += float(u.get("cost_usd") or 0)
+            tokens += int(u.get("prompt_tokens") or 0) + int(u.get("completion_tokens") or 0)
+            for c in {x.get("source") for x in (meta.get("citations") or []) if isinstance(x, dict) and x.get("source")}:
+                cited[c] += 1
+            if not meta.get("citations"):
+                abstained += 1
+        fb = Counter()
+        bad_routes: Counter = Counter()
+        for rating, route in s.execute(select(Feedback.rating, Feedback.route).where(Feedback.tenant_id == tid, Feedback.created_at >= since)):
+            fb["up" if rating > 0 else "down"] += 1
+            if rating < 0:
+                bad_routes[route or "unknown"] += 1
+    return {"days": days, "answers": n, "verified_rate": round(verified / n, 3) if n else None, "unverified": unverified, "without_citations": abstained,
+            "per_day": [{"day": d, "answers": c} for d, c in sorted(per_day.items())], "routes": dict(routes.most_common()), "confidence": dict(conf),
+            "top_sources": [{"source": k, "answers": v} for k, v in cited.most_common(10)], "cost_usd": round(cost, 5), "tokens": tokens,
+            "feedback": {"up": fb["up"], "down": fb["down"], "down_by_route": dict(bad_routes.most_common())},
+            "note": "Counts only conversations that were stored; incognito questions are never recorded."}

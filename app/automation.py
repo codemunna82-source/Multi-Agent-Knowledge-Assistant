@@ -3,12 +3,18 @@
 Webhook targets are validated like any URL the platform fetches (public addresses only, no redirects), payloads carry identifiers and counts - never document text."""
 from __future__ import annotations
 
+import json
 import logging
+import re
 import shutil
+import smtplib
+import ssl
 import tempfile
 from datetime import UTC, datetime, timedelta
+from email.message import EmailMessage
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
 import httpx
 from sqlalchemy import select
@@ -25,21 +31,70 @@ log = logging.getLogger("mka.automation")
 MAX_SYNC_FILES = 500
 
 
-# ----------------------------------------------------------------------------- webhooks
+# ----------------------------------------------------------------------------- notifications (webhook / Slack / e-mail)
+_EMAIL = re.compile(r"^[^@\s<>,;]{1,64}@[^@\s<>,;]{1,255}\.[A-Za-z]{2,}$")
+_SLACK_HOSTS = ("hooks.slack.com", "hooks.slack-gov.com")
+
+
+def _summary(payload: dict) -> tuple[str, str]:
+    """-> (subject, body) in plain words. Built only from the identifiers/counts already in the payload - never document text."""
+    ev = payload.get("event", "event")
+    if ev == "saved_search_match":
+        locs = ", ".join(str(x) for x in (payload.get("locations") or [])[:5])
+        return (f"New match for \"{payload.get('term')}\" in {payload.get('document')}",
+                f"\"{payload.get('term')}\" appears {payload.get('occurrences')} time(s) in {payload.get('document')}" + (f" ({locs})." if locs else "."))
+    if ev == "report_ready":
+        return (f"Report ready: {payload.get('title')}", f"The scheduled report \"{payload.get('schedule')}\" ({payload.get('format')}, {payload.get('size_bytes')} bytes) is ready: {payload.get('download_path')}")
+    return (str(ev), json.dumps(payload, ensure_ascii=False)[:500])
+
+
+def _send_mail(k, to: str, subject: str, body: str) -> str:
+    s = k.settings
+    if not s.smtp_host:
+        return "failed: SMTP is not configured (MKA_SMTP_HOST)"
+    msg = EmailMessage()
+    msg["From"], msg["To"], msg["Subject"] = s.smtp_from, to, subject.replace("\n", " ")[:200]
+    msg.set_content(body)
+    try:
+        with smtplib.SMTP(s.smtp_host, s.smtp_port, timeout=s.url_timeout) as c:
+            if s.smtp_starttls:
+                c.starttls(context=ssl.create_default_context())
+            if s.smtp_user:
+                c.login(s.smtp_user, s.secret("smtp_password") or "")
+            c.send_message(msg)
+        return "sent"
+    except (OSError, smtplib.SMTPException) as e:
+        return f"failed: {str(e)[:120]}"
+
+
 def notify(k, url: Optional[str], payload: dict) -> str:
-    """-> "sent" | "skipped" | an error string. Never raises: a broken webhook must not break ingestion or the scheduler."""
+    """-> "sent" | "skipped" | an error string. Never raises: a broken target must not break ingestion or the scheduler.
+    `url` is an https webhook (Slack incoming-webhook URLs get Slack's {"text": ...} format) or `mailto:name@example.com`."""
     if not url:
         return "skipped"
+    if url.lower().startswith("mailto:"):
+        subject, body = _summary(payload)
+        return _send_mail(k, url[7:].strip(), subject, body)
     try:
         web.resolve_public(url, k.settings.allow_private_urls)
+        body = payload
+        if (urlparse(url).hostname or "").lower() in _SLACK_HOSTS:
+            subject, text = _summary(payload)
+            body = {"text": f"*{subject}*\n{text}"}
         with httpx.Client(timeout=k.settings.url_timeout, transport=k.url_transport, follow_redirects=False) as c:
-            r = c.post(url, json=payload, headers={"User-Agent": "mka-webhook/3.1"})
+            r = c.post(url, json=body, headers={"User-Agent": "mka-webhook/3.1"})
         return "sent" if r.status_code < 300 else f"HTTP {r.status_code}"
     except (IngestError, httpx.HTTPError) as e:
         return f"failed: {str(e)[:120]}"
 
 
 def webhook_url_ok(k, url: str) -> None:
+    if url.lower().startswith("mailto:"):
+        if not _EMAIL.match(url[7:].strip()):
+            raise IngestError("That does not look like an e-mail address (use mailto:name@example.com)")
+        if not k.settings.smtp_host:
+            raise IngestError("E-mail notifications need MKA_SMTP_HOST to be configured on the server")
+        return
     web.resolve_public(url, k.settings.allow_private_urls)  # raises IngestError
 
 

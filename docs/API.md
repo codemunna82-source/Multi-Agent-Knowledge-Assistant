@@ -29,6 +29,12 @@ Body: `application/json` → `PurgeRequest`
 
 Responses: 200, 422 · Access: admin
 
+### `GET /admin/insights`
+
+Parameters: `days` (query), `x-session-id` (header)
+
+Responses: 200, 422 · Access: admin
+
 ### `POST /admin/maintenance/run`
 
 Same tasks as the scheduler, restricted to your organisation. Retention periods come from /admin/tenant-settings.

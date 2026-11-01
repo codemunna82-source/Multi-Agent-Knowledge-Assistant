@@ -6278,6 +6278,59 @@
     }
    }
   },
+  "/admin/insights": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Usage and quality overview from stored (non-incognito) conversations and feedback; contains counts and source names, no question text",
+    "operationId": "insights_admin_insights_get",
+    "parameters": [
+     {
+      "name": "days",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 365,
+       "minimum": 1,
+       "default": 30,
+       "title": "Days"
+      }
+     },
+     {
+      "name": "x-session-id",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "default",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/health": {
    "get": {
     "tags": [
@@ -6845,7 +6898,7 @@
       "type": "array",
       "maxItems": 6,
       "title": "Settings",
-      "description": "[{size, overlap}]"
+      "description": "[{size, overlap, structure?}]"
      }
     },
     "type": "object",
@@ -7805,7 +7858,7 @@
        }
       ],
       "title": "Tasks",
-      "description": "subset of: retention_documents, retention_conversations, retention_audit, retention_reports, cleanup_jobs, cleanup_tokens, run_report_schedules, sync_connectors (default: all)"
+      "description": "subset of: retention_documents, retention_conversations, retention_audit, retention_reports, cleanup_jobs, cleanup_tokens, run_report_schedules, sync_connectors, ship_audit (default: all)"
      },
      "dry_run": {
       "type": "boolean",

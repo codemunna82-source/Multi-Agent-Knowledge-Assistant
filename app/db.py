@@ -397,7 +397,7 @@ class UserMfa(Base):
 
     __tablename__ = "user_mfa"
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
-    secret: Mapped[str] = mapped_column(String(64))
+    secret: Mapped[str] = mapped_column(String(255))  # base32 seed, or "enc1:<fernet token>" when MKA_DATA_KEY is set
     enabled: Mapped[bool] = mapped_column(default=False)
     last_counter: Mapped[int] = mapped_column(Integer, default=0)  # replay protection: a code is accepted once
     recovery_hashes: Mapped[list] = mapped_column(JSON, default=list)

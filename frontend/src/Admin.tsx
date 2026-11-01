@@ -69,5 +69,36 @@ function PlatformSettings() {
 }
 
 export function Admin({ me }: { me: User }) {
-  return <div><Users me={me} /><Audit /><PlatformSettings /></div>;
+  return <div><Insightsview /><Users me={me} /><Audit /><PlatformSettings /></div>;
+}
+
+function Insightsview() {
+  const [days, setDays] = useState(30);
+  const d = useLoad(() => api.insights(days), [days]);
+  const x = d.data;
+  const max = Math.max(1, ...(x?.per_day ?? []).map((p) => p.answers));
+  return (
+    <div className="card" aria-label="Usage insights"><h2 style={{ marginTop: 0 }}>Usage &amp; quality</h2>
+      <div className="row"><label htmlFor="ins-days" style={{ margin: 0 }}>Period</label>
+        <select id="ins-days" value={days} onChange={(e) => setDays(Number(e.target.value))}>{[7, 30, 90].map((n) => <option key={n} value={n}>last {n} days</option>)}</select></div>
+      {d.error && <div className="error" role="alert">{d.error}</div>}
+      {x && (x.answers === 0 ? <p className="muted">No stored answers in this period.</p> : <>
+        <div className="row" style={{ gap: 24, flexWrap: "wrap" }}>
+          <div><b>{x.answers}</b><div className="muted small">answers</div></div>
+          <div><b>{x.verified_rate === null ? "–" : `${Math.round(x.verified_rate * 100)}%`}</b><div className="muted small">verified</div></div>
+          <div><b>{x.without_citations}</b><div className="muted small">without citations</div></div>
+          <div><b>👍 {x.feedback.up} / 👎 {x.feedback.down}</b><div className="muted small">feedback</div></div>
+          <div><b>${x.cost_usd.toFixed(4)}</b><div className="muted small">{x.tokens.toLocaleString()} tokens</div></div>
+        </div>
+        <div role="img" aria-label="Answers per day" style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 60, marginTop: 10 }}>
+          {x.per_day.map((p) => <div key={p.day} title={`${p.day}: ${p.answers}`} style={{ flex: 1, minWidth: 2, height: `${(p.answers / max) * 100}%`, background: "var(--accent, #4f46e5)" }} />)}
+        </div>
+        <div className="row" style={{ alignItems: "flex-start", gap: 24, flexWrap: "wrap", marginTop: 10 }}>
+          <div><b className="small">Routes</b>{Object.entries(x.routes).map(([k, v]) => <div key={k} className="small">{k}: {v}</div>)}</div>
+          <div><b className="small">Most cited documents</b>{x.top_sources.map((s) => <div key={s.source} className="small">{s.source}: {s.answers}</div>)}</div>
+          {Object.keys(x.feedback.down_by_route).length > 0 && <div><b className="small">👎 by route</b>{Object.entries(x.feedback.down_by_route).map(([k, v]) => <div key={k} className="small">{k}: {v}</div>)}</div>}
+        </div>
+        <p className="muted small">{x.note}</p></>)}
+    </div>
+  );
 }

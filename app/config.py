@@ -4,14 +4,14 @@ import os
 import secrets
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import AliasChoices, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 # Docker/Kubernetes secrets: any of these may be supplied as <NAME>_FILE=/run/secrets/xyz instead of the value itself
-FILE_SECRETS = {"jwt_secret": "MKA_JWT_SECRET", "openai_api_key": "OPENAI_API_KEY", "gemini_api_key": "GEMINI_API_KEY", "oidc_client_secret": "MKA_OIDC_CLIENT_SECRET", "qdrant_api_key": "MKA_QDRANT_API_KEY",
+FILE_SECRETS = {"jwt_secret": "MKA_JWT_SECRET", "openai_api_key": "OPENAI_API_KEY", "gemini_api_key": "GEMINI_API_KEY", "oidc_client_secret": "MKA_OIDC_CLIENT_SECRET", "data_key": "MKA_DATA_KEY", "siem_token": "MKA_SIEM_TOKEN", "smtp_password": "MKA_SMTP_PASSWORD", "qdrant_api_key": "MKA_QDRANT_API_KEY",
                 "brave_api_key": "BRAVE_API_KEY", "langsmith_api_key": "LANGSMITH_API_KEY", "metrics_token": "MKA_METRICS_TOKEN", "database_url": "MKA_DATABASE_URL", "redis_url": "MKA_REDIS_URL"}
 
 
@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     auth_enabled: bool = False  # dev default keeps the original open API; production requires True
     allow_signup: bool = True  # POST /auth/signup creates a tenant + admin; disable in production
     jwt_secret: Optional[SecretStr] = None
+    data_key: Optional[SecretStr] = None  # Fernet key: encrypts TOTP seeds in the database (see security/secretbox.py)
     jwt_algorithm: str = "HS256"
     access_token_minutes: int = 15
     refresh_token_days: int = 14
@@ -56,6 +57,18 @@ class Settings(BaseSettings):
     oidc_tenant_id: Optional[str] = None
     oidc_default_role: str = "user"
 
+    # --- notifications (webhook URLs may also be "mailto:person@example.com") and SIEM shipping
+    smtp_host: Optional[str] = None
+    smtp_port: int = 587
+    smtp_user: Optional[str] = None
+    smtp_password: Optional[SecretStr] = None
+    smtp_from: str = "mka@localhost"
+    smtp_starttls: bool = True
+    siem_url: Optional[str] = None  # task ship_audit POSTs new audit events here (NDJSON, or Splunk HEC when siem_format=splunk_hec)
+    siem_token: Optional[SecretStr] = None
+    siem_format: Literal["ndjson", "splunk_hec"] = "ndjson"
+    siem_batch: int = 500
+
     # --- rate limiting ("N/second|minute|hour")
     rate_limit_enabled: bool = True
     rate_limit_ask: str = "30/minute"
@@ -64,6 +77,7 @@ class Settings(BaseSettings):
 
     # --- chunking
     chunk_size: int = 1000
+    chunk_strategy: Literal["size", "structure"] = "size"  # structure = a heading always starts a new chunk and is repeated on the pieces of a long section
     chunk_overlap: int = 150
     parent_max_chars: int = 3000
 

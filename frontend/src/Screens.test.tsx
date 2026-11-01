@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Admin } from "./Admin";
 import { Analyst } from "./Analyst";
 import { Chart } from "./Chart";
 import { Compare } from "./Compare";
@@ -298,5 +299,22 @@ describe("Security (two-step sign-in)", () => {
     await userEvent.click(screen.getByRole("button", { name: "Turn off" }));
     await waitFor(() => expect(calls.some((c) => c.url.endsWith("/auth/mfa/disable"))).toBe(true));
     expect(JSON.parse(String(calls.find((c) => c.url.endsWith("/auth/mfa/disable"))!.init.body))).toEqual({ password: "correct horse battery", code: "654321" });
+  });
+});
+
+describe("Admin insights", () => {
+  it("shows usage, verified rate, feedback and the most cited documents", async () => {
+    mockFetch({
+      "/admin/insights": { body: { days: 30, answers: 12, verified_rate: 0.75, unverified: 3, without_citations: 2, per_day: [{ day: "2026-10-30", answers: 5 }, { day: "2026-10-31", answers: 7 }],
+        routes: { semantic: 9, exact: 3 }, confidence: { high: 8 }, top_sources: [{ source: "policy.pdf", answers: 6 }], cost_usd: 0.0123, tokens: 4200,
+        feedback: { up: 4, down: 1, down_by_route: { semantic: 1 } }, note: "Counts only conversations that were stored." } },
+      "/admin/users": { body: [] }, "/admin/audit": { body: [] }, "/admin/tenant-settings": { body: {} }, "/admin/settings": { body: {} },
+    });
+    render(<Admin me={me} />);
+    const panel = await screen.findByLabelText("Usage insights");
+    expect(await within(panel).findByText("75%")).toBeInTheDocument();
+    expect(within(panel).getByText("policy.pdf: 6")).toBeInTheDocument();
+    expect(within(panel).getByText(/👍 4 \/ 👎 1/)).toBeInTheDocument();
+    expect(within(panel).getByText("semantic: 9")).toBeInTheDocument();
   });
 });

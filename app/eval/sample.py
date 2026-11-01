@@ -110,7 +110,7 @@ def _docx() -> bytes:
             t.cell(i, j).text = v
     buf = io.BytesIO()
     d.save(buf)
-    return buf.getvalue()
+    return _normalise_zip(buf.getvalue())
 
 
 def _xlsx() -> bytes:

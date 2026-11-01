@@ -113,3 +113,10 @@ export interface LcDemo {
   parser: { format_instructions: string; parsed: Record<string, unknown>; malformed_output_error: string };
   memory: { messages: { type: string; content: string }[]; kept_by_window: { type: string; content: string }[] };
 }
+
+export interface Insights {
+  days: number; answers: number; verified_rate: number | null; unverified: number; without_citations: number;
+  per_day: { day: string; answers: number }[]; routes: Record<string, number>; confidence: Record<string, number>;
+  top_sources: { source: string; answers: number }[]; cost_usd: number; tokens: number;
+  feedback: { up: number; down: number; down_by_route: Record<string, number> }; note: string;
+}

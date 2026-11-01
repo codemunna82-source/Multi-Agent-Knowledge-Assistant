@@ -248,7 +248,7 @@ class Knowledge:
                 ex.warnings.append(f"{len(flagged)} passage(s) look like prompt-injection attempts and are treated strictly as data")
                 meta["injection_flags"] = flagged[:200]
             progress("chunking", 40)
-            chunks = chunk_units(ex.units, s.chunk_size, s.chunk_overlap)
+            chunks = chunk_units(ex.units, s.chunk_size, s.chunk_overlap, structure=s.chunk_strategy == "structure")
             if not chunks:
                 raise IngestError("No indexable content was extracted")
             records = [{"id": f"{source_id}:{i}", "text": c.text, "loc": c.loc, "loc_end": c.loc_end, "u0": c.u0, "u1": c.u1} for i, c in enumerate(chunks)]

@@ -71,7 +71,7 @@ def login(body: LoginRequest, request: Request, response: Response, svc: Service
         if mfa and mfa.enabled:  # reached only with the right password, so this does not reveal which emails exist
             if not body.otp:
                 raise HTTPException(401, "MFA code required", headers={"X-MFA-Required": "true"})
-            if not check_second_factor(mfa, body.otp):
+            if not check_second_factor(mfa, body.otp, svc.settings):
                 svc.auditor.record("login", tenant_id=u.tenant_id, user_id=u.id, outcome="denied", detail={"reason": "mfa"}, ip=_ip(request), request_id=request.state.request_id)
                 raise HTTPException(401, "Invalid or already used MFA code", headers={"X-MFA-Required": "true"})
         refresh = issue_refresh(s, svc.settings, u.id, ip=_ip(request))
