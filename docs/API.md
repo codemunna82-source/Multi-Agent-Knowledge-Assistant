@@ -353,7 +353,7 @@ Responses: 200, 422 · Access: user
 
 ### `POST /ask/stream`
 
-Server-Sent Events: `step` (real graph progress), `token` (answer text pieces), `final` (full response incl. citations), `error`.
+Server-Sent Events. Same validation, authentication and rate limit as /ask. Events (JSON `data:` lines, `event:` = type): `status` (a stage started), `step` (a graph node finished), `draft` (real provider tokens, unverified), `draft_reset`, `final` (verified answer with citations), `done`, `error`. SSE comment lines (`: ping`) keep idle connections open. If the client disconnects (Stop), generation is cancelled and nothing is stored.
 
 Parameters: `x-session-id` (header)
 

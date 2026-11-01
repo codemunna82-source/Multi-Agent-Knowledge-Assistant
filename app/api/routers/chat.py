@@ -28,8 +28,9 @@ def _conv(db_s, ctx: Ctx, conv_id: str) -> Conversation:
 class Turn:
     """Everything a question needs from the user's memory settings, resolved once: private questions read and store nothing."""
 
-    def __init__(self, conv_id, history, summary, notes, private, thread):
+    def __init__(self, conv_id, history, summary, notes, private, thread, created=False):
         self.conv_id, self.history, self.summary, self.notes, self.private, self.thread = conv_id, history, summary, notes, private, thread
+        self.created = created          # the conversation row was created by this very request
 
 
 def begin_turn(ctx: Ctx, body: AskRequest, reuse_latest: bool = True) -> Turn:
@@ -37,7 +38,7 @@ def begin_turn(ctx: Ctx, body: AskRequest, reuse_latest: bool = True) -> Turn:
     svc = ctx.svc
     prefs = get_prefs(svc.db, ctx.principal.user_id)
     private = body.incognito or not prefs.memory_enabled
-    conv_id = None
+    conv_id, created = None, False
     with svc.db.session() as s:
         conv = None
         if body.conversation_id:
@@ -53,15 +54,18 @@ def begin_turn(ctx: Ctx, body: AskRequest, reuse_latest: bool = True) -> Turn:
                 conv = Conversation(tenant_id=ctx.principal.tenant_id, user_id=ctx.principal.user_id, workspace=ctx.scope.workspace, title=body.question[:60])
                 s.add(conv)
                 s.flush()
+                created = True
         conv_id = conv.id if conv is not None and not private else None
     if private:
         return Turn(None, [], None, [], True, f"private-{uuid.uuid4().hex[:12]}")
     history, summary = load_memory(svc.db, svc.knowledge.llm, conv_id, svc.settings.memory_turns)
+    if body.regenerate and history and history[-1].get("question") == body.question:
+        history = history[:-1]      # the answer being replaced must not inform its own replacement
     notes = [f.text for f in recall(svc.db, ctx.principal.tenant_id, ctx.principal.user_id, body.question)] if prefs.long_term_memory else []
-    return Turn(conv_id, history, summary, notes, False, conv_id)
+    return Turn(conv_id, history, summary, notes, False, conv_id, created)
 
 
-def store_turn(ctx: Ctx, turn: Turn, question: str, answer: str, meta: dict) -> None:
+def store_turn(ctx: Ctx, turn: Turn, question: str, answer: str, meta: dict, replace_last: bool = False) -> None:
     """Persist the exchange (unless private). Tenants with `redact_stored_messages` get e-mails, phone numbers, cards and secrets masked."""
     if turn.private:
         ctx.svc.assistant.forget(ctx.scope, turn.thread, ctx.principal.user_id)  # drop the throw-away checkpoint thread
@@ -69,6 +73,11 @@ def store_turn(ctx: Ctx, turn: Turn, question: str, answer: str, meta: dict) -> 
     if redact_stored_messages(ctx.svc.db, ctx.principal.tenant_id):
         question, answer = redact(question), redact(answer)
     with ctx.svc.db.session() as s:
+        if replace_last:       # regenerate: only now, after the new answer exists, is the old exchange removed (and only if it really is this question)
+            last = s.scalars(select(Message).where(Message.conversation_id == turn.conv_id).order_by(Message.id.desc()).limit(2)).all()
+            if len(last) == 2 and last[0].role == "assistant" and last[1].role == "user" and last[1].content in (question, redact(question)):
+                for m in last:
+                    s.delete(m)
         s.add(Message(conversation_id=turn.conv_id, role="user", content=question))
         s.add(Message(conversation_id=turn.conv_id, role="assistant", content=answer, meta=meta))
         s.get(Conversation, turn.conv_id).updated_at = now()
@@ -151,21 +160,66 @@ def delete_conversation(conv_id: str, ctx: Ctx = Depends(require("ask"))):
     return {"deleted": conv_id}
 
 
+def _drop_if_empty(ctx: Ctx, turn: Turn) -> None:
+    with ctx.svc.db.session() as s:
+        c = s.get(Conversation, turn.conv_id)
+        if c is not None and not s.scalar(select(Message.id).where(Message.conversation_id == turn.conv_id).limit(1)):
+            s.delete(c)
+    ctx.svc.assistant.forget(ctx.scope, turn.conv_id)
+
+
 @router.post("/ask/stream")
-def ask_stream(body: AskRequest, request: Request, ctx: Ctx = Depends(require("ask", "ask"))):
-    """Server-Sent Events: `step` (real graph progress), `token` (answer text pieces), `final` (full response incl. citations), `error`."""
+async def ask_stream(body: AskRequest, request: Request, ctx: Ctx = Depends(require("ask", "ask"))):
+    """Server-Sent Events. Same validation, authentication and rate limit as /ask. Events (JSON `data:` lines, `event:` = type):
+    `status` (a stage started), `step` (a graph node finished), `draft` (real provider tokens, unverified), `draft_reset`, `final` (verified answer with citations),
+    `done`, `error`. SSE comment lines (`: ping`) keep idle connections open. If the client disconnects (Stop), generation is cancelled and nothing is stored."""
+    import asyncio
     import json
+    import threading
 
     from fastapi.responses import StreamingResponse
 
     svc = ctx.svc
     turn = begin_turn(ctx, body, reuse_latest=False)
     rid = request.state.request_id
+    loop = asyncio.get_running_loop()
+    out: asyncio.Queue = asyncio.Queue()
+    cancel = threading.Event()
+    END = object()
 
-    def gen():
-        final = None
+    def pump():          # runs the (blocking) assistant generator in a worker thread; events cross to the event loop through a queue
         try:
-            for ev in svc.assistant.ask_stream(ctx.scope, body, ctx.principal, conversation_id=turn.thread, history=turn.history, summary=turn.summary, notes=turn.notes):
+            for ev in svc.assistant.ask_stream(ctx.scope, body, ctx.principal, conversation_id=turn.thread, history=turn.history, summary=turn.summary, notes=turn.notes, cancel=cancel):
+                loop.call_soon_threadsafe(out.put_nowait, ev)
+                if cancel.is_set():
+                    break
+        except KeyError as e:
+            loop.call_soon_threadsafe(out.put_nowait, {"type": "error", "detail": str(e.args[0])})
+        except (ProviderError, httpx.HTTPError) as e:
+            loop.call_soon_threadsafe(out.put_nowait, {"type": "error", "detail": f"Model/API error: {e}"})
+        except Exception:  # noqa: BLE001
+            import logging
+
+            logging.getLogger("mka").exception("stream failed")
+            loop.call_soon_threadsafe(out.put_nowait, {"type": "error", "detail": "Something went wrong while generating the answer."})
+        finally:
+            loop.call_soon_threadsafe(out.put_nowait, END)
+
+    def sse(ev: dict) -> str:
+        return f"event: {ev['type']}\ndata: {json.dumps(ev, ensure_ascii=False)}\n\n"
+
+    async def gen():
+        final = None
+        failed = False
+        loop.run_in_executor(None, pump)
+        try:
+            while True:
+                ev = await out.get()
+                if ev is END:
+                    break
+                if ev["type"] == "ping":
+                    yield ": ping\n\n"
+                    continue
                 if ev["type"] == "final":
                     ev["response"]["request_id"], ev["response"]["conversation_id"] = rid, turn.conv_id
                     if turn.private:
@@ -173,20 +227,22 @@ def ask_stream(body: AskRequest, request: Request, ctx: Ctx = Depends(require("a
                     if turn.notes:
                         ev["response"]["details"]["memory_notes_used"] = len(turn.notes)
                     final = ev["response"]
-                yield f"event: {ev['type']}\ndata: {json.dumps(ev, ensure_ascii=False)}\n\n"
-        except KeyError as e:
-            yield f"event: error\ndata: {json.dumps({'type': 'error', 'detail': str(e.args[0])})}\n\n"
-        except (ProviderError, httpx.HTTPError) as e:
-            yield f"event: error\ndata: {json.dumps({'type': 'error', 'detail': f'Model/API error: {e}'})}\n\n"
-        if final:
+                failed = failed or ev["type"] == "error"
+                yield sse(ev)
+        finally:
+            cancel.set()           # client went away (Stop / closed tab / network loss) or the stream ended: stop any generation still running
+            if turn.private and final is None:
+                svc.assistant.forget(ctx.scope, turn.thread, ctx.principal.user_id)
+            elif turn.created and (final is None or failed):
+                _drop_if_empty(ctx, turn)       # a stopped / failed first question must not leave an empty conversation in the history list
+        if final and not failed:
             store_turn(ctx, turn, body.question, final["answer"],
                        {"route": final["route"], "confidence": final["confidence"], "verified": final["verified"], "term": final["details"].get("term"),
-                        "citations": final["citations"], "limitations": final["limitations"], "followups": final["followups"], "usage": final["usage"]})
-            ctx.audit("ask", turn.conv_id, detail={"route": final["route"], "verified": final["verified"], "question": digest(body.question), "stream": True, "private": turn.private})
-        elif turn.private:
-            svc.assistant.forget(ctx.scope, turn.thread, ctx.principal.user_id)
+                        "citations": final["citations"], "limitations": final["limitations"], "followups": final["followups"], "usage": final["usage"]}, replace_last=body.regenerate and not turn.private)
+            ctx.audit("ask", turn.conv_id, detail={"route": final["route"], "verified": final["verified"], "question": digest(body.question), "stream": True, "private": turn.private,
+                                                   "regenerate": body.regenerate})
 
-    return StreamingResponse(gen(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    return StreamingResponse(gen(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"})
 
 
 @router.get("/conversations/{conv_id}/trace")

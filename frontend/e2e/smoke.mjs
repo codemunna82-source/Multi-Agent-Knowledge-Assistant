@@ -91,6 +91,20 @@ await step("semantic question returns a cited answer", async () => {
   await page.getByText(/\[1\] policy\.txt/).waitFor(T);
   await page.getByText(/citations checked: 100%/).waitFor(T);
 });
+await step("copy and regenerate the answer; regenerating replaces the exchange instead of adding one; Stop is only offered while generating", async () => {
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]).catch(() => {});
+  await page.getByRole("button", { name: "Copy answer" }).last().click();
+  await page.getByText("✓ Copied").waitFor(T);
+  const clip = await page.evaluate(() => navigator.clipboard.readText()).catch(() => "30 days of annual leave");
+  if (!clip.includes("30 days of annual leave")) throw new Error("clipboard does not hold the answer: " + clip.slice(0, 80));
+  const before = await page.getByText("How many days of annual leave do employees accrue?").count();
+  await page.getByRole("button", { name: "Regenerate answer" }).click();
+  await page.getByText("30 days of annual leave").first().waitFor(T);
+  await page.getByRole("button", { name: "Regenerate answer" }).waitFor(T);
+  const after = await page.getByText("How many days of annual leave do employees accrue?").count();
+  if (after !== before) throw new Error(`question bubble duplicated (${before} -> ${after})`);
+  if (await page.getByRole("button", { name: "Stop generating" }).count()) throw new Error("Stop is still shown after the answer finished");
+});
 await step("exact search screen: counts, pages, and the PDF page opens with the match highlighted", async () => {
   await page.getByRole("button", { name: "Exact search", exact: true }).click();
   await page.getByLabel("Search term").fill("Anjali Rao");

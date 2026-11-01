@@ -76,6 +76,7 @@ class Settings(BaseSettings):
     rate_limit_auth: str = "10/minute"
 
     # --- chunking
+    stream_timeout_s: float = 300.0  # /ask/stream: an answer still running after this many seconds is stopped with an error event
     chunk_size: int = 1000
     chunk_strategy: Literal["size", "structure"] = "size"  # structure = a heading always starts a new chunk and is repeated on the pieces of a long section
     chunk_overlap: int = 150

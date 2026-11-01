@@ -12,7 +12,7 @@ from typing import Optional
 
 from ..core import format_loc
 from ..storage import SessionStore
-from . import steps
+from . import progress, steps
 from .index import IndexCache, ScopeIndex, terms
 from .options import Resolved
 from .types import Hit
@@ -66,6 +66,7 @@ class RAGPipeline:
 
         best: Optional[RetrievalResult] = None
         mode_opts = opts
+        progress.stage("retrieve")
         for attempt in range(opts.max_retries + 1 if opts.corrective else 1):
             res_try = self._once(st, idx, q, mode_opts, allowed, llm, attempt, extra)
             res_try.query = q
@@ -146,6 +147,7 @@ class RAGPipeline:
                 fused[cid] = fused.get(cid, 0.0) + 1.0 / (60 + rank)
         r.trace.append({"step": "retrieve", "mode": o.mode, "candidates": len(fused), "filters": flt.active()})
 
+        progress.stage("grade")
         # relevance gate + hit construction
         qsets = [set(terms(v)) for v in variants if terms(v)] or [set()]
         alts = {t: ({t} | set(idx.bm25.expand([t]))) if attempt > 0 else {t} for qs in qsets for t in qs}  # corrective passes tolerate inflections / typos
@@ -178,6 +180,7 @@ class RAGPipeline:
         # rerank
         hits = hits[: max(o.top_k * 3, o.top_k)]
         if hits and o.reranker != "none":
+            progress.stage("rerank")
             bm = idx.bm25.scores(q_terms)
             mx = max(bm.values()) if bm else 1.0
             norm = {idx.chunks[i]["id"]: v / mx for i, v in bm.items() if mx} if bm else {}

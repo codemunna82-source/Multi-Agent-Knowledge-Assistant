@@ -31,14 +31,15 @@ export interface RetrievalOptions {
   reranker?: "none" | "lexical" | "llm" | "cross_encoder"; corrective?: boolean; graph?: boolean; self_rag?: boolean; auto?: boolean;
   filters?: { kinds?: string[]; name_contains?: string; page_min?: number; page_max?: number; sheet?: string; section_contains?: string };
 }
-export interface AskBody { question: string; source_ids?: string[]; conversation_id?: string; case_sensitive?: boolean; whole_word?: boolean; retrieval?: RetrievalOptions; incognito?: boolean }
+export interface AskBody { question: string; source_ids?: string[]; conversation_id?: string; case_sensitive?: boolean; whole_word?: boolean; retrieval?: RetrievalOptions; incognito?: boolean; regenerate?: boolean }
 export interface Conversation { id: string; workspace: string; title: string; updated_at: string; memory_enabled?: boolean }
 export interface Message { id: number; role: "user" | "assistant"; content: string; meta?: Partial<AskResponse> | null; created_at: string }
 export type StreamEvent =
   | { type: "step"; node: string; detail: string }
-  | { type: "token"; text: string }
   | { type: "draft"; text: string }
   | { type: "draft_reset" }
+  | { type: "status"; stage: string; label: string }
+  | { type: "done" }
   | { type: "final"; response: AskResponse }
   | { type: "error"; detail: string };
 

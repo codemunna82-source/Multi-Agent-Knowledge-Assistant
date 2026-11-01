@@ -27,6 +27,7 @@ class AskRequest(BaseModel):
     conversation_id: Optional[str] = Field(default=None, max_length=32, description="Continue this conversation (default: the user's latest one in the workspace)")
     retrieval: Optional["RetrievalOptions"] = Field(default=None, description="Per-request RAG strategy overrides (mode, rewrite, multi_query, hyde, rerank, filters, ...)")
     incognito: bool = Field(default=False, description="Private question: no history is read, nothing is stored (no conversation, no messages, no memory notes used)")
+    regenerate: bool = Field(default=False, description="/ask/stream only: replace the latest exchange of the conversation with this new answer to the same question (the old one is deleted only after the new answer succeeded)")
     force_route: Optional[Literal["exact", "data", "semantic", "document_search", "summarize", "compare", "web"]] = Field(default=None, description="Skip routing and use this agent")
 
 

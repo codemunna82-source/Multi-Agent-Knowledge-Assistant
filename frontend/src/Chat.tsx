@@ -1,112 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, askStream, saveBlob } from "./api";
-import { Chart } from "./Chart";
+import { api, askStream } from "./api";
+import { ChatMessage, type Turn } from "./ChatMessage";
 import { Preview } from "./Preview";
-import type { AskResponse, Citation, Message, RetrievalOptions } from "./types";
-import { Badge, useLoad } from "./ui";
+import { StopGeneratingButton } from "./StopGeneratingButton";
+import type { Citation, Message, RetrievalOptions } from "./types";
+import { useLoad } from "./ui";
 
-interface Turn { role: "user" | "assistant"; text: string; resp?: Partial<AskResponse>; steps?: string[]; pending?: boolean; animate?: boolean; draft?: string }
+export { CitationList } from "./ChatMessage";
+
 const KINDS = ["pdf", "docx", "xlsx", "csv", "txt", "md", "json", "url", "image"];
 
 type SR = { new (): { lang: string; interimResults: boolean; onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onend: (() => void) | null; onerror: (() => void) | null; start(): void; stop(): void } };
 const SpeechRec: SR | undefined = typeof window !== "undefined" ? ((window as unknown as { SpeechRecognition?: SR; webkitSpeechRecognition?: SR }).SpeechRecognition ?? (window as unknown as { webkitSpeechRecognition?: SR }).webkitSpeechRecognition) : undefined;
 
-export function CitationList({ citations, onOpen }: { citations: Citation[]; onOpen?: (c: Citation) => void }) {
-  if (!citations.length) return null;
-  return (
-    <details className="cites" open={citations.length <= 3}>
-      <summary>{citations.length} citation{citations.length > 1 ? "s" : ""}</summary>
-      {citations.map((c, i) => (
-        <div className="cite" key={i}>
-          <b>[{i + 1}] {c.source} — {c.location}</b> {c.origin === "web" && <Badge kind="low">web</Badge>}{c.version ? <span className="muted small"> v{c.version}</span> : null}
-          <div>{c.excerpt}</div>
-          {onOpen && <button className="small" aria-label={`Open citation ${i + 1} in context`} onClick={() => onOpen(c)}>{c.origin === "web" ? "Details" : "View in context"}</button>}
-        </div>
-      ))}
-    </details>
-  );
-}
-
-const reduceMotion = () => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-/** Reveals text character by character (a display effect: the full answer has already arrived). Click to skip. */
-export function Typed({ text, animate, onTick }: { text: string; animate: boolean; onTick?: () => void }) {
-  const live = animate && !reduceMotion();
-  const [n, setN] = useState(live ? 0 : text.length);
-  useEffect(() => {
-    if (!live) { setN(text.length); return; }
-    setN(0);
-    const step = Math.max(2, Math.ceil(text.length / 90));   // long answers finish in about 1.5 s
-    const t = setInterval(() => {
-      setN((v) => { const nv = Math.min(text.length, v + step); if (nv >= text.length) clearInterval(t); return nv; });
-      onTick?.();
-    }, 16);
-    return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text, live]);
-  return <span onClick={() => setN(text.length)}>{text.slice(0, n)}{n < text.length && <span className="caret" aria-hidden="true" />}</span>;
-}
-
-function AutoPick({ resp }: { resp: Partial<AskResponse> }) {
-  const a = (resp.details?.plan as { auto_strategy?: { chosen: string; why: string; candidates: { name: string; why: string; grade: string; hits: number; ms: number; score: number }[] } } | undefined)?.auto_strategy;
-  if (!a) return null;
-  return (
-    <details className="autopick">
-      <summary>✨ Auto picked <b>{a.chosen}</b> — {a.why}</summary>
-      <table><thead><tr><th>Candidate</th><th>Grade</th><th>Passages</th><th>Score</th><th>ms</th></tr></thead>
-        <tbody>{a.candidates.map((c) => <tr key={c.name} className={c.name === a.chosen ? "picked" : ""}><td>{c.name}{c.name === a.chosen ? " ✓" : ""}<div className="muted small">{c.why}</div></td><td>{c.grade}</td><td>{c.hits}</td><td>{c.score}</td><td>{c.ms}</td></tr>)}</tbody></table>
-    </details>
-  );
-}
-
-function FeedbackBar({ workspace, question, resp }: { workspace: string; question: string; resp: Partial<AskResponse> }) {
-  const [state, setState] = useState<"idle" | "form" | "sent">("idle");
-  const [expected, setExpected] = useState("");
-  const [comment, setComment] = useState("");
-  const [err, setErr] = useState<string | null>(null);
-  const [exporting, setExporting] = useState(false);
-  async function exportReport() {
-    setExporting(true); setErr(null);
-    try {
-      const r = await api.createReport(workspace, { kind: "research", format: "pdf", params: { questions: [question], title: question.slice(0, 80) } });
-      saveBlob(await api.downloadReport(workspace, r.id), "answer-report.pdf");
-    } catch (e) { setErr(e instanceof Error ? e.message : "Export failed"); } finally { setExporting(false); }
-  }
-  const sources = (resp.citations ?? []).slice(0, 5).map((c) => ({ source: c.source, location: c.location }));
-  async function send(rating: 1 | -1) {
-    try {
-      await api.sendFeedback(workspace, rating === 1 ? { rating, route: resp.route } : { rating, route: resp.route, question, answer: resp.answer, expected: expected || undefined, comment: comment || undefined, sources });
-      setState("sent");
-    } catch (e) { setErr(e instanceof Error ? e.message : "Could not send"); }
-  }
-  if (state === "sent") return <div className="muted small" role="status">Thanks — feedback saved.</div>;
-  return (
-    <div className="fb">
-      <div className="row small">
-        <button className="icon" aria-label="Good answer" title="Good answer" onClick={() => void send(1)}>👍</button>
-        <button className="icon" aria-label="Export this answer as a report" title="Export as a PDF report with sources" disabled={exporting} onClick={() => void exportReport()}>{exporting ? "…" : "⬇"}</button>
-        <button className="icon" aria-label="Bad answer" title="Bad answer" aria-expanded={state === "form"} onClick={() => setState(state === "form" ? "idle" : "form")}>👎</button>
-      </div>
-      {state === "form" && (
-        <form className="col" onSubmit={(e) => { e.preventDefault(); void send(-1); }}>
-          <label htmlFor="fbexp">What should the answer contain? (optional — lets this become a regression test)</label>
-          <input id="fbexp" type="text" value={expected} onChange={(e) => setExpected(e.target.value)} placeholder="e.g. 25 days" />
-          <label htmlFor="fbcom">Comment (optional)</label>
-          <input id="fbcom" type="text" value={comment} onChange={(e) => setComment(e.target.value)} />
-          <p className="muted small" style={{ margin: 0 }}>Sends this question and answer to your organisation's feedback list.</p>
-          <div className="row"><button className="small primary">Send feedback</button></div>
-        </form>
-      )}
-      {err && <div className="error small" role="alert">{err}</div>}
-    </div>
-  );
-}
-
 const STARTERS = ["Summarize my documents", "Does a specific name appear in these files?", "Which employee has the highest sales?", "Compare two of my documents"];
 
 function fromMessage(m: Message): Turn {
-  return { role: m.role, text: m.content, resp: m.role === "assistant" ? (m.meta ?? undefined) : undefined };
+  return { role: m.role, text: m.content, resp: m.role === "assistant" ? (m.meta ?? undefined) : undefined, status: m.role === "assistant" ? "done" : undefined };
 }
+
+const NEAR_BOTTOM_PX = 80;
 
 export function Chat({ workspace, prefill, onPrefillUsed }: { workspace: string; prefill: string | null; onPrefillUsed: () => void }) {
   const convs = useLoad(() => api.conversations(workspace), [workspace]);
@@ -132,7 +45,21 @@ export function Chat({ workspace, prefill, onPrefillUsed }: { workspace: string;
   const recRef = useRef<{ stop(): void } | null>(null);
 
   useEffect(() => { setActive(null); setTurns([]); }, [workspace]);
-  const toBottom = useCallback(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, []);
+  const stick = useRef(true);                      // follow the newest text unless the reader scrolled up
+  const [away, setAway] = useState(false);
+  const toBottom = useCallback((force = false) => {
+    const el = logRef.current;
+    if (!el || (!force && !stick.current)) return;
+    // re-checked inside the frame: a scroll by the reader after this was queued must win
+    requestAnimationFrame(() => { if (force || stick.current) el.scrollTop = el.scrollHeight; });
+  }, []);
+  const onScroll = useCallback(() => {
+    const el = logRef.current;
+    if (!el) return;
+    const near = el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX;
+    stick.current = near;
+    setAway((v) => (v === !near ? v : !near));
+  }, []);
   useEffect(() => { toBottom(); }, [turns, toBottom]);
   useEffect(() => { if (prefill) { setInput(prefill); onPrefillUsed(); } }, [prefill, onPrefillUsed]);
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -143,40 +70,71 @@ export function Chat({ workspace, prefill, onPrefillUsed }: { workspace: string;
     try { setTurns((await api.messages(workspace, id)).map(fromMessage)); } catch (e) { setErr(e instanceof Error ? e.message : "Failed"); }
   }
 
-  async function send(question: string) {
+  const busyRef = useRef(false);
+  const lastAsk = useRef<{ q: string; regenerate: boolean } | null>(null);
+
+  async function send(question: string, regenerate = false) {
     const q = question.trim();
-    if (!q || busy) return;
+    if (!q || busyRef.current) return;                    // one active answer at a time (also guards double clicks within one render)
+    busyRef.current = true;
+    lastAsk.current = { q, regenerate };
     setInput("");
     setErr(null);
     setBusy(true);
+    stick.current = true;
+    setAway(false);
     const filters = {
       ...(kinds.length ? { kinds } : {}), ...(pageMin ? { page_min: Number(pageMin) } : {}), ...(pageMax ? { page_max: Number(pageMax) } : {}),
       ...(nameContains ? { name_contains: nameContains } : {}),
     };
     const retrieval: RetrievalOptions = { ...opts, ...(Object.keys(filters).length ? { filters } : {}) };
-    setTurns((t) => [...t, { role: "user", text: q }, { role: "assistant", text: "", steps: [], pending: true }]);
+    const fresh: Turn = { role: "assistant", text: "", status: "pending" };
+    // regenerate / retry re-use the existing question bubble and only replace the answer
+    setTurns((t) => (regenerate || (t.length >= 2 && t[t.length - 1].role === "assistant" && t[t.length - 1].status !== "done" && t[t.length - 2].text === q)
+      ? [...t.slice(0, t.length - 1), fresh] : [...t, { role: "user", text: q }, fresh]));
     const patch = (fn: (t: Turn) => Turn) => setTurns((all) => all.map((t, i) => (i === all.length - 1 ? fn(t) : t)));
     const ctl = new AbortController();
     abortRef.current = ctl;
+    // Incoming tokens are collected here and applied at most once per animation frame: smooth rendering, one React update per frame instead of one per token.
+    let buf = "";
+    let raf = 0;
+    let streamed = "";
+    const flush = () => { raf = 0; if (!buf) return; const add = buf; buf = ""; streamed += add; patch((t) => ({ ...t, text: t.text + add, status: "streaming" })); };
+    const schedule = () => { if (!raf) raf = requestAnimationFrame(flush); };
+    let finished = false;
     try {
-      await askStream(workspace, { question: q, conversation_id: active ?? undefined, source_ids: selected.length ? selected : undefined, case_sensitive: caseSensitive, retrieval, incognito }, (ev) => {
-        if (ev.type === "step") patch((t) => ({ ...t, steps: [...(t.steps ?? []), ev.detail] }));
-        else if (ev.type === "draft") patch((t) => ({ ...t, draft: (t.draft ?? "") + ev.text }));      // real provider tokens: unverified until "final"
-        else if (ev.type === "draft_reset") patch((t) => ({ ...t, draft: "" }));
-        else if (ev.type === "token") { /* extractive answers: the "final" event reveals the verified text character by character */ }
+      await askStream(workspace, { question: q, conversation_id: active ?? undefined, source_ids: selected.length ? selected : undefined, case_sensitive: caseSensitive, retrieval, incognito, ...(regenerate && active ? { regenerate: true } : {}) }, (ev) => {
+        if (ev.type === "status") patch((t) => (t.status === "done" ? t : { ...t, stage: ev.label }));
+        else if (ev.type === "draft") { buf += ev.text; schedule(); }
+        else if (ev.type === "draft_reset") { if (raf) cancelAnimationFrame(raf); raf = 0; buf = ""; streamed = ""; patch((t) => ({ ...t, text: "", status: "pending", stage: null })); }
         else if (ev.type === "final") {
-          patch((t) => ({ ...t, text: ev.response.answer, resp: ev.response, pending: false, animate: !t.draft, draft: undefined }));
+          if (raf) cancelAnimationFrame(raf);
+          raf = 0; buf = "";
+          finished = true;
+          const answer = ev.response.answer;
+          patch((t) => ({ ...t, text: answer, resp: ev.response, status: "done", stage: null, error: undefined, corrected: streamed.trim() !== "" && streamed.trim() !== answer.trim() }));
           if (ev.response.conversation_id) setActive(ev.response.conversation_id);
-        } else if (ev.type === "error") { setErr(ev.detail); patch((t) => ({ ...t, text: "", pending: false })); }
+        } else if (ev.type === "error") {
+          finished = true;
+          patch((t) => ({ ...t, status: "error", stage: null, error: ev.detail }));
+        }
       }, ctl.signal);
+      if (!finished && !ctl.signal.aborted) patch((t) => (t.status === "done" ? t : { ...t, status: "error", stage: null, error: "The connection closed before the answer was complete." }));
       void convs.reload();
     } catch (e) {
-      if (!(e instanceof DOMException && e.name === "AbortError")) setErr(e instanceof Error ? e.message : "Request failed");
-      patch((t) => ({ ...t, pending: false }));
+      if (raf) cancelAnimationFrame(raf);
+      if (e instanceof DOMException && e.name === "AbortError") patch((t) => ({ ...t, status: "stopped", stage: null }));
+      else patch((t) => ({ ...t, status: "error", stage: null, error: e instanceof Error && e.message !== "Failed to fetch" && e.name !== "TypeError" ? e.message : "The connection was lost while the answer was being written." }));
     } finally {
+      if (raf) cancelAnimationFrame(raf);
+      if (ctl.signal.aborted) { buf = ""; }
+      abortRef.current = null;
+      busyRef.current = false;
       setBusy(false);
     }
   }
+
+  const stop = () => abortRef.current?.abort();
 
   async function voice() {
     if (listening) { recRef.current?.stop(); return; }
@@ -243,7 +201,7 @@ export function Chat({ workspace, prefill, onPrefillUsed }: { workspace: string;
       </aside>
 
       <section className="gpt-main">
-        <div className="log" ref={logRef} aria-live="polite">
+        <div className="log" ref={logRef} onScroll={onScroll}>
           {empty && (
             <div className="hello">
               <div className="logo">📚</div>
@@ -253,42 +211,14 @@ export function Chat({ workspace, prefill, onPrefillUsed }: { workspace: string;
             </div>
           )}
           {turns.map((t, i) => (
-            <div key={i} className={`msg ${t.role}`}>
-              {t.role === "assistant" && <div className="avatar" aria-hidden="true">AI</div>}
-              <div className="bubble">
-                {t.role === "assistant" && t.resp && (
-                  <div className="row small badges">
-                    {t.resp.confidence && <Badge kind={t.resp.confidence}>confidence: {t.resp.confidence}</Badge>}
-                    {t.resp.route && <Badge>{t.resp.route}</Badge>}
-                    {t.resp.verified === false && <Badge kind="none">not verified</Badge>}
-                    {t.resp.details?.citation_check && t.resp.details.citation_check.accuracy !== null && <Badge kind={t.resp.details.citation_check.accuracy === 1 ? "high" : "low"}>citations checked: {Math.round(t.resp.details.citation_check.accuracy * 100)}%</Badge>}
-                    {t.resp.details?.private === true && <Badge>incognito</Badge>}
-                  </div>
-                )}
-                <div className="text">
-                  {t.role === "assistant" ? (t.text ? <Typed text={t.text} animate={Boolean(t.animate)} onTick={toBottom} /> : t.pending && t.draft ? <span className="draft">{t.draft}</span> : t.pending ? <span className="thinking">Thinking<i>.</i><i>.</i><i>.</i></span> : "") : t.text}
-                </div>
-                {t.pending && t.draft && <div className="draft-note">Draft while it is being checked against the sources - the verified answer replaces it.</div>}
-                {t.pending && t.steps && t.steps.length > 0 && <div className="steps">{t.steps.map((st, k) => <div key={k}>› {st}</div>)}</div>}
-                {t.resp && <AutoPick resp={t.resp} />}
-                {t.resp?.details?.chart && <Chart spec={t.resp.details.chart} />}
-                {t.resp?.citations && <CitationList citations={t.resp.citations} onOpen={setCite} />}
-                {t.resp?.limitations && t.resp.limitations.length > 0 && <div className="muted small" style={{ marginTop: 6 }}>ℹ {t.resp.limitations.join(" • ")}</div>}
-                {t.resp?.followups && t.resp.followups.length > 0 && !t.pending && (
-                  <div className="chips" aria-label="Follow-up questions">{t.resp.followups.map((f) => <button key={f} onClick={() => void send(f)}>{f}</button>)}</div>
-                )}
-                {t.role === "assistant" && t.resp && !t.pending && !t.resp.details?.private && i > 0 && <FeedbackBar workspace={workspace} question={turns[i - 1]?.text ?? ""} resp={t.resp} />}
-                {t.resp?.usage && t.resp.latency_ms && (
-                  <div className="muted small" style={{ marginTop: 6 }}>
-                    {t.resp.latency_ms.toFixed(0)} ms · {(t.resp.usage.prompt_tokens ?? 0) + (t.resp.usage.completion_tokens ?? 0) + (t.resp.usage.embed_tokens ?? 0)} tokens · ${(t.resp.usage.cost_usd ?? 0).toFixed(5)}
-                  </div>
-                )}
-              </div>
-            </div>
+            <ChatMessage key={i} turn={t} question={turns[i - 1]?.text ?? ""} workspace={workspace} isLast={i === turns.length - 1} busy={busy}
+              onOpenCitation={setCite} onFollowup={(f) => void send(f)}
+              onRegenerate={() => void send(turns[i - 1]?.text ?? "", t.status === "done")} onRetry={() => void send(turns[i - 1]?.text ?? "")} />
           ))}
         </div>
+        {away && busy && <button className="jump" onClick={() => { stick.current = true; setAway(false); toBottom(true); }} aria-label="Scroll to latest">↓ Latest</button>}
         {err && <div className="error" role="alert">{err}</div>}
-        <div className="composer-wrap">{composer}<div className="muted small center">Answers are checked against your documents; verify important facts in the cited source.</div></div>
+        <div className="composer-wrap">{busy && <StopGeneratingButton onStop={stop} />}{composer}<div className="muted small center">Answers are checked against your documents; verify important facts in the cited source.</div></div>
       </section>
 
       <aside className="gpt-opts" aria-label="Search filters" hidden={!showOpts}>

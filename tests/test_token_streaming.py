@@ -90,16 +90,16 @@ def test_endpoint_streams_draft_tokens_then_verified_final(tmp_path):
     ev = _events(c, {"question": "How many days of annual leave?"})
     kinds = [e[0] for e in ev]
     drafts = "".join(e[1]["text"] for e in ev if e[0] == "draft")
-    assert kinds[-1] == "final" and "draft" in kinds and "token" not in kinds         # real tokens replace the re-chunked fallback
+    assert kinds[-2:] == ["final", "done"] and "draft" in kinds and "token" not in kinds
     assert kinds.index("draft") > kinds.index("step") and drafts.startswith("Employees get 25 days")
-    assert ev[-1][1]["response"]["verified"] is True
+    assert ev[kinds.index("final")][1]["response"]["verified"] is True
 
 
-def test_extractive_answers_still_use_token_fallback(tmp_path):
+def test_extractive_answers_arrive_whole_and_are_not_simulated(tmp_path):
     c, k, s = app_with(tmp_path)                       # no LLM configured
     upload(c, "a.txt", b"Employees accrue 25 days of annual leave per year. " * 3)
     kinds = [e[0] for e in _events(c, {"question": "How many days of annual leave?"})]
-    assert "token" in kinds and "draft" not in kinds and kinds[-1] == "final"
+    assert "token" not in kinds and "draft" not in kinds and kinds[-2:] == ["final", "done"]
 
 
 def test_stream_worker_errors_surface_as_error_event(tmp_path):
@@ -107,4 +107,4 @@ def test_stream_worker_errors_surface_as_error_event(tmp_path):
     upload(c, "a.txt", b"Employees accrue 25 days of annual leave per year. " * 3)
     k.llm.stream = lambda s, u: (_ for _ in ()).throw(ProviderError("boom"))
     ev = _events(c, {"question": "How many days of annual leave?"})
-    assert ev[-1][0] in ("final", "error")              # a failing provider degrades to extraction (final) or reports an error - never hangs
+    assert ev[-1][0] in ("done", "error")               # a failing provider degrades to extraction (final+done) or reports an error - never hangs

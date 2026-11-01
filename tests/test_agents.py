@@ -280,10 +280,9 @@ def test_streaming_endpoint(tmp_path):
             elif line.startswith("data:"):
                 events.append((cur, json.loads(line.split(":", 1)[1])))
     kinds = [e[0] for e in events]
-    assert kinds[0] == "step" and "token" in kinds and kinds[-1] == "final"
-    assert "".join(e[1]["text"] for e in events if e[0] == "token") == events[-1][1]["response"]["answer"]
+    assert kinds[0] == "status" and "token" not in kinds and kinds[-2:] == ["final", "done"]     # no LLM -> no draft; nothing is simulated
     assert any("supervisor" in e[1].get("detail", "") for e in events if e[0] == "step")
-    cid = events[-1][1]["response"]["conversation_id"]
+    cid = events[kinds.index("final")][1]["response"]["conversation_id"]
     assert len(c.get(f"/conversations/{cid}/messages", headers=H).json()) == 2  # persisted like /ask
     with c.stream("POST", "/ask/stream", json={"question": "x", "source_ids": ["0" * 32]}, headers=H) as r:
         assert "event: error" in r.read().decode()

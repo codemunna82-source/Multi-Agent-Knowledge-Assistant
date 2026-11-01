@@ -21,6 +21,7 @@ from ..tenant import web_policy
 from ..tools import tabular as tab
 from .citations import validate as validate_citations
 from .common import NOT_VERIFIED, best_sentences, confidence_from, evidence_citations, excerpt, hit_to_evidence, result
+from ..rag import progress
 from ..rag.selfrag import grade_passages, should_retrieve
 from ..rag.selfrag import refine as self_refine
 from .routing import CROSS_DOC, URL, llm_route, rules_route, split_intents
@@ -165,6 +166,7 @@ class Agents:
                 prompt = f"{hist}Question: {query}\n\n{ev}"
                 if c.on_token is None:
                     return llm.complete(system, prompt), True, lim
+                progress.stage("generate")
                 c.on_token(None)  # new draft: the UI discards any earlier (rejected) one
                 parts: list[str] = []
                 for piece in llm.stream(system, prompt):
