@@ -159,7 +159,7 @@ def test_badges_are_computed_from_real_progress_and_path_badges_need_every_lesso
     done = set(path["lessons"])
     got = {b["id"]: b["earned"] for b in ac.badges(done, {"q": {"correct": 10, "total": 10, "percent": 100}}, {"a:exercise": True, "b:exercise": True, "c:debug": True}, 7)}
     assert got["first-lesson"] and got["five-lessons"] and got["streak-7"] and got["quiz-ace"] and got["code-runner"] and got["bug-hunter"] and got["path-go-live"]
-    assert not got["all-lessons"] and not got["path-new-to-ai"] and not got["ten-lessons"]
+    assert not got["all-lessons"] and not got["path-new-to-ai"] and got["ten-lessons"] == (len(done) >= 10)
     almost = {b["id"]: b["earned"] for b in ac.badges(done - {path["lessons"][0]}, {}, {}, 0)}
     assert not almost["path-go-live"] and len(ls) > 0
 

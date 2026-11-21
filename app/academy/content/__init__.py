@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import importlib
 
-MODULES = ["c01_fundamentals", "c02_llm", "c03_prompting", "c04_embeddings", "c05_langchain", "c06_rag", "c07_adv_rag", "c08_langgraph", "c09_agentic", "c10_to_c15_production", "c10b_production", "c16_stack"]
+MODULES = ["c01_fundamentals", "c02_llm", "c03_prompting", "c04_embeddings", "c05_langchain", "c06_rag", "c07_adv_rag", "c08_langgraph", "c09_agentic", "c10_to_c15_production", "c10b_production", "c16_stack", "c17_basics", "c18_advanced"]
 
 
 def T(en: str, hi: str, hinglish: str) -> dict:

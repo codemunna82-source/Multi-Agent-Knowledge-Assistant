@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { SCENES, say, type Values } from "./scenes";
 import { Workflow } from "./Workflow";
 
-const NEW = ["ai-vs-ml", "prompt-anatomy", "messages-api", "mcp-flow", "rag-eval-metrics", "prod-request", "deploy-pipeline", "async-timeline", "cache-aside", "docker-layers", "aws-architecture"];
+const NEW = ["ai-vs-ml", "prompt-anatomy", "messages-api", "mcp-flow", "rag-eval-metrics", "prod-request", "deploy-pipeline", "async-timeline", "cache-aside", "docker-layers", "aws-architecture", "python-data", "vector-arrows", "sql-pipeline", "injection-flow", "finetune-choice", "cost-calc", "image-patches"];
 const vals = (id: string, over: Values = {}): Values => ({ ...Object.fromEntries(SCENES[id].inputs.map((i) => [i.key, i.default])), ...over });
 const run = (id: string, over: Values = {}, variant = SCENES[id].variants?.[0]?.id ?? "") => SCENES[id].build(vals(id, over), variant);
 
@@ -81,6 +81,62 @@ describe("new academy animations", () => {
     expect(n("requirements.txt")).toBe("4 of 6 layers rebuilt");
     expect(n("base image tag")).toBe("6 of 6 layers rebuilt");
     expect(n("nothing")).toBe("0 of 6 layers rebuilt");
+  });
+
+  it("python-data counts words into a dictionary", () => {
+    const s = run("python-data", { text: "the cat sat on the mat" });
+    expect(s.find((x) => x.id === "loop")!.output).toBe('{"the":2,"cat":1,"sat":1,"on":1,"mat":1}');
+    expect(s.find((x) => x.id === "sort")!.output).toBe("the (2), cat (1), sat (1)");
+  });
+
+  it("vector-arrows: same direction is 1, perpendicular is 0, opposite is -1, a zero vector is undefined", () => {
+    const cos = (o: Values) => run("vector-arrows", o).find((x) => x.id === "cos")!.output;
+    expect(cos({ ax: 3, ay: 4, bx: 6, by: 8 })).toContain("cosine = 1.000");
+    expect(cos({ ax: 1, ay: 0, bx: 0, by: 1 })).toContain("cosine = 0.000");
+    expect(cos({ ax: 1, ay: 1, bx: -1, by: -1 })).toContain("cosine = -1.000");
+    expect(cos({ ax: 0, ay: 0, bx: 1, by: 1 })).toBe("undefined");
+    expect(run("vector-arrows", { ax: 3, ay: 4, bx: 4, by: 3 }).find((x) => x.id === "dot")!.output).toBe("3×4 + 4×3 = 24");
+  });
+
+  it("sql-pipeline: the WHERE threshold changes what survives and the final ordering", () => {
+    expect(run("sql-pipeline", { min: 30 }).find((x) => x.id === "where")!.output).toBe("5 of 5 rows left");
+    expect(run("sql-pipeline", { min: 60 }).find((x) => x.id === "where")!.output).toBe("3 of 5 rows left");
+    expect(run("sql-pipeline", { min: 30 }).find((x) => x.id === "order")!.output.split(/\r?\n/)[0]).toBe("Asha  300");
+    expect(run("sql-pipeline", { min: 250 }).find((x) => x.id === "order")!.output).toBe("(no rows)");
+  });
+
+  it("injection-flow: only a code-level allow-list stops the planted email", () => {
+    const out = (doc: string, defence: string) => run("injection-flow", { doc, defence }).at(-1)!.output;
+    expect(out("Hidden attack", "none")).toContain("DANGER");
+    expect(out("Hidden attack", "data fence only")).toContain("DANGER");                      // a fence alone is not a guarantee
+    expect(out("Hidden attack", "allow-list in code")).toContain("Blocked");
+    expect(out("Hidden attack", "allow-list + human approval")).toContain("human");
+    expect(out("Clean policy", "none")).toBe("Normal answer: 25 days.");
+  });
+
+  it("finetune-choice recommends RAG for changing facts and fine-tuning only with enough examples", () => {
+    const pick = (need: string, examples: number) => run("finetune-choice", { need, examples }).at(-1)!.output;
+    expect(pick("Answers from our changing documents", 5000)).toBe("RAG");
+    expect(pick("A fixed tone and output format", 50)).toContain("better prompt");
+    expect(pick("A fixed tone and output format", 400)).toContain("Fine-tuning");
+    expect(pick("Cheaper model for one task", 100)).toContain("Collect more");
+  });
+
+  it("cost-calc matches the lesson's numbers: 0.00145 per request, 1.45 per day, 55% saved", () => {
+    const s = run("cost-calc", {});
+    expect(s[0].output).toBe("0.001450 per request");
+    expect(s[1].output).toContain("1.45 per day");
+    expect(s.at(-1)!.output).toContain("0.65 per day instead of 1.45 (55% saved)");
+    expect(run("cost-calc", { cache: 100 }).at(-1)!.output).toContain("0.00 per day");
+  });
+
+  it("image-patches: patch counts follow the patch size and the edge filter finds the dark/bright border", () => {
+    const n = (size: string) => run("image-patches", { size }).find((x) => x.id === "cut")!.output;
+    expect(n("3")).toBe("4 patches");
+    expect(n("2")).toBe("9 patches");
+    expect(n("6")).toBe("1 patches");
+    expect(run("image-patches", { img: "dark | bright" }).at(-1)!.output).toBe("edges found (non-zero values)");
+    expect(run("image-patches", { img: "dark | bright" }).at(-1)!.lines![0]).toBe("0 0 9 0 0");
   });
 
   it("renders in the player with Play/Step and shows the explanation", async () => {
