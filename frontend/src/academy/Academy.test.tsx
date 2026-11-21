@@ -34,6 +34,14 @@ function setup(extra: Record<string, unknown> = {}) {
 }
 
 describe("Academy", () => {
+  it("includes the former Learn lab as the 'Lab: your documents' section", async () => {
+    setup({ "/learn/lessons": { body: { llm_available: false, embedder: "hash:v1:1024", presets: [], ablation: [], note: "", demo_questions: [], lessons: [] } } });
+    render(<Academy workspace="w" canIngest />);
+    await userEvent.click(await screen.findByRole("button", { name: "Lab: your documents" }));
+    expect(await screen.findByRole("heading", { name: /Learn lab/ })).toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: "Retrieval lab" })).toBeInTheDocument();
+  });
+
   it("shows the dashboard with continue learning, progress per category and the roadmap", async () => {
     setup();
     render(<Academy workspace="w" />);

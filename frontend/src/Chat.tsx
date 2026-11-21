@@ -233,7 +233,7 @@ export function Chat({ workspace, prefill, onPrefillUsed }: { workspace: string;
               <input type="checkbox" checked={Boolean(opts[k])} onChange={(e) => setOpts({ ...opts, [k]: e.target.checked })} />{label}
             </label>
           ))}
-          <p className="muted small" style={{ margin: 0 }}>Turn on <b>✨ Auto</b> (below the message box) to let the agent graph choose these for each question. Not sure what a filter does? Open <b>Learn lab</b>.</p>
+          <p className="muted small" style={{ margin: 0 }}>Turn on <b>✨ Auto</b> (below the message box) to let the agent graph choose these for each question. Not sure what a filter does? Open <b>AI Learning Academy → Lab</b>.</p>
           <label htmlFor="rr">Reranker</label>
           <select id="rr" value={opts.reranker} onChange={(e) => setOpts({ ...opts, reranker: e.target.value as RetrievalOptions["reranker"] })}>
             <option value="lexical">Lexical</option><option value="llm">LLM (needs LLM)</option><option value="cross_encoder">Cross-encoder (optional)</option><option value="none">None</option>

@@ -1,3 +1,5 @@
+> The Learn lab is now part of the **AI Learning Academy** tab: open it and choose **Lab: your documents**.
+
 # Learning guide — RAG, LangGraph and LangChain on your own documents
 
 Open **Learn lab** in the UI (`/learn/*` in the API). Everything it shows is real code of this project running on the documents of your workspace; click **Load demo documents** first if you have none (safe to repeat).

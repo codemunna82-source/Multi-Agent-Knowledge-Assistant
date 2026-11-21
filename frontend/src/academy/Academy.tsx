@@ -3,6 +3,7 @@ import { academy } from "../api";
 import { errText, useLoad } from "../ui";
 import { Dashboard } from "./Dashboard";
 import { LessonView } from "./LessonView";
+import { Learn } from "../Learn";
 import { Interview } from "./Interview";
 import { Playground } from "./Playground";
 import { Projects } from "./Projects";
@@ -10,13 +11,13 @@ import { QuizPanel } from "./QuizPanel";
 import { SidePanel } from "./SidePanel";
 import type { Lang, Level, LessonCard } from "./types";
 
-type View = { kind: "dashboard" | "roadmap" | "playground" | "projects" | "interview" | "daily" } | { kind: "lesson"; id: string };
+type View = { kind: "dashboard" | "roadmap" | "playground" | "lab" | "projects" | "interview" | "daily" } | { kind: "lesson"; id: string };
 const LANG_KEY = "mka_academy_lang";
 const loadLang = (): Lang => { try { const v = localStorage.getItem(LANG_KEY); if (v === "en" || v === "hi" || v === "hinglish") return v; } catch { /* ignore */ } return "en"; };
 const LANGS: [Lang, string][] = [["en", "English"], ["hi", "हिंदी"], ["hinglish", "Hinglish"]];
-const NAV: [Exclude<View["kind"], "lesson">, string][] = [["dashboard", "Dashboard"], ["roadmap", "Roadmap"], ["playground", "Playground"], ["projects", "Projects"], ["interview", "Interview prep"], ["daily", "Daily practice"]];
+const NAV: [Exclude<View["kind"], "lesson">, string][] = [["dashboard", "Dashboard"], ["roadmap", "Roadmap"], ["playground", "Playground"], ["lab", "Lab: your documents"], ["projects", "Projects"], ["interview", "Interview prep"], ["daily", "Daily practice"]];
 
-export function Academy({ workspace }: { workspace: string }) {
+export function Academy({ workspace, canIngest = false }: { workspace: string; canIngest?: boolean }) {
   const catalog = useLoad(() => academy.catalog(), []);
   const progress = useLoad(() => academy.progress(), []);
   const glossary = useLoad(() => academy.glossary(), []);
@@ -102,6 +103,7 @@ export function Academy({ workspace }: { workspace: string }) {
             {daily.data && <QuizPanel questions={daily.data.questions} label="Daily practice" onGraded={() => void progress.reload()} />}</div>
         )}
         {view.kind === "playground" && <Playground workspace={workspace} />}
+        {view.kind === "lab" && <Learn workspace={workspace} canIngest={canIngest} />}
         {view.kind === "projects" && <Projects onChanged={() => void progress.reload()} />}
         {view.kind === "interview" && <Interview categories={Object.fromEntries((catalog.data?.categories ?? []).map((c) => [c.id, c.title.en]))} />}
       </main>

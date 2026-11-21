@@ -212,10 +212,11 @@ await step("admin: add a user, audit log shows activity without question text", 
   const html = await page.content();
   if (html.includes("capital of Mongolia")) throw new Error("question text leaked into the audit view");
 });
-await step("learn lab: demo documents, ablation, graph run with auto strategy, LangChain examples (own workspace)", async () => {
+await step("academy lab: demo documents, ablation, graph run with auto strategy, LangChain examples (own workspace)", async () => {
   await page.getByLabel("Workspace").fill("learn");
   await page.getByLabel("Workspace").press("Enter");
-  await page.getByRole("button", { name: "Learn lab", exact: true }).click();
+  await page.getByRole("button", { name: "AI Learning Academy", exact: true }).click();
+  await page.getByRole("button", { name: "Lab: your documents", exact: true }).click();
   await page.getByRole("tab", { name: "Retrieval lab" }).click();
   await page.getByRole("button", { name: "Load demo documents" }).click();
   await page.getByText(/Loaded \d+ new/).waitFor(T);
@@ -234,6 +235,7 @@ await step("learn lab: demo documents, ablation, graph run with auto strategy, L
   await page.getByLabel("Workspace").press("Enter");
 });
 await step("academy: dashboard, lesson with Hinglish switch, quiz, projects with code, interview prep, daily practice", async () => {
+  await page.getByRole("button", { name: "Chat", exact: true }).click();   // leave the Lab view so the Academy opens on its dashboard
   await page.getByRole("button", { name: "AI Learning Academy", exact: true }).click();
   await page.getByRole("region", { name: "Continue learning" }).waitFor(T);
   await page.getByRole("button", { name: /Start →|Resume →/ }).click();
@@ -273,7 +275,7 @@ await step("plain user: signs in, can chat and search, cannot see Admin/Evaluati
 });
 await step("phone layout: no horizontal overflow on the main screens at 390 px", async () => {
   await page.setViewportSize({ width: 390, height: 800 });
-  for (const name of ["Dashboard", "Library", "Chat", "Exact search", "Compare", "Data analyst", "Reports", "History", "Learn lab", "AI Learning Academy", "Settings"]) {
+  for (const name of ["Dashboard", "Library", "Chat", "Exact search", "Compare", "Data analyst", "Reports", "History", "AI Learning Academy", "Settings"]) {
     await page.getByRole("button", { name, exact: true }).click();
     await page.waitForTimeout(250);
     const over = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);

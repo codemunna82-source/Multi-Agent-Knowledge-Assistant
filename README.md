@@ -62,7 +62,7 @@ docker compose exec api python -m app.cli create-tenant --name "ACME" --email ad
 | Reports | summary, executive, comparison, research, analytics, exact-search, evaluation → PDF / DOCX / XLSX with sources and timestamps |
 | Security | JWT + rotating httpOnly refresh token, roles user/manager/admin, tenant isolation, document sharing, audit, rate limits, injection/SSRF defences, retention + erasure, user-controlled memory |
 | Operations | PostgreSQL + Alembic, Redis queue, scheduler, `/metrics`, OpenTelemetry, backup/restore scripts |
-| Learn | **Learn lab**: ablate/compare retrieval techniques, see the LangGraph run step by step, real LangChain objects on your documents — [`docs/LEARNING.md`](docs/LEARNING.md); **✨ Auto** lets a graph node pick the best retrieval setting per question |
+| Learn | **Learn lab** (now inside **AI Learning Academy → Lab: your documents**): ablate/compare retrieval techniques, see the LangGraph run step by step, real LangChain objects on your documents — [`docs/LEARNING.md`](docs/LEARNING.md); **✨ Auto** lets a graph node pick the best retrieval setting per question |
 | Academy | **AI Learning Academy** (in the app): 28 lessons in English / Hindi / Hinglish (every lesson has an animation, runnable code, an exercise, a debug challenge and a quiz), glossary, toy-model visualisations, 7 playgrounds on the real backend, a sandboxed Python/JS runner, 10 guided projects with tested code, interview prep, daily practice, progress and streaks — [`docs/ACADEMY.md`](docs/ACADEMY.md) |
 | UI | ChatGPT-style chat (character-by-character reveal), 14+ screens (dashboard, library, chat, citation preview, exact search, comparison, analyst, reports, history, settings, admin, …), light/dark |
 
