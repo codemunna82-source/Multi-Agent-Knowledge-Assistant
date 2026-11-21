@@ -39,3 +39,18 @@ ROADMAP = {
 
 # Which technology progress bars the dashboard shows (category ids).
 PROGRESS_GROUPS = [c[0] for c in CATEGORIES]
+
+
+# Goal-based learning paths: an ordered list of lesson ids per goal. The UI's 'Choose your path' quiz recommends one of these.
+GOALS = [
+    {"id": "new-to-ai", "icon": "🌱", "title": {"en": "I am new to AI", "hi": "मैं AI में नया हूँ", "hinglish": "Main AI mein naya hoon"},
+     "summary": "What AI, LLMs, tokens and prompts really are. No coding experience needed.", "lessons": ["ai-ml-dl", "what-is-llm", "tokens-context", "sampling-temperature", "prompt-basics", "prompt-roles-api", "what-are-embeddings"]},
+    {"id": "doc-chatbot", "icon": "📄", "title": {"en": "Build a chatbot over my documents", "hi": "अपने documents पर chatbot बनाऊँ", "hinglish": "Apne documents par chatbot banao"},
+     "summary": "RAG from chunking to evaluation, then serve and package it.", "lessons": ["what-is-llm", "prompt-basics", "what-are-embeddings", "vector-search", "chunking-loading", "rag-pipeline", "hybrid-rerank", "query-transform", "rag-eval", "fastapi-async", "docker-basics"]},
+    {"id": "agent-builder", "icon": "🤖", "title": {"en": "Build AI agents", "hi": "AI agents बनाऊँ", "hinglish": "AI agents banao"},
+     "summary": "Tools, graphs, memory, planning and multi-agent systems with LangChain and LangGraph.", "lessons": ["prompt-roles-api", "tools-structured-output", "function-calling", "lcel-basics", "graph-state-nodes", "checkpoint-hitl", "agent-loop", "reflection-planning", "supervisor", "mcp-intro"]},
+    {"id": "go-live", "icon": "🚀", "title": {"en": "Take an AI app to production", "hi": "AI app को production में ले जाऊँ", "hinglish": "AI app ko production mein le jao"},
+     "summary": "Architecture, async APIs, Redis and PostgreSQL, Docker, AWS, evaluation and monitoring.", "lessons": ["prod-architecture", "fastapi-async", "redis-postgres", "docker-basics", "aws-deploy", "rag-eval", "deploy-monitor"]},
+    {"id": "interview-ready", "icon": "🎯", "title": {"en": "Prepare for AI interviews", "hi": "AI interviews की तैयारी", "hinglish": "AI interviews ki taiyari"},
+     "summary": "The concepts interviewers ask most, with short model answers and quizzes.", "lessons": ["what-is-llm", "tokens-context", "what-are-embeddings", "rag-pipeline", "hybrid-rerank", "agent-loop", "function-calling", "rag-eval", "prod-architecture"]},
+]

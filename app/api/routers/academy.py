@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from ...academy import playground as pg
 from ...academy import playground_graph as pgg
-from ...academy import sandbox
+from ...academy import sandbox, tasktests
 from ...academy import service as ac
 from ...core import IngestError, ProviderError
 from ...db import AcademyExercise, AcademyProject
@@ -148,6 +148,7 @@ class RunBody(BaseModel):
 @router.post("/code/run", summary="Run learner code in an isolated sandbox (no network, CPU/memory/time/output limits); exercises are graded on the output")
 def code_run(body: RunBody, ctx: Ctx = Depends(require("learn", "code"))):
     expected: Optional[str] = None
+    tests: list[dict] = []
     lesson_id = body.lesson_id
     if body.task != "scratch":
         x = _lesson(lesson_id or "")
@@ -161,20 +162,24 @@ def code_run(body: RunBody, ctx: Ctx = Depends(require("learn", "code"))):
             if not task:
                 raise HTTPException(404, f"This lesson has no {body.task}")
             expected = task["expected_output"]
+            tests = task.get("tests", []) if body.language == "python" else []
     try:
-        r = sandbox.run(ctx.svc.settings, body.language, body.code)
+        r = sandbox.run(ctx.svc.settings, body.language, tasktests.build_script(body.code, tests) if tests else body.code)
     except sandbox.Busy as e:
         raise HTTPException(429, str(e), headers={"Retry-After": "5"})
     except ValueError as e:
         raise HTTPException(422, str(e))
     passed = None
+    stdout, test_results = r.stdout, []
+    if tests and r.unavailable is None:
+        stdout, test_results = tasktests.parse(r.stdout, tests)
     if expected is not None and r.unavailable is None:
-        passed = bool(r.ok and r.stdout.strip() == expected.strip())
+        passed = bool(r.ok and stdout.strip() == expected.strip() and all(t["passed"] for t in test_results))
         if body.task in ("exercise", "debug"):
             with ctx.svc.db.session() as s:
                 ac.record_exercise(s, ctx.principal.user_id, lesson_id, body.task, passed)
     ctx.audit("academy_code_run", lesson_id, "denied" if r.unavailable else "success", {"language": body.language, "task": body.task, "bytes": len(body.code), "exit": r.exit_code, "ms": r.ms, "timed_out": r.timed_out})
-    return {"ok": r.ok, "stdout": r.stdout, "stderr": r.stderr, "exit_code": r.exit_code, "ms": r.ms, "timed_out": r.timed_out, "truncated": r.truncated, "unavailable": r.unavailable,
+    return {"ok": r.ok, "stdout": stdout, "tests": test_results, "stderr": r.stderr, "exit_code": r.exit_code, "ms": r.ms, "timed_out": r.timed_out, "truncated": r.truncated, "unavailable": r.unavailable,
             "notes": r.notes, "error_help": sandbox.explain_error(r.stderr) if r.stderr else None, "passed": passed, "expected": expected if body.task == "example" else None}
 
 
@@ -190,6 +195,51 @@ def solution(lesson_id: str, kind: Literal["exercise", "debug"], ctx: Ctx = Lear
     if not tried:
         raise HTTPException(403, "Try the task at least once first - then the solution is unlocked.")
     return {"solution": task["solution"], "expected_output": task["expected_output"]}
+
+
+@router.get("/lessons/{lesson_id}/hint/{kind}", summary="A bigger hint for an exercise or debug task: the first half of the new lines of the solution, available after an attempt")
+def bigger_hint(lesson_id: str, kind: Literal["exercise", "debug"], ctx: Ctx = Learn):
+    x = _lesson(lesson_id)
+    task = x.get(kind)
+    if not task:
+        raise HTTPException(404, f"This lesson has no {kind}")
+    with ctx.svc.db.session() as s:
+        row = s.scalar(select(AcademyExercise).where(AcademyExercise.user_id == ctx.principal.user_id, AcademyExercise.lesson_id == lesson_id, AcademyExercise.kind == kind))
+        tried = bool(row and row.attempts >= 1)
+    if not tried:
+        raise HTTPException(403, "Try the task at least once first - then a bigger hint is unlocked.")
+    starter = {ln.strip() for ln in task["starter"].splitlines()}
+    new = [ln for ln in task["solution"].splitlines() if ln.strip() and ln.strip() not in starter]
+    part = new[: max(1, (len(new) + 1) // 2)]
+    return {"hint": "\n".join(part) + ("\n# ... the rest is for you" if len(part) < len(new) else ""), "lines_shown": len(part), "lines_total": len(new)}
+
+
+# ----------------------------------------------------------------------------- review (spaced repetition) and lesson feedback
+@router.get("/review", summary="Quiz questions that are due for review now (wrong answers at once, right ones after 1, 3, 7 and 14 days)")
+def review(ctx: Ctx = Learn):
+    with ctx.svc.db.session() as s:
+        return ac.due_reviews(s, ctx.principal.user_id)
+
+
+class FeedbackBody(BaseModel):
+    lesson_id: str = Field(min_length=1, max_length=64)
+    helpful: bool
+    step: Optional[str] = Field(default=None, pattern="^(understand|see|code|practice|check)$")
+    comment: Optional[str] = Field(default=None, max_length=500)
+
+
+@router.post("/feedback", summary="Was this lesson helpful? Optionally which step confused you", status_code=201)
+def feedback(body: FeedbackBody, ctx: Ctx = Learn):
+    _lesson(body.lesson_id)
+    with ctx.svc.db.session() as s:
+        ac.add_feedback(s, ctx.principal.user_id, body.lesson_id, body.helpful, body.step, body.comment)
+    return {"ok": True}
+
+
+@router.get("/feedback/summary", summary="Admin: which lessons are not helping, and which step confuses people")
+def feedback_summary(ctx: Ctx = Depends(require("manage_users"))):
+    with ctx.svc.db.session() as s:
+        return ac.feedback_summary(s)
 
 
 # ----------------------------------------------------------------------------- playgrounds (real backend components; honest when something is not configured)

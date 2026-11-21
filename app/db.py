@@ -467,3 +467,15 @@ class AcademyProject(Base):
     done_steps: Mapped[list] = mapped_column(JSON, default=list)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
     __table_args__ = (UniqueConstraint("user_id", "project_id", name="uq_academy_project"),)
+
+
+class AcademyFeedback(Base):
+    """'Was this lesson helpful?' answers, with the step that confused the learner. Removed with the user."""
+    __tablename__ = "academy_feedback"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    lesson_id: Mapped[str] = mapped_column(String(64))
+    helpful: Mapped[bool] = mapped_column()
+    step: Mapped[Optional[str]] = mapped_column(String(24), nullable=True)  # understand | see | code | practice | check
+    comment: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)

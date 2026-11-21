@@ -10,8 +10,8 @@ from typing import Optional
 
 from sqlalchemy import delete, func, select
 
-from ..db import AcademyActivity, AcademyExercise, AcademyProgress, AcademyProject, AcademyQuizAttempt
-from .catalog import CATEGORIES, LANGS, LEVELS, ROADMAP
+from ..db import AcademyActivity, AcademyExercise, AcademyFeedback, AcademyProgress, AcademyProject, AcademyQuizAttempt
+from .catalog import CATEGORIES, GOALS, LANGS, LEVELS, ROADMAP
 
 TEXT_FIELDS = ("definition", "analogy", "technical", "why", "example", "interview", "mistakes")
 SECRET_LESSON_KEYS = ("answer", "why", "why_not")           # quiz fields revealed only after submitting
@@ -108,6 +108,17 @@ def validate() -> list[str]:
         for tid, _ in TERM_RE.findall(blob):
             if tid not in gl:
                 bad.append(f"{p}: glossary term '{tid}' is not defined")
+    for g in GOALS:
+        for lid in g["lessons"]:
+            if lid not in ls:
+                bad.append(f"goal {g['id']}: lesson {lid} does not exist")
+        if any(not g["title"].get(lang) for lang in LANGS):
+            bad.append(f"goal {g['id']}: title is missing a language")
+    for lid, x in ls.items():
+        for k in ("exercise", "debug"):
+            for t in (x.get(k) or {}).get("tests", []):
+                if not all(t.get(f) for f in ("name", "call", "expect")):
+                    bad.append(f"lesson {lid}: {k} test needs name, call and expect")
     for tid, g in gl.items():
         if any(not g.get(lang) for lang in LANGS):
             bad.append(f"glossary {tid}: missing language")
@@ -140,6 +151,7 @@ def public_lesson(x: dict) -> dict:
             q.pop(k, None)
     for k in ("exercise", "debug"):
         if y.get(k):
+            y[k]["tests"] = [{"name": t["name"], "hidden": bool(t.get("hidden")), **({} if t.get("hidden") else {"call": t["call"], "expect": t["expect"]})} for t in y[k].get("tests", [])]
             y[k].pop("solution", None)          # the target output stays visible (the learner needs a goal); the solution is revealed on request after an attempt
     return y
 
@@ -155,6 +167,7 @@ def catalog() -> dict:
         "categories": [{"id": c[0], "title": {"en": c[1], "hi": c[2]}, "summary": c[3], "lessons": [lesson_card(x) for x in ls.values() if x["category"] == c[0]]} for c in CATEGORIES],
         "roadmap": {lvl: [{"title": t, "lesson": lid, "planned": lid is None} for t, lid in items] for lvl, items in ROADMAP.items()},
         "languages": list(LANGS),
+        "paths": [{**g, "lessons": [lid for lid in g["lessons"] if lid in ls]} for g in GOALS],
     }
 
 
@@ -309,9 +322,68 @@ def project_progress(s, user_id: str) -> dict[str, list[int]]:
 
 
 def erase_user(s, user_id: str) -> None:
-    for m in (AcademyProgress, AcademyQuizAttempt, AcademyExercise, AcademyActivity, AcademyProject):
+    for m in (AcademyProgress, AcademyQuizAttempt, AcademyExercise, AcademyActivity, AcademyProject, AcademyFeedback):
         s.execute(delete(m).where(m.user_id == user_id))
 
 
 def count_rows(s, user_id: str) -> int:
-    return sum(s.scalar(select(func.count()).select_from(m).where(m.user_id == user_id)) or 0 for m in (AcademyProgress, AcademyQuizAttempt, AcademyExercise, AcademyActivity, AcademyProject))
+    return sum(s.scalar(select(func.count()).select_from(m).where(m.user_id == user_id)) or 0 for m in (AcademyProgress, AcademyQuizAttempt, AcademyExercise, AcademyActivity, AcademyProject, AcademyFeedback))
+
+
+# ----------------------------------------------------------------------------- spaced repetition (Leitner boxes, computed from quiz attempts: no extra table)
+REVIEW_DAYS = (0, 1, 3, 7, 14)           # box 0 = last answer wrong: due now; each further correct answer in a row moves the next review further out
+
+
+def _aware(d: datetime) -> datetime:
+    return d if d.tzinfo else d.replace(tzinfo=UTC)
+
+
+def due_reviews(s, user_id: str, n: int = 10, now: Optional[datetime] = None) -> dict:
+    """Questions the learner answered before and should see again now. Wrong answers come back at once, right ones after 1, 3, 7 and 14 days.
+    Returns the due questions (answers NOT included) and how many are scheduled for later."""
+    now = now or datetime.now(UTC)
+    index = {q["id"]: q for x in lessons().values() for q in x["quiz"]}
+    history: dict[str, list[AcademyQuizAttempt]] = {}
+    for a in s.scalars(select(AcademyQuizAttempt).where(AcademyQuizAttempt.user_id == user_id).order_by(AcademyQuizAttempt.id)):
+        if a.question_id in index:
+            history.setdefault(a.question_id, []).append(a)
+    due, later = [], 0
+    for qid, att in history.items():
+        box = 0
+        for a in reversed(att):
+            if not a.correct:
+                break
+            box += 1
+        box = min(box, len(REVIEW_DAYS) - 1)
+        when = _aware(att[-1].created_at) + timedelta(days=REVIEW_DAYS[box])
+        if att[-1].correct and box == len(REVIEW_DAYS) - 1 and now < when:
+            later += 1
+        elif now >= when:
+            due.append((when, qid, box))
+        else:
+            later += 1
+    due.sort()
+    return {"due": [{"id": qid, "lesson": qid.split(".")[0], "q": index[qid]["q"], "options": index[qid]["options"], "kind": index[qid].get("kind", "concept"), "box": box} for _, qid, box in due[:n]],
+            "due_total": len(due), "scheduled_later": later}
+
+
+# ----------------------------------------------------------------------------- lesson feedback
+STEPS = ("understand", "see", "code", "practice", "check")
+
+
+def add_feedback(s, user_id: str, lesson_id: str, helpful: bool, step: Optional[str], comment: Optional[str]) -> None:
+    s.add(AcademyFeedback(user_id=user_id, lesson_id=lesson_id, helpful=helpful, step=step if step in STEPS else None, comment=(comment or "").strip()[:500] or None))
+    touch_activity(s, user_id)
+
+
+def feedback_summary(s) -> list[dict]:
+    """Per lesson: how many found it helpful and which step confused people most. No user ids are included."""
+    out: dict[str, dict] = {}
+    for r in s.scalars(select(AcademyFeedback).order_by(AcademyFeedback.id.desc())):
+        d = out.setdefault(r.lesson_id, {"lesson": r.lesson_id, "helpful": 0, "not_helpful": 0, "confusing_steps": {}, "comments": []})
+        d["helpful" if r.helpful else "not_helpful"] += 1
+        if not r.helpful and r.step:
+            d["confusing_steps"][r.step] = d["confusing_steps"].get(r.step, 0) + 1
+        if r.comment and len(d["comments"]) < 5:
+            d["comments"].append(r.comment)
+    return sorted(out.values(), key=lambda d: (-d["not_helpful"], d["lesson"]))

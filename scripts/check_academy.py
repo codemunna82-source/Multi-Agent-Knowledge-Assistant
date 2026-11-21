@@ -3,6 +3,8 @@
 import subprocess
 import sys
 
+from app.academy import tasktests
+
 sys.path.insert(0, ".")
 from app.academy import service as ac  # noqa: E402
 
@@ -28,6 +30,18 @@ for lid, x in ac.lessons().items():
             r = subprocess.run([sys.executable, "-I", "-c", x[k]["starter"]], capture_output=True, text=True, timeout=60)
             if r.returncode == 0 and r.stdout.strip() == x[k]["expected_output"].strip():
                 bad.append(f"{lid}:{k}: the starter code already produces the expected output")
+for lid, x in ac.lessons().items():
+    for k in ("exercise", "debug"):
+        tests = (x.get(k) or {}).get("tests") or []
+        if not tests:
+            continue
+        for _label, code, want in (("solution", x[k]["solution"], True), ("starter", x[k]["starter"], False)):
+            r = subprocess.run([sys.executable, "-I", "-c", tasktests.build_script(code, tests)], capture_output=True, text=True, timeout=60)
+            res = tasktests.parse(r.stdout, tests)[1]
+            if want and not all(t["passed"] for t in res):
+                bad.append(f"{lid}:{k}: the solution fails its own tests: {[t['name'] for t in res if not t['passed']]}")
+            if not want and all(t["passed"] for t in res):
+                bad.append(f"{lid}:{k}: the starter already passes every test")
 print("lessons:", len(ac.lessons()), "glossary:", len(ac.glossary()))
 print("\n".join(bad) if bad else "OK: all lessons valid and all runnable code produces its expected output")
 sys.exit(1 if bad else 0)
