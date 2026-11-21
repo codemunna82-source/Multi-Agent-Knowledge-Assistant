@@ -38,7 +38,7 @@ LESSONS = [
                 "hi": ["हर automation को 'AI' कह देना। fixed if/else rule machine learning नहीं है।", "Model को उन्हीं examples पर test करना जिन पर वो train हुआ, इससे overfitting छिप जाती है।", "ऐसा मान लेना कि बड़ा model हमेशा बेहतर है: अक्सर data की quality ज़्यादा मायने रखती है।"],
                 "hinglish": ["Har automation ko 'AI' bol dena. Fixed if/else rule machine learning nahi hai.", "Model ko unhi examples par test karna jin par woh train hua, isse overfitting chhup jaati hai.", "Yeh maan lena ki bada model hamesha better hai: aksar data ki quality zyada matter karti hai."]},
         },
-        "viz": None,
+        "viz": ["ai-vs-ml"],
         "code": [{
             "title": "A rule written by a human vs a rule learned from examples", "language": "python", "runnable": True,
             "code": "# Traditional programming: a human writes the rule.\ndef is_spam_rule(num_links):\n    return num_links > 3\n\n# Machine learning: the program finds the rule from labelled examples.\nexamples = [(0, False), (1, False), (2, False), (5, True), (7, True), (9, True)]  # (links, is_spam)\n\ndef learn_threshold(data):\n    best_t, best_correct = 0, -1\n    for t in range(0, 11):                      # try every candidate rule\n        correct = sum((links > t) == label for links, label in data)\n        if correct > best_correct:              # keep the rule that is right most often\n            best_t, best_correct = t, correct\n    return best_t\n\nt = learn_threshold(examples)\nprint('learned threshold:', t)\nprint('5 links ->', 5 > t)\n",

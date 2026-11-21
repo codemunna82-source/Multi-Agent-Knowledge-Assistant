@@ -34,7 +34,7 @@ ROADMAP = {
                  ("LangGraph", "graph-state-nodes"), ("State management", "graph-state-nodes"), ("Checkpointing", "checkpoint-hitl"), ("Agentic AI", "agent-loop"),
                  ("Planning and reflection", "reflection-planning"), ("Multi-agent architecture", "supervisor"), ("MCP", "mcp-intro")],
     "production": [("Production architecture", "prod-architecture"), ("Evaluation", "rag-eval"), ("Streaming", "deploy-monitor"), ("Monitoring", "deploy-monitor"), ("Security", "deploy-monitor"),
-                   ("FastAPI and async processing", None), ("Redis and PostgreSQL", None), ("Docker", None), ("AWS", None)],
+                   ("FastAPI and async processing", "fastapi-async"), ("Redis and PostgreSQL", "redis-postgres"), ("Docker", "docker-basics"), ("AWS", "aws-deploy")],
 }
 
 # Which technology progress bars the dashboard shows (category ids).

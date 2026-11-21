@@ -33,7 +33,8 @@ def test_catalog_has_fifteen_categories_roadmap_and_languages(env):
     cat = c.get("/academy/catalog", headers=u).json()
     assert [x["id"] for x in cat["categories"]] == [x[0] for x in CATEGORIES] and len(cat["categories"]) == 15
     assert set(cat["roadmap"]) == {"beginner", "intermediate", "advanced", "production"} and cat["languages"] == list(LANGS)
-    assert any(t["planned"] for t in cat["roadmap"]["production"])                      # honest: some roadmap topics have no lesson yet
+    assert all(t["planned"] == (t["lesson"] is None) for lv in cat["roadmap"].values() for t in lv)   # honest: "planned" exactly when there is no lesson
+    assert {"FastAPI and async processing", "Redis and PostgreSQL", "Docker", "AWS"} <= {t["title"] for t in cat["roadmap"]["production"] if t["lesson"]}
 
 
 def test_lesson_has_three_languages_and_hides_answers_and_solutions(env):

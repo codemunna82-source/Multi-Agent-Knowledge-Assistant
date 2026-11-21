@@ -1,4 +1,5 @@
 import type { Lang } from "../types";
+import { MORE } from "./scenes_more";
 import { bm25, chunkText, contentWords, cosine, CONCEPTS, fmt, hash, hashVector, rank, rrf, sentences, toyEmbed, toyTokenize, tokenId, words } from "./toy";
 
 export type Say = string | { en: string; hi: string; hinglish: string };
@@ -313,4 +314,4 @@ const agent: Scene = {
   },
 };
 
-export const SCENES: Record<string, Scene> = { "llm-pipeline": llmPipeline, "rag-pipeline": ragPipeline, chunking, "hybrid-rerank": hybrid, "query-transform": queryTransform, "langchain-lcel": lcel, "langgraph-flow": langgraph, "agent-loop": agent };
+export const SCENES: Record<string, Scene> = { "llm-pipeline": llmPipeline, "rag-pipeline": ragPipeline, chunking, "hybrid-rerank": hybrid, "query-transform": queryTransform, "langchain-lcel": lcel, "langgraph-flow": langgraph, "agent-loop": agent, ...MORE };

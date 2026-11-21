@@ -135,7 +135,7 @@ API groups: auth, users/roles, documents, ingestion jobs, chat + streaming, exac
 | Requirement | Status |
 |---|---|
 | Integrated section, design system reuse, 3-pane responsive UI, light/dark, search, breadcrumbs, next/previous | ✅ `Academy.test.tsx`, e2e |
-| 15 categories, 24 lessons, EN/Hindi/Hinglish, glossary terms, quizzes with explanations | ✅ (24 of a larger planned curriculum – roadmap marks planned topics) `test_academy_content.py` |
+| 15 categories, 28 lessons (all roadmap topics now have a lesson), EN/Hindi/Hinglish, glossary terms, quizzes with explanations | ✅ (28 lessons, not the whole possible curriculum; a topic without a lesson is shown as planned) `test_academy_content.py` |
 | Interactive visualisations (Play/Pause/Reset/Step, editable inputs) | ✅ toy models, labelled as such; `viz.test.tsx` |
 | 7 playgrounds incl. RAG with upload, rerank before/after, citations | ✅ `test_academy_playground.py`; live LLM/cross-encoder 🟡 never run against real providers |
 | Code editor, Run/Reset/Copy, console, error explanation | ✅ CodeMirror (Monaco rejected: CSP forbids CDN/blob workers) |

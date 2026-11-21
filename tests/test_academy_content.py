@@ -41,7 +41,7 @@ def test_lesson_graph_is_acyclic_and_roadmap_points_to_real_lessons():
         visit(lid, frozenset())
     for lvl, items in ROADMAP.items():
         assert all(lid in ls for _, lid in items if lid), lvl
-    assert any(lid is None for items in ROADMAP.values() for _, lid in items)           # planned topics are honest, not hidden
+    # a roadmap entry without a lesson is allowed (shown as 'planned'); every entry WITH a lesson id must exist - checked above
 
 
 def test_non_runnable_examples_say_what_they_need_and_do_not_claim_output():

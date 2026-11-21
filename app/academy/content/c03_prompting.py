@@ -40,7 +40,7 @@ LESSONS = [
                 "hi": ["अस्पष्ट instructions ('इसे बेहतर बनाओ') बिना format या audience बताए।", "ऐसे examples जिनमें सारे label एक ही हों, तो model हमेशा वही label देना सीख लेता है।", "User के text और instructions को delimiters के बिना मिला देना, जिससे {{prompt-injection|prompt injection}} का रास्ता खुलता है।"],
                 "hinglish": ["Vague instructions ('isse better banao') bina format ya audience bataye.", "Aise examples jinme saare label same hon, to model hamesha wahi label dena seekh leta hai.", "User ke text aur instructions ko delimiters ke bina mila dena, jisse {{prompt-injection|prompt injection}} ka rasta khulta hai."]},
         },
-        "viz": [],
+        "viz": ["prompt-anatomy"],
         "code": [
             {"title": "Building zero-shot and few-shot prompts (exactly what you would send to a model)", "language": "python", "runnable": True,
              "code": "def zero_shot(ticket):\n    return f'Classify the support ticket as billing, bug or other.\\nTicket: {ticket}\\nLabel:'\n\nEXAMPLES = [\n    ('I was charged twice this month', 'billing'),\n    ('The export button does nothing', 'bug'),\n]\n\ndef few_shot(ticket):\n    lines = ['Classify the support ticket as billing, bug or other.']\n    for text, label in EXAMPLES:               # the examples teach the format\n        lines.append(f'Ticket: {text}\\nLabel: {label}')\n    lines.append(f'Ticket: {ticket}\\nLabel:')   # the model continues from here\n    return '\\n\\n'.join(lines)\n\nprint(zero_shot('How do I change my plan?'))\nprint('----')\nprint(few_shot('How do I change my plan?'))\n",
@@ -99,7 +99,7 @@ LESSONS = [
                 "hi": ["History भेजे बिना उम्मीद करना कि model पिछले calls याद रखेगा।", "System prompt में secrets या API keys रखना: users अक्सर उन्हें निकलवा लेते हैं।", "History कभी trim न करना, जिससे लंबी chats context limit पर पहुँचती हैं या महँगी हो जाती हैं।"],
                 "hinglish": ["History bheje bina ummeed karna ki model pichhle calls yaad rakhega.", "System prompt mein secrets ya API keys rakhna: users aksar unhe nikalwa lete hain.", "History kabhi trim na karna, jisse lambi chats context limit par pahunchti hain ya mehngi ho jaati hain."]},
         },
-        "viz": [],
+        "viz": ["messages-api"],
         "code": [
             {"title": "A messages list and the JSON that goes over the wire", "language": "python", "runnable": True,
              "code": "import json\n\nhistory = [\n    {'role': 'user', 'content': 'What is the fee for the Gold card?'},\n    {'role': 'assistant', 'content': 'The Gold card has a yearly fee of 500 rupees.'},\n]\n\ndef build_request(history, new_question, max_turns=4):\n    messages = [{'role': 'system', 'content': 'You are a bank assistant. Answer briefly.'}]\n    messages += history[-max_turns * 2:]                    # keep only the recent turns\n    messages.append({'role': 'user', 'content': new_question})\n    return {'messages': messages, 'temperature': 0.2, 'max_tokens': 100}\n\nreq = build_request(history, 'And for the Silver card?')\nprint(json.dumps(req, indent=2))\nprint('messages:', len(req['messages']))\n",
