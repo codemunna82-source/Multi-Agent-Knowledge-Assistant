@@ -6,6 +6,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import select
 
+from ...agents.titles import make_title
 from ...core import ProviderError
 from ...db import Conversation, Message, now
 from ...memory import get_prefs, load_memory, recall
@@ -51,7 +52,7 @@ def begin_turn(ctx: Ctx, body: AskRequest, reuse_latest: bool = True) -> Turn:
                 conv = s.scalar(select(Conversation).where(Conversation.tenant_id == ctx.principal.tenant_id, Conversation.user_id == ctx.principal.user_id,
                                                            Conversation.workspace == ctx.scope.workspace, Conversation.memory_enabled.is_(True)).order_by(Conversation.updated_at.desc()).limit(1))
             if conv is None:
-                conv = Conversation(tenant_id=ctx.principal.tenant_id, user_id=ctx.principal.user_id, workspace=ctx.scope.workspace, title=body.question[:60])
+                conv = Conversation(tenant_id=ctx.principal.tenant_id, user_id=ctx.principal.user_id, workspace=ctx.scope.workspace, title=make_title(body.question))
                 s.add(conv)
                 s.flush()
                 created = True

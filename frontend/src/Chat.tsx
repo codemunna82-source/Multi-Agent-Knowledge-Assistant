@@ -189,6 +189,7 @@ export function Chat({ workspace, prefill, onPrefillUsed }: { workspace: string;
     <div className={`gpt ${showOpts ? "with-opts" : ""}`}>
       <aside className="gpt-side" aria-label="Conversations">
         <ConversationList items={convs.data?.items ?? []} active={active} onOpen={(id) => void open(id)} onNew={() => { setActive(null); setTurns([]); }}
+          onRename={async (c, title) => { await api.patchConversation(workspace, c.id, { title }); void convs.reload(); }}
           onDelete={async (c) => { await api.deleteConversation(workspace, c.id); if (c.id === active) { setActive(null); setTurns([]); } void convs.reload(); }} />
       </aside>
 

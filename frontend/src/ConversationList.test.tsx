@@ -60,4 +60,18 @@ describe("ConversationList", () => {
     await userEvent.click(screen.getByRole("button", { name: "+ New conversation" }));
     expect(onNew).toHaveBeenCalled();
   });
+
+  it("renames in place: Enter saves, Escape cancels, an unchanged or empty title is ignored", async () => {
+    const onRename = vi.fn();
+    render(<ConversationList items={items} active={null} onOpen={() => undefined} onNew={() => undefined} onDelete={() => undefined} onRename={onRename} />);
+    await userEvent.click(screen.getByRole("button", { name: "Rename conversation Leave policy" }));
+    const box = screen.getByLabelText("Rename Leave policy");
+    await userEvent.clear(box);
+    await userEvent.type(box, "HR leave rules{Enter}");
+    expect(onRename).toHaveBeenCalledWith(items[0], "HR leave rules");
+    await userEvent.click(screen.getByRole("button", { name: "Rename conversation Quarterly sales" }));
+    await userEvent.type(screen.getByLabelText("Rename Quarterly sales"), " x{Escape}");
+    expect(onRename).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Quarterly sales" })).toBeInTheDocument();
+  });
 });

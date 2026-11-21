@@ -22,9 +22,12 @@ export function groupByDay(items: Conversation[], now = new Date()): [Group, Con
   return ORDER.filter((g) => buckets[g].length).map((g) => [g, buckets[g]]);
 }
 
-export function ConversationList({ items, active, onOpen, onNew, onDelete }: { items: Conversation[]; active: string | null; onOpen: (id: string) => void; onNew: () => void; onDelete: (c: Conversation) => void }) {
+export function ConversationList({ items, active, onOpen, onNew, onDelete, onRename }: { items: Conversation[]; active: string | null; onOpen: (id: string) => void; onNew: () => void; onDelete: (c: Conversation) => void; onRename?: (c: Conversation, title: string) => void }) {
   const [q, setQ] = useState("");
   const [confirm, setConfirm] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const save = (c: Conversation) => { const t = draft.trim(); setEditing(null); if (t && t !== c.title) onRename?.(c, t.slice(0, 120)); };
   const shown = useMemo(() => items.filter((c) => !q.trim() || (c.title || "Untitled").toLowerCase().includes(q.trim().toLowerCase())), [items, q]);
   const groups = useMemo(() => groupByDay(shown), [shown]);
 
@@ -46,9 +49,13 @@ export function ConversationList({ items, active, onOpen, onNew, onDelete }: { i
                     <button className="small danger" onClick={() => { setConfirm(null); onDelete(c); }}>Delete</button>
                     <button className="small" onClick={() => setConfirm(null)}>Cancel</button>
                   </div>
+                ) : editing === c.id ? (
+                  <input className="conv-rename" autoFocus aria-label={`Rename ${c.title || "Untitled"}`} value={draft} maxLength={120} onChange={(e) => setDraft(e.target.value)} onBlur={() => save(c)}
+                    onKeyDown={(e) => { if (e.key === "Enter") save(c); else if (e.key === "Escape") setEditing(null); }} />
                 ) : (
                   <>
                     <button className="conv-title" aria-current={c.id === active ? "true" : undefined} onClick={() => onOpen(c.id)} title={c.title}>{c.title || "Untitled"}</button>
+                    {onRename && <button className="small x edit" aria-label={`Rename conversation ${c.title}`} onClick={() => { setDraft(c.title); setEditing(c.id); }}>✎</button>}
                     <button className="small danger x" aria-label={`Delete conversation ${c.title}`} onClick={() => setConfirm(c.id)}>×</button>
                   </>
                 )}
