@@ -7,6 +7,7 @@ Open **AI Learning Academy** in the sidebar. It reuses the app's login, theme an
 | Part | Notes |
 |---|---|
 | Lessons | 28 lessons across the 15 categories (fundamentals → production). Each has definition, analogy, technical explanation, why it matters, example, code, interview answer, common mistakes and related topics, in **English, Hindi and Hinglish**. Switching language keeps your progress. Terms written as `{{term|label}}` open a glossary entry. |
+| Simple steps | New learners see each lesson as 5 small steps (Understand → See an example → Try the code → Practice → Check yourself) with an "In one line" summary; technical depth, interview answers and common mistakes sit under "Go deeper". **Show full lesson** restores the single long page. The choice is remembered per browser and the resume point is shared by both views. |
 | Roadmap | Beginner → Intermediate → Advanced → Production. Topics without a lesson yet are labelled **planned**. |
 | Visualisations | Every lesson has at least one animation (19 scenes + 5 special views). Play / Pause / Step / Reset with editable inputs. They are **teaching models** (tiny deterministic models), not real LLMs – each says so. |
 | Quizzes | Per-option explanations, weak-topic tracking; answers are never sent to the browser before you submit. |

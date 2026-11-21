@@ -13,6 +13,8 @@ import type { Lang, Level, LessonCard } from "./types";
 
 type View = { kind: "dashboard" | "roadmap" | "playground" | "lab" | "projects" | "interview" | "daily" } | { kind: "lesson"; id: string };
 const LANG_KEY = "mka_academy_lang";
+const SIMPLE_KEY = "mka_academy_simple";
+const loadSimple = (): boolean => { try { return localStorage.getItem(SIMPLE_KEY) !== "0"; } catch { return true; } };
 const loadLang = (): Lang => { try { const v = localStorage.getItem(LANG_KEY); if (v === "en" || v === "hi" || v === "hinglish") return v; } catch { /* ignore */ } return "en"; };
 const LANGS: [Lang, string][] = [["en", "English"], ["hi", "हिंदी"], ["hinglish", "Hinglish"]];
 const NAV: [Exclude<View["kind"], "lesson">, string][] = [["dashboard", "Dashboard"], ["roadmap", "Roadmap"], ["playground", "Playground"], ["lab", "Lab: your documents"], ["projects", "Projects"], ["interview", "Interview prep"], ["daily", "Daily practice"]];
@@ -23,6 +25,8 @@ export function Academy({ workspace, canIngest = false }: { workspace: string; c
   const glossary = useLoad(() => academy.glossary(), []);
   const [view, setView] = useState<View>({ kind: "dashboard" });
   const [lang, setLangState] = useState<Lang>(loadLang);
+  const [simple, setSimpleState] = useState<boolean>(loadSimple);
+  const setSimple = (v: boolean) => { setSimpleState(v); try { localStorage.setItem(SIMPLE_KEY, v ? "1" : "0"); } catch { /* ignore */ } };
   const [termId, setTermId] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<Awaited<ReturnType<typeof academy.search>>>([]);
@@ -95,7 +99,7 @@ export function Academy({ workspace, canIngest = false }: { workspace: string; c
         {view.kind === "dashboard" && <Dashboard catalog={catalog.data} progress={progress.data} cards={cards} lang={lang} onOpen={openLesson} go={(k) => go(k)} />}
         {view.kind === "roadmap" && <Roadmap catalog={catalog.data} progress={progress.data} cards={cards} lang={lang} onOpen={openLesson} />}
         {view.kind === "lesson" && (lesson.error ? <div className="error" role="alert">{lesson.error}</div> : lesson.data
-          ? <LessonView lesson={lesson.data} lang={lang} progress={progress.data} cards={cards} order={order} onTerm={(id) => { setTermId(id); setShowSide(true); }} onOpen={openLesson} onChanged={() => void progress.reload()} />
+          ? <LessonView lesson={lesson.data} lang={lang} progress={progress.data} cards={cards} order={order} onTerm={(id) => { setTermId(id); setShowSide(true); }} onOpen={openLesson} onChanged={() => void progress.reload()} simple={simple} onSimple={setSimple} />
           : <div className="muted">Loading lesson…</div>)}
         {view.kind === "daily" && (
           <div className="ac-block"><h1>Daily practice</h1><p className="muted">Five questions picked for today. Questions from topics you found hard come first.</p>

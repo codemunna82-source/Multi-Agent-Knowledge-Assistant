@@ -269,3 +269,19 @@ tr.picked td { background:var(--soft); } .ac-node { flex-wrap:wrap; gap:6px; mar
 .ac-steps { padding-left:22px; display:grid; gap:10px; } .ac-wrap { white-space:pre-wrap; } .ac-qa { border:1px solid var(--line); border-radius:8px; padding:6px 10px; margin:6px 0; } .ac-qa summary { cursor:pointer; font-weight:600; }
 .gpt-side .conv-rename { flex:1; min-width:0; margin:2px 4px; padding:6px 8px; border-radius:8px; font-size:14px; background:var(--card); color:var(--fg); border:1px solid var(--accent); }
 .gpt-side .x.edit { color:var(--muted); }
+/* ---- Academy: simple step-by-step lesson mode ---- */
+.ac-oneline { margin:10px 0 6px; padding:10px 14px; border-left:4px solid var(--accent); background:var(--soft); border-radius:0 10px 10px 0; font-size:16px; line-height:1.5; }
+.ac-modebar { display:flex; justify-content:flex-end; margin:6px 0 10px; }
+.ac-stepper { list-style:none; display:flex; gap:6px; padding:0; margin:8px 0 2px; overflow-x:auto; }
+.ac-stepper li { flex:1 1 0; min-width:92px; }
+.ac-stepper button { width:100%; display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:12px; text-align:left; }
+.ac-stepper .num { flex:none; width:24px; height:24px; border-radius:50%; display:grid; place-items:center; font-size:12px; font-weight:700; background:var(--soft); }
+.ac-stepper .lbl { font-size:13px; line-height:1.2; }
+.ac-stepper button.on { border-color:var(--accent); background:var(--soft); font-weight:600; } .ac-stepper button.on .num { background:var(--accent); color:var(--accent-fg); }
+.ac-stepper button.done .num { background:var(--ok); color:#fff; }
+.ac-step { margin-top:8px; animation:acfade .2s ease-out; } @keyframes acfade { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce) { .ac-step { animation:none; } }
+.ac-step .ac-sec h2 { font-size:20px; } .ac-step .ac-p { font-size:16px; line-height:1.7; }
+.ac-deeper { margin:14px 0; border:1px dashed var(--line); border-radius:12px; padding:8px 12px; } .ac-deeper > summary { cursor:pointer; font-weight:600; color:var(--accent); }
+.ac-stepnav { position:sticky; bottom:0; padding:10px 0; background:linear-gradient(to top, var(--card) 70%, transparent); margin-top:16px; align-items:center; }
+@media (max-width:640px) { .ac-stepper .lbl { display:none; } .ac-stepper li { min-width:48px; } .ac-stepper button { justify-content:center; } .ac-stepper button.on .lbl { display:inline; } .ac-stepper li:has(button.on) { flex:3 1 0; } }

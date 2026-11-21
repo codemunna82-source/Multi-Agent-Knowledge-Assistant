@@ -7,7 +7,7 @@ import { Academy } from "./Academy";
 vi.mock("./CodeEditor", () => ({ default: ({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) => <textarea aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} /> }));
 
 afterEach(() => vi.unstubAllGlobals());
-beforeEach(() => { try { localStorage.clear(); } catch { /* ignore */ } });
+beforeEach(() => { try { localStorage.clear(); localStorage.setItem("mka_academy_simple", "0"); } catch { /* ignore */ } });   // most tests exercise the full lesson page; Simple mode has its own tests below
 
 const L = (en: string, hi = en + " (hi)", hinglish = en + " (hinglish)") => ({ en, hi, hinglish });
 const card = { id: "what-is-llm", category: "llm", level: "beginner", minutes: 18, title: L("What is an LLM?", "LLM क्या है?"), summary: "Next-token predictor", has_viz: false, has_exercise: true, prereq: [], tags: [] };
@@ -34,6 +34,41 @@ function setup(extra: Record<string, unknown> = {}) {
 }
 
 describe("Academy", () => {
+  it("Simple mode (the default for new learners): one line summary, five small steps, deeper material hidden, progress saved per step", async () => {
+    localStorage.removeItem("mka_academy_simple");
+    const { calls } = setup();
+    render(<Academy workspace="w" />);
+    await userEvent.click(await screen.findByRole("button", { name: /Start/ }));
+    expect(await screen.findByRole("heading", { level: 1, name: "What is an LLM?" })).toBeInTheDocument();
+    expect(screen.getByLabelText("In one line")).toHaveTextContent("An LLM predicts the next token.");
+    const stepper = screen.getByRole("list", { name: "Lesson steps" });
+    expect(within(stepper).getAllByRole("listitem")).toHaveLength(5);
+    expect(screen.getByRole("heading", { name: "Real-world analogy" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Practical example" })).not.toBeInTheDocument();           // later steps are not shown yet
+    expect(screen.getByText("Go deeper: how it works and why").closest("details")).not.toHaveAttribute("open");
+    await userEvent.click(screen.getByRole("button", { name: /Next: See an example/ }));
+    expect(await screen.findByRole("heading", { name: "Practical example" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Real-world analogy" })).not.toBeInTheDocument();
+    await waitFor(() => expect(calls.some((c) => c.init.method === "PUT" && String(c.init.body).includes('"step":4'))).toBe(true));
+    await userEvent.click(screen.getByRole("button", { name: "← Back" }));
+    expect(screen.getByRole("heading", { name: "Real-world analogy" })).toBeInTheDocument();
+  });
+
+  it("the Simple / Full switch is remembered and Full shows every section at once", async () => {
+    localStorage.removeItem("mka_academy_simple");
+    setup();
+    render(<Academy workspace="w" />);
+    await userEvent.click(await screen.findByRole("button", { name: /Start/ }));
+    await screen.findByRole("heading", { level: 1, name: "What is an LLM?" });
+    await userEvent.click(screen.getByRole("button", { name: "Show full lesson" }));
+    expect(localStorage.getItem("mka_academy_simple")).toBe("0");
+    expect(screen.getByRole("heading", { name: "Practical example" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Real-world analogy" })).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Lesson steps" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Simple steps" }));
+    expect(localStorage.getItem("mka_academy_simple")).toBe("1");
+  });
+
   it("includes the former Learn lab as the 'Lab: your documents' section", async () => {
     setup({ "/learn/lessons": { body: { llm_available: false, embedder: "hash:v1:1024", presets: [], ablation: [], note: "", demo_questions: [], lessons: [] } } });
     render(<Academy workspace="w" canIngest />);
