@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from app.academy import service as ac
+from app.academy.catalog import GOALS
 from app.academy import tasktests
 from app.api import create_app
 from app.config import Settings
@@ -141,3 +142,33 @@ def test_feedback_is_saved_summarised_for_admins_only_and_erased_with_the_user(e
     uid = next(x["id"] for x in c.get("/admin/users", headers=adm).json() if x["email"] == "u@acme.io")
     assert c.delete(f"/admin/users/{uid}", headers=adm).status_code in (200, 204)
     assert c.get("/academy/feedback/summary", headers=adm).json() == []
+
+
+# ----------------------------------------------------------------------------- badges and streaks
+def test_best_streak_is_the_longest_run_of_consecutive_days():
+    assert ac.best_streak(set()) == 0
+    assert ac.best_streak({"2026-01-01", "2026-01-02", "2026-01-03", "2026-01-10", "2026-01-11"}) == 3
+    assert ac.best_streak({"2026-01-01", "2026-01-03", "2026-01-05"}) == 1
+
+
+def test_badges_are_computed_from_real_progress_and_path_badges_need_every_lesson():
+    ls = list(ac.lessons())
+    path = next(g for g in GOALS if g["id"] == "go-live")
+    none = {b["id"]: b["earned"] for b in ac.badges(set(), {}, {}, 0)}
+    assert not any(none.values())
+    done = set(path["lessons"])
+    got = {b["id"]: b["earned"] for b in ac.badges(done, {"q": {"correct": 10, "total": 10, "percent": 100}}, {"a:exercise": True, "b:exercise": True, "c:debug": True}, 7)}
+    assert got["first-lesson"] and got["five-lessons"] and got["streak-7"] and got["quiz-ace"] and got["code-runner"] and got["bug-hunter"] and got["path-go-live"]
+    assert not got["all-lessons"] and not got["path-new-to-ai"] and not got["ten-lessons"]
+    almost = {b["id"]: b["earned"] for b in ac.badges(done - {path["lessons"][0]}, {}, {}, 0)}
+    assert not almost["path-go-live"] and len(ls) > 0
+
+
+def test_progress_endpoint_returns_activity_best_streak_and_badges(env):
+    c, adm, u, k = env
+    q = next(iter(ac.lessons().values()))["quiz"][0]
+    c.post("/academy/quiz/submit", json={"answers": {q["id"]: q["answer"]}}, headers=u)
+    p = c.get("/academy/progress", headers=u).json()
+    assert sum(p["activity"].values()) >= 1 and p["best_streak"] == 1
+    ids = {b["id"] for b in p["badges"]}
+    assert {"first-lesson", "streak-7", "path-new-to-ai", "quiz-ace"} <= ids and all(set(b["title"]) == {"en", "hi", "hinglish"} for b in p["badges"])

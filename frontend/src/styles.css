@@ -302,3 +302,16 @@ tr.picked td { background:var(--soft); } .ac-node { flex-wrap:wrap; gap:6px; mar
 .ac-tests { margin:8px 0; padding:10px 12px; border:1px solid var(--line); border-radius:10px; } .ac-tests ul { list-style:none; padding:0; margin:6px 0 0; display:grid; gap:4px; } .ac-tests li.ok { color:var(--ok); } .ac-tests li.bad { color:var(--bad); }
 .ac-review { margin-bottom:18px; padding-bottom:6px; border-bottom:1px solid var(--line); }
 .ac-modebar { gap:8px; align-items:center; }
+
+/* ---- Academy: achievements, calendar, certificate ---- */
+.sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+.ac-badges { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; margin:8px 0 14px; }
+.ac-badge { display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--line); border-radius:10px; font-size:13px; opacity:.55; } .ac-badge.on { opacity:1; border-color:var(--accent); background:var(--soft); font-weight:600; }
+.ac-heat { display:flex; gap:3px; overflow-x:auto; padding:4px 0; } .ac-heat > div { display:grid; gap:3px; }
+.ac-heat i { width:13px; height:13px; border-radius:3px; background:var(--soft); display:block; } .ac-heat i.l1 { background:color-mix(in srgb, var(--accent) 35%, var(--soft)); } .ac-heat i.l2 { background:color-mix(in srgb, var(--accent) 65%, var(--soft)); } .ac-heat i.l3 { background:var(--accent); } .ac-heat i.lx { background:transparent; }
+.ac-cert-overlay { position:fixed; inset:0; z-index:50; overflow:auto; background:var(--bg); padding:16px; }
+.ac-cert-tools { display:flex; gap:10px; flex-wrap:wrap; align-items:center; max-width:820px; margin:0 auto 12px; }
+.ac-cert { max-width:820px; margin:0 auto; padding:40px 48px; text-align:center; background:#fff; color:#1d2330; border:6px double #3b5bdb; border-radius:6px; }
+.ac-cert h1 { font-size:34px; margin:6px 0 14px; } .ac-cert-name { font-size:30px; font-weight:700; border-bottom:2px solid #1d2330; display:inline-block; min-width:60%; padding:2px 12px; margin:6px 0 14px; }
+.ac-cert .muted { color:#5a6275; } .ac-cert-list { text-align:left; columns:2; font-size:13px; margin:14px auto; max-width:620px; }
+@media print { body * { visibility:hidden; } .ac-cert, .ac-cert * { visibility:visible; } .ac-cert-overlay { position:absolute; inset:0; padding:0; overflow:visible; background:#fff; } .ac-cert { position:absolute; left:0; right:0; top:0; margin:0 auto; } .ac-cert-tools { display:none; } }

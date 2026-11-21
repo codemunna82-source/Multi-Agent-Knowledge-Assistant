@@ -260,7 +260,8 @@ def overview(s, user_id: str) -> dict:
     for _qid, (lid, ok) in latest.items():
         by_lesson.setdefault(lid, []).append(ok)
     quiz = {lid: {"correct": sum(v), "total": len(v), "percent": round(100 * sum(v) / len(v))} for lid, v in by_lesson.items()}
-    days = {d for (d,) in s.execute(select(AcademyActivity.day).where(AcademyActivity.user_id == user_id))}
+    activity = {d: n for d, n in s.execute(select(AcademyActivity.day, AcademyActivity.count).where(AcademyActivity.user_id == user_id))}
+    days = set(activity)
     cats = []
     for cid, title, _hi, _sum in CATEGORIES:
         members = [x for x in ls.values() if x["category"] == cid]
@@ -279,7 +280,50 @@ def overview(s, user_id: str) -> dict:
     return {"lessons": {k: {"status": r.status, "step": r.step, "bookmarked": r.bookmarked, "updated_at": r.updated_at.isoformat()} for k, r in prog.items()},
             "done": len(done), "total": len(ls), "percent": round(100 * len(done) / len(ls)) if ls else 0, "categories": cats, "quiz": quiz,
             "exercises": {f"{lid}:{kind}": {"passed": r.passed, "attempts": r.attempts} for (lid, kind), r in ex.items()}, "streak": streak(days), "active_days": len(days),
-            "weak": weak[:6], "bookmarks": [k for k, r in prog.items() if r.bookmarked], "continue": cont, "recommended": recommended}
+            "weak": weak[:6], "bookmarks": [k for k, r in prog.items() if r.bookmarked], "continue": cont, "recommended": recommended,
+            "best_streak": best_streak(days), "activity": {d: n for d, n in activity.items() if d >= (datetime.now(UTC).date() - timedelta(days=ACTIVITY_DAYS)).isoformat()},
+            "badges": badges(done, quiz, {k: v for k, v in ((f"{lid}:{kind}", r.passed) for (lid, kind), r in ex.items())}, best_streak(days))}
+
+
+ACTIVITY_DAYS = 120
+
+
+def best_streak(days: set[str]) -> int:
+    """Longest run of consecutive active days ever."""
+    best = run = 0
+    prev: Optional[date] = None
+    for d in sorted(date.fromisoformat(x) for x in days):
+        run = run + 1 if prev is not None and (d - prev).days == 1 else 1
+        best = max(best, run)
+        prev = d
+    return best
+
+
+def badges(done: set[str], quiz: dict[str, dict], exercises: dict[str, bool], best: int) -> list[dict]:
+    """Achievements computed from real progress (never stored, so they cannot drift). `how` says what earns each one."""
+    ls = lessons()
+    answered = sum(q["total"] for q in quiz.values())
+    right = sum(q["correct"] for q in quiz.values())
+    passed = [k for k, ok in exercises.items() if ok]
+
+    def b(id_: str, en: str, hi: str, hinglish: str, how: str, earned: bool) -> dict:
+        return {"id": id_, "title": {"en": en, "hi": hi, "hinglish": hinglish}, "how": how, "earned": bool(earned)}
+
+    out = [
+        b("first-lesson", "First lesson", "पहला lesson", "Pehla lesson", "Complete one lesson", len(done) >= 1),
+        b("five-lessons", "Five lessons", "पाँच lessons", "Paanch lessons", "Complete 5 lessons", len(done) >= 5),
+        b("ten-lessons", "Ten lessons", "दस lessons", "Das lessons", "Complete 10 lessons", len(done) >= 10),
+        b("all-lessons", "Whole Academy", "पूरी Academy", "Poori Academy", "Complete every lesson", bool(ls) and len(done) >= len(ls)),
+        b("streak-3", "3-day streak", "3 दिन लगातार", "3 din lagaatar", "Learn on 3 days in a row", best >= 3),
+        b("streak-7", "7-day streak", "7 दिन लगातार", "7 din lagaatar", "Learn on 7 days in a row", best >= 7),
+        b("quiz-ace", "Quiz ace", "Quiz में माहिर", "Quiz ace", "Answer at least 10 quiz questions with 90% right", answered >= 10 and right / answered >= 0.9),
+        b("code-runner", "Code runner", "Code चलाने वाला", "Code runner", "Pass 3 practice exercises", len(passed) >= 3),
+        b("bug-hunter", "Bug hunter", "Bug खोजी", "Bug hunter", "Pass a debugging challenge", any(k.endswith(":debug") for k in passed)),
+    ]
+    for g in GOALS:
+        ids = [x for x in g["lessons"] if x in ls]
+        out.append(b(f"path-{g['id']}", f"Path: {g['title']['en']}", f"Path: {g['title']['hi']}", f"Path: {g['title']['hinglish']}", "Finish every lesson of this path", bool(ids) and all(x in done for x in ids)))
+    return out
 
 
 def record_exercise(s, user_id: str, lesson_id: str, kind: str, passed: bool) -> None:

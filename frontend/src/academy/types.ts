@@ -22,11 +22,13 @@ export interface Term { term: string; en: string; hi: string; hinglish: string }
 
 export interface QuizResult { id: string; lesson: string; selected: number; correct: boolean; answer: number; why: string; why_not: Record<string, string>; options: string[] }
 export interface QuizOut { results: QuizResult[]; score: number; total: number; percent: number | null }
+export interface Badge { id: string; title: L10n; how: string; earned: boolean }
 export interface Progress {
   lessons: Record<string, { status: "in_progress" | "done"; step: number; bookmarked: boolean; updated_at: string }>; done: number; total: number; percent: number;
   categories: { id: string; title: string; lessons: number; done: number; percent: number }[]; quiz: Record<string, { correct: number; total: number; percent: number }>;
   exercises: Record<string, { passed: boolean; attempts: number }>; streak: number; active_days: number; weak: string[]; bookmarks: string[];
   continue: { lesson: string | null; step: number } | null; recommended: string[]; projects: Record<string, number[]>;
+  best_streak: number; activity: Record<string, number>; badges: Badge[];
 }
 export interface RunOut { ok: boolean; tests?: TestResult[]; stdout: string; stderr: string; exit_code: number | null; ms: number; timed_out: boolean; truncated: boolean; unavailable?: string | null; notes?: string[]; error_help?: string | null; passed?: boolean | null; expected?: string | null }
 export interface CodeStatus { available: boolean; reason: string | null; languages: string[]; timeout_s: number; memory_mb: number; network: boolean; setup: string | null; preinstalled: string[]; limits: { code_bytes: number; output_bytes: number } }

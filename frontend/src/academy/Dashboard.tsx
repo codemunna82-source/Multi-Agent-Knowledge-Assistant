@@ -1,3 +1,4 @@
+import { Achievements } from "./Achievements";
 import { Paths } from "./Paths";
 import type { Catalog, Lang, LessonCard, Level, Progress } from "./types";
 
@@ -47,6 +48,8 @@ export function Dashboard({ catalog, progress, cards, lang, onOpen, go, path = n
           <div className="ac-weak"><b>Topics to revise</b><div className="chips">{progress.weak.filter((w) => cards[w]).map((w) => <button key={w} onClick={() => onOpen(w)}>{cards[w].title[lang]}</button>)}</div></div>
         )}
       </section>
+
+      <Achievements progress={progress} paths={catalog.paths ?? []} cards={cards} lang={lang} />
 
       <section aria-label="Recommended lessons" className="ac-block">
         <h2>Recommended lessons</h2>

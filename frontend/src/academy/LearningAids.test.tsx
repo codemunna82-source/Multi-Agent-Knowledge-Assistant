@@ -15,7 +15,7 @@ const L = (en: string) => ({ en, hi: en + " (hi)", hinglish: en + " (hinglish)" 
 const card = (id: string, title: string): LessonCard => ({ id, category: "c", level: "beginner", minutes: 10, title: L(title), summary: "s", has_viz: false, has_exercise: true, prereq: [], tags: [] });
 const cards = Object.fromEntries([card("a", "Lesson A"), card("b", "Lesson B"), card("c", "Lesson C")].map((c) => [c.id, c]));
 const path: LearningPath = { id: "new-to-ai", icon: "🌱", title: L("Starter path"), summary: "Learn the basics", lessons: ["a", "b", "c"] };
-const progress = (done: string[]): Progress => ({ lessons: Object.fromEntries(done.map((d) => [d, { status: "done" as const, step: 10, bookmarked: false, updated_at: "" }])), done: done.length, total: 3, percent: 0, categories: [], quiz: {}, exercises: {}, streak: 0, active_days: 0, weak: [], bookmarks: [], continue: null, recommended: [], projects: {} });
+const progress = (done: string[]): Progress => ({ lessons: Object.fromEntries(done.map((d) => [d, { status: "done" as const, step: 10, bookmarked: false, updated_at: "" }])), done: done.length, total: 3, percent: 0, categories: [], quiz: {}, exercises: {}, streak: 0, active_days: 0, weak: [], bookmarks: [], continue: null, recommended: [], projects: {}, best_streak: 0, activity: {}, badges: [] });
 
 describe("recommendPath", () => {
   it("a complete beginner starts with the basics unless they only want interview prep", () => {
