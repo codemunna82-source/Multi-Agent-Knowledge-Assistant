@@ -1,3 +1,4 @@
+import { Paths } from "./Paths";
 import type { Catalog, Lang, LessonCard, Level, Progress } from "./types";
 
 const LEVELS: Level[] = ["beginner", "intermediate", "advanced", "production"];
@@ -5,16 +6,19 @@ const LEVEL_TITLE: Record<Level, string> = { beginner: "Beginner", intermediate:
 
 interface Props {
   catalog: Catalog; progress: Progress | null; cards: Record<string, LessonCard>; lang: Lang;
-  onOpen: (id: string) => void; go: (v: "roadmap" | "playground" | "projects" | "interview" | "daily") => void;
+  onOpen: (id: string) => void; go: (v: "roadmap" | "playground" | "projects" | "interview" | "daily" | "glossary") => void;
+  path?: string | null; onPath?: (id: string | null) => void;
 }
 
-export function Dashboard({ catalog, progress, cards, lang, onOpen, go }: Props) {
+export function Dashboard({ catalog, progress, cards, lang, onOpen, go, path = null, onPath }: Props) {
   const cont = progress?.continue?.lesson ? cards[progress.continue.lesson] : null;
   const started = progress && Object.keys(progress.lessons).length > 0;
   return (
     <div className="ac-dash">
       <h1>AI Learning Academy</h1>
       <p className="muted">Learn LLMs, RAG, LangChain, LangGraph and agents step by step: simple explanations in English, Hindi and Hinglish, animations you can control, and code you can run.</p>
+
+      {onPath && (catalog.paths?.length ?? 0) > 0 && <Paths paths={catalog.paths!} chosen={path} onChoose={onPath} progress={progress} cards={cards} lang={lang} onOpen={onOpen} />}
 
       <section aria-label="Continue learning" className="ac-block">
         <h2>Continue learning</h2>

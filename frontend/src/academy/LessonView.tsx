@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { academy } from "../api";
 import { CodeLab, TaskLab } from "./CodeLab";
+import { FeedbackBox, ListenButton } from "./Extras";
 import { QuizPanel } from "./QuizPanel";
 import { plain, RichText } from "./RichText";
 import type { Lang, Lesson, LessonCard, Progress } from "./types";
@@ -111,6 +112,23 @@ export function LessonView({ lesson, lang, progress, cards, order, onTerm, onOpe
   };
   const sectionOf = (id: string) => <section key={id} data-sec={id} id={`sec-${id}`} className="ac-sec"><h2>{body[id].title}</h2>{body[id].node}</section>;
   const step = SIMPLE_STEPS[stepNo];
+  // arrow keys move between steps (not while typing in a box or the code editor)
+  const stepRef = useRef(stepNo);
+  stepRef.current = stepNo;
+  useEffect(() => {
+    if (!simple) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable || el.closest?.(".cm-editor"))) return;
+      if (e.key === "ArrowRight") goStep(stepRef.current + 1);
+      else if (e.key === "ArrowLeft") goStep(stepRef.current - 1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simple, lesson.id]);
+  const listenText = (simple ? step.id : "understand") === "understand" ? `${lesson.text.definition[lang]} ${lesson.text.analogy[lang]}` : (simple ? step.id : "") === "see" ? lesson.text.example[lang] : (simple ? step.id : "") === "practice" ? lesson.assignment : "";
   const stepName = (i: number) => u.steps[SIMPLE_STEPS[i].id];
 
   return (
@@ -131,7 +149,7 @@ export function LessonView({ lesson, lang, progress, cards, order, onTerm, onOpe
 
       <div ref={topRef} />
       {simple && <p className="ac-oneline" aria-label={u.oneLine}><b>{u.oneLine}:</b> {oneLine(lesson.text.definition[lang])}</p>}
-      {onSimple && <div className="ac-modebar"><div className="seg" role="group" aria-label="Lesson view">
+      {onSimple && <div className="ac-modebar">{listenText && <ListenButton text={listenText} lang={lang} />}<span className="grow" /><div className="seg" role="group" aria-label="Lesson view">
         <button aria-pressed={simple} className={simple ? "on" : ""} onClick={() => onSimple(true)}>{u.simple}</button>
         <button aria-pressed={!simple} className={!simple ? "on" : ""} onClick={() => onSimple(false)}>{u.full}</button></div></div>}
 
@@ -164,6 +182,7 @@ export function LessonView({ lesson, lang, progress, cards, order, onTerm, onOpe
         </div>
       )}
 
+      <FeedbackBox lessonId={lesson.id} />
       <footer className="ac-foot">
         {lesson.sources.length > 0 && <div className="small"><b>{t.sources}:</b> {lesson.sources.map((s) => <a key={s.url} href={s.url} target="_blank" rel="noopener noreferrer">{s.title}</a>).reduce<React.ReactNode[]>((a, x, i) => (i ? [...a, " · ", x] : [x]), [])}</div>}
         <div className="row">

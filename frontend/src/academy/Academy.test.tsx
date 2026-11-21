@@ -34,6 +34,50 @@ function setup(extra: Record<string, unknown> = {}) {
 }
 
 describe("Academy", () => {
+  it("arrow keys move between lesson steps in Simple mode, but not while typing", async () => {
+    localStorage.removeItem("mka_academy_simple");
+    setup();
+    render(<Academy workspace="w" />);
+    await userEvent.click(await screen.findByRole("button", { name: /Start/ }));
+    await screen.findByRole("heading", { name: "Real-world analogy" });
+    await userEvent.keyboard("{ArrowRight}");
+    expect(await screen.findByRole("heading", { name: "Practical example" })).toBeInTheDocument();
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(await screen.findByRole("heading", { name: "Real-world analogy" })).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText("Search lessons"));
+    await userEvent.keyboard("{ArrowRight}");
+    expect(screen.getByRole("heading", { name: "Real-world analogy" })).toBeInTheDocument();          // typing in the search box does not change step
+  });
+
+  it("the Glossary section lists the terms in the chosen language", async () => {
+    setup();
+    render(<Academy workspace="w" />);
+    await userEvent.click(await screen.findByRole("button", { name: "Glossary" }));
+    expect(await screen.findByRole("heading", { name: "Glossary" })).toBeInTheDocument();
+    expect(screen.getByText("Large Language Model")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Hinglish" }));
+    expect(screen.getByText("Bada language model")).toBeInTheDocument();
+  });
+
+  it("Daily practice shows questions due for review above today's questions", async () => {
+    setup({ "/academy/daily": { body: { questions: [{ id: "what-is-llm.q1", lesson: "what-is-llm", q: "Daily question?", options: ["A", "B"], kind: "concept" }] } },
+      "/academy/review": { body: { due: [{ id: "what-is-llm.q1", lesson: "what-is-llm", q: "Review question?", options: ["A", "B"], kind: "concept", box: 0 }], due_total: 3, scheduled_later: 2 } } });
+    render(<Academy workspace="w" />);
+    await userEvent.click(await screen.findByRole("button", { name: "Daily practice" }));
+    expect(await screen.findByText("Due for review (3)")).toBeInTheDocument();
+    expect(screen.getByText(/Review question\?/)).toBeInTheDocument();
+  });
+
+  it("the Dashboard offers learning paths and remembers the chosen one", async () => {
+    setup();
+    const cat = { ...catalog, paths: [{ id: "new-to-ai", icon: "🌱", title: L("I am new to AI"), summary: "Start here", lessons: ["what-is-llm"] }] };
+    setup({ "/academy/catalog": { body: cat } });
+    render(<Academy workspace="w" />);
+    await userEvent.click(await screen.findByRole("button", { name: /I am new to AI/ }));
+    expect(localStorage.getItem("mka_academy_path")).toBe("new-to-ai");
+    expect(await screen.findByRole("region", { name: "Your learning path" })).toBeInTheDocument();
+  });
+
   it("Simple mode (the default for new learners): one line summary, five small steps, deeper material hidden, progress saved per step", async () => {
     localStorage.removeItem("mka_academy_simple");
     const { calls } = setup();

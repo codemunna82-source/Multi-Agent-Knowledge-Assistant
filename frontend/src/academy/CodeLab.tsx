@@ -82,12 +82,17 @@ export function TaskLab({ task, kind, lessonId, title, onResult }: { task: Task;
   const [out, setOut] = useState<RunOut | null>(null);
   const [running, setRunning] = useState(false);
   const [hint, setHint] = useState(false);
+  const [big, setBig] = useState<string | null>(null);
   const [sol, setSol] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const status = useCodeStatus();
   async function run() {
     setRunning(true); setMsg(null);
     try { setOut(await academy.runCode({ language: "python", code, lesson_id: lessonId, task: kind })); onResult?.(); } catch (e) { setMsg(errText(e)); } finally { setRunning(false); }
+  }
+  async function bigger() {
+    setMsg(null);
+    try { setBig((await academy.biggerHint(lessonId, kind)).hint); } catch (e) { setMsg(errText(e)); }
   }
   async function showSolution() {
     setMsg(null);
@@ -102,14 +107,37 @@ export function TaskLab({ task, kind, lessonId, title, onResult }: { task: Task;
         <button className="primary small" disabled={running || status?.available === false} onClick={() => void run()}>{running ? "Checking…" : "▶ Run and check"}</button>
         <button className="small" onClick={() => { setCode(task.starter); setOut(null); }}>↺ Reset code</button>
         <button className="small" aria-expanded={hint} onClick={() => setHint(!hint)}>Hint</button>
+        {hint && <button className="small" onClick={() => void bigger()}>Bigger hint</button>}
         <button className="small" onClick={() => void showSolution()}>Show solution</button>
       </div>
       {status && !status.available && <div className="ac-setup" role="note"><b>The code runner is off on this server.</b> You can still work on the task in your own editor; the expected output is below.</div>}
       {hint && <div className="ac-help" role="note"><b>Hint:</b> {task.hint}</div>}
+      {big && <div className="ac-help" role="note"><b>Bigger hint</b> (part of the solution, the rest is for you):<pre className="out">{big}</pre></div>}
       {msg && <div className="warn small" role="alert">{msg}</div>}
       {out && <Console out={out} expected={task.expected_output} />}
+      {out?.tests && out.tests.length > 0 && <TestTable tests={out.tests} />}
+      {!out && task.tests && task.tests.length > 0 && <p className="muted small">{task.tests.length} extra checks will run: {task.tests.filter((t) => !t.hidden).length} visible, {task.tests.filter((t) => t.hidden).length} hidden.</p>}
       <details><summary className="small">Expected output</summary><pre className="out">{task.expected_output}</pre></details>
       {sol && <div><b className="small">Reference solution</b><Editor value={sol} onChange={() => undefined} language="python" label={`${title} solution`} /></div>}
+    </div>
+  );
+}
+
+
+/** Result of the extra checks of a task: each one passes or fails; hidden ones show only their name. */
+export function TestTable({ tests }: { tests: import("./types").TestResult[] }) {
+  const ok = tests.filter((t) => t.passed).length;
+  return (
+    <div className="ac-tests" role="region" aria-label="Extra checks">
+      <b>{ok} of {tests.length} checks passed</b>
+      <ul>
+        {tests.map((t, i) => (
+          <li key={i} className={t.passed ? "ok" : "bad"}>
+            <span aria-hidden="true">{t.passed ? "✓" : "✗"}</span> {t.name}{t.hidden && <span className="muted small"> (hidden)</span>}
+            {!t.passed && !t.hidden && <div className="small muted">expected <code>{t.expect}</code>, got <code>{t.got}</code></div>}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

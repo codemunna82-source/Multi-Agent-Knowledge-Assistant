@@ -285,3 +285,20 @@ tr.picked td { background:var(--soft); } .ac-node { flex-wrap:wrap; gap:6px; mar
 .ac-deeper { margin:14px 0; border:1px dashed var(--line); border-radius:12px; padding:8px 12px; } .ac-deeper > summary { cursor:pointer; font-weight:600; color:var(--accent); }
 .ac-stepnav { position:sticky; bottom:0; padding:10px 0; background:linear-gradient(to top, var(--card) 70%, transparent); margin-top:16px; align-items:center; }
 @media (max-width:640px) { .ac-stepper .lbl { display:none; } .ac-stepper li { min-width:48px; } .ac-stepper button { justify-content:center; } .ac-stepper button.on .lbl { display:inline; } .ac-stepper li:has(button.on) { flex:3 1 0; } }
+
+/* ---- Academy: paths, reading options, feedback, glossary, test table ---- */
+.ac-size-1 { font-size:1.1em; } .ac-size-2 { font-size:1.22em; }
+.ac-dyslexia { font-family:"Atkinson Hyperlegible","Lexend","Verdana",sans-serif; letter-spacing:.03em; word-spacing:.1em; line-height:1.8; } .ac-dyslexia .ac-p { line-height:1.95; max-width:70ch; }
+.ac-prefs button { padding:4px 9px; }
+.ac-path progress { width:100%; max-width:420px; }
+.ac-pathcards { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:10px; margin:10px 0; }
+.ac-pathquiz { margin-top:10px; padding:12px; border:1px dashed var(--line); border-radius:12px; display:grid; gap:8px; }
+.ac-pathlist { list-style:none; padding:0; margin:10px 0; display:grid; gap:2px; } .ac-pathlist button { width:100%; text-align:left; border:0; background:transparent; padding:6px 8px; border-radius:8px; }
+.ac-pathlist .mark { display:inline-block; width:1.4em; color:var(--muted); } .ac-pathlist li.done .mark { color:var(--ok); } .ac-pathlist li.next button { background:var(--soft); font-weight:600; } .ac-pathlist li.next .mark { color:var(--accent); }
+.ac-feedback { margin:22px 0 8px; padding:12px 14px; border:1px solid var(--line); border-radius:12px; display:grid; gap:8px; } .ac-feedback textarea { width:100%; box-sizing:border-box; }
+.ac-feedback .chips button.on { background:var(--accent); color:var(--accent-fg); border-color:var(--accent); }
+.ac-glossary { display:grid; gap:2px; } .ac-glossary > div { display:grid; grid-template-columns:minmax(120px,200px) 1fr; gap:12px; padding:8px 0; border-bottom:1px solid var(--line); } .ac-glossary dt, .ac-glossary dd { margin:0; } .ac-glossary dt button { font-weight:600; }
+@media (max-width:640px) { .ac-glossary > div { grid-template-columns:1fr; gap:2px; } }
+.ac-tests { margin:8px 0; padding:10px 12px; border:1px solid var(--line); border-radius:10px; } .ac-tests ul { list-style:none; padding:0; margin:6px 0 0; display:grid; gap:4px; } .ac-tests li.ok { color:var(--ok); } .ac-tests li.bad { color:var(--bad); }
+.ac-review { margin-bottom:18px; padding-bottom:6px; border-bottom:1px solid var(--line); }
+.ac-modebar { gap:8px; align-items:center; }

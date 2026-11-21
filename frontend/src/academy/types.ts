@@ -4,11 +4,15 @@ export type Level = "beginner" | "intermediate" | "advanced" | "production";
 
 export interface LessonCard { id: string; category: string; level: Level; minutes: number; title: L10n; summary: string; has_viz: boolean; has_exercise: boolean; prereq: string[]; tags: string[] }
 export interface Category { id: string; title: { en: string; hi: string }; summary: string; lessons: LessonCard[] }
-export interface Catalog { categories: Category[]; roadmap: Record<Level, { title: string; lesson: string | null; planned: boolean }[]>; languages: Lang[] }
+export interface LearningPath { id: string; icon: string; title: L10n; summary: string; lessons: string[] }
+export interface Catalog { categories: Category[]; roadmap: Record<Level, { title: string; lesson: string | null; planned: boolean }[]>; languages: Lang[]; paths?: LearningPath[] }
 
 export interface CodeExample { title: string; language: "python" | "javascript"; runnable: boolean; code: string; expected_output?: string; setup?: string; explain: { lines: string; text: string }[] }
 export interface QuizQuestion { id: string; q: string; options: string[]; kind: "concept" | "scenario" }
-export interface Task { prompt: string; starter: string; hint: string; expected_output: string }
+export interface TaskTest { name: string; hidden: boolean; call?: string; expect?: string }
+export interface TestResult { name: string; passed: boolean; hidden: boolean; expect?: string; got?: string }
+export interface Task { prompt: string; starter: string; hint: string; expected_output: string; tests?: TaskTest[] }
+export interface ReviewOut { due: (QuizQuestion & { lesson: string; box: number })[]; due_total: number; scheduled_later: number }
 export interface Lesson extends LessonCard {
   next: string[]; objectives: string[]; assignment: string; sources: { title: string; url: string }[];
   text: { definition: L10n; analogy: L10n; technical: L10n; why: L10n; example: L10n; interview: L10n; mistakes: Record<Lang, string[]> };
@@ -24,7 +28,7 @@ export interface Progress {
   exercises: Record<string, { passed: boolean; attempts: number }>; streak: number; active_days: number; weak: string[]; bookmarks: string[];
   continue: { lesson: string | null; step: number } | null; recommended: string[]; projects: Record<string, number[]>;
 }
-export interface RunOut { ok: boolean; stdout: string; stderr: string; exit_code: number | null; ms: number; timed_out: boolean; truncated: boolean; unavailable?: string | null; notes?: string[]; error_help?: string | null; passed?: boolean | null; expected?: string | null }
+export interface RunOut { ok: boolean; tests?: TestResult[]; stdout: string; stderr: string; exit_code: number | null; ms: number; timed_out: boolean; truncated: boolean; unavailable?: string | null; notes?: string[]; error_help?: string | null; passed?: boolean | null; expected?: string | null }
 export interface CodeStatus { available: boolean; reason: string | null; languages: string[]; timeout_s: number; memory_mb: number; network: boolean; setup: string | null; preinstalled: string[]; limits: { code_bytes: number; output_bytes: number } }
 export interface ProjectCard { id: string; title: string; summary: string; level: Level; hours: number; stack: string[]; steps: number; done: number }
 export interface Project extends ProjectCard { architecture: { nodes: string[]; edges: [string, string][] }; folders: string; done_steps: number[]; [k: string]: unknown }

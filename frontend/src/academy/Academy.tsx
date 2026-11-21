@@ -4,20 +4,22 @@ import { errText, useLoad } from "../ui";
 import { Dashboard } from "./Dashboard";
 import { LessonView } from "./LessonView";
 import { Learn } from "../Learn";
+import { Glossary, loadPrefs, PrefsBar, prefsClass, savePrefs, type Prefs } from "./Extras";
 import { Interview } from "./Interview";
+import { loadPath, savePath } from "./Paths";
 import { Playground } from "./Playground";
 import { Projects } from "./Projects";
 import { QuizPanel } from "./QuizPanel";
 import { SidePanel } from "./SidePanel";
 import type { Lang, Level, LessonCard } from "./types";
 
-type View = { kind: "dashboard" | "roadmap" | "playground" | "lab" | "projects" | "interview" | "daily" } | { kind: "lesson"; id: string };
+type View = { kind: "dashboard" | "roadmap" | "playground" | "lab" | "projects" | "interview" | "daily" | "glossary" } | { kind: "lesson"; id: string };
 const LANG_KEY = "mka_academy_lang";
 const SIMPLE_KEY = "mka_academy_simple";
 const loadSimple = (): boolean => { try { return localStorage.getItem(SIMPLE_KEY) !== "0"; } catch { return true; } };
 const loadLang = (): Lang => { try { const v = localStorage.getItem(LANG_KEY); if (v === "en" || v === "hi" || v === "hinglish") return v; } catch { /* ignore */ } return "en"; };
 const LANGS: [Lang, string][] = [["en", "English"], ["hi", "हिंदी"], ["hinglish", "Hinglish"]];
-const NAV: [Exclude<View["kind"], "lesson">, string][] = [["dashboard", "Dashboard"], ["roadmap", "Roadmap"], ["playground", "Playground"], ["lab", "Lab: your documents"], ["projects", "Projects"], ["interview", "Interview prep"], ["daily", "Daily practice"]];
+const NAV: [Exclude<View["kind"], "lesson">, string][] = [["dashboard", "Dashboard"], ["roadmap", "Roadmap"], ["playground", "Playground"], ["lab", "Lab: your documents"], ["projects", "Projects"], ["interview", "Interview prep"], ["glossary", "Glossary"], ["daily", "Daily practice"]];
 
 export function Academy({ workspace, canIngest = false }: { workspace: string; canIngest?: boolean }) {
   const catalog = useLoad(() => academy.catalog(), []);
@@ -26,6 +28,11 @@ export function Academy({ workspace, canIngest = false }: { workspace: string; c
   const [view, setView] = useState<View>({ kind: "dashboard" });
   const [lang, setLangState] = useState<Lang>(loadLang);
   const [simple, setSimpleState] = useState<boolean>(loadSimple);
+  const [path, setPathState] = useState<string | null>(loadPath);
+  const setPath = (id: string | null) => { setPathState(id); savePath(id); };
+  const [prefs, setPrefsState] = useState<Prefs>(loadPrefs);
+  const setPrefs = (p: Prefs) => { setPrefsState(p); savePrefs(p); };
+  const review = useLoad(() => (view.kind === "daily" ? academy.review() : Promise.resolve(null)), [view.kind]);
   const setSimple = (v: boolean) => { setSimpleState(v); try { localStorage.setItem(SIMPLE_KEY, v ? "1" : "0"); } catch { /* ignore */ } };
   const [termId, setTermId] = useState<string | null>(null);
   const [q, setQ] = useState("");
@@ -63,7 +70,7 @@ export function Academy({ workspace, canIngest = false }: { workspace: string; c
   if (!catalog.data) return <div className="card muted">Loading the Academy…</div>;
 
   return (
-    <div className={`ac ${showSide ? "show-side" : ""}`}>
+    <div className={`ac ${showSide ? "show-side" : ""} ${prefsClass(prefs)}`}>
       <nav className="ac-nav" aria-label="Academy navigation">
         <input type="search" aria-label="Search lessons" placeholder="Search lessons and terms…" value={q} onChange={(e) => setQ(e.target.value)} />
         {q.trim().length >= 2 && (
@@ -93,19 +100,23 @@ export function Academy({ workspace, canIngest = false }: { workspace: string; c
           </nav>
           <span className="grow" />
           <div className="seg" role="group" aria-label="Explanation language">{LANGS.map(([l, label]) => <button key={l} aria-pressed={lang === l} className={lang === l ? "on" : ""} onClick={() => setLang(l)}>{label}</button>)}</div>
+          <PrefsBar prefs={prefs} onChange={setPrefs} />
           <button className="small ac-side-toggle" aria-expanded={showSide} onClick={() => setShowSide(!showSide)}>Notes &amp; terms</button>
         </div>
 
-        {view.kind === "dashboard" && <Dashboard catalog={catalog.data} progress={progress.data} cards={cards} lang={lang} onOpen={openLesson} go={(k) => go(k)} />}
+        {view.kind === "dashboard" && <Dashboard catalog={catalog.data} progress={progress.data} cards={cards} lang={lang} onOpen={openLesson} go={(k) => go(k)} path={path} onPath={setPath} />}
         {view.kind === "roadmap" && <Roadmap catalog={catalog.data} progress={progress.data} cards={cards} lang={lang} onOpen={openLesson} />}
         {view.kind === "lesson" && (lesson.error ? <div className="error" role="alert">{lesson.error}</div> : lesson.data
           ? <LessonView lesson={lesson.data} lang={lang} progress={progress.data} cards={cards} order={order} onTerm={(id) => { setTermId(id); setShowSide(true); }} onOpen={openLesson} onChanged={() => void progress.reload()} simple={simple} onSimple={setSimple} />
           : <div className="muted">Loading lesson…</div>)}
         {view.kind === "daily" && (
           <div className="ac-block"><h1>Daily practice</h1><p className="muted">Five questions picked for today. Questions from topics you found hard come first.</p>
+            {review.data && review.data.due.length > 0 && <div className="ac-review"><QuizPanel questions={review.data.due} title={`Due for review (${review.data.due_total})`} label="Due for review" onGraded={() => { void progress.reload(); void review.reload(); }} /><p className="muted small">Questions you got wrong come back at once; right ones return after 1, 3, 7 and 14 days.</p></div>}
+            {review.data && review.data.due.length === 0 && review.data.scheduled_later > 0 && <p className="muted small">Nothing to review right now. {review.data.scheduled_later} question{review.data.scheduled_later === 1 ? " is" : "s are"} scheduled for later.</p>}
             {daily.error && <div className="error" role="alert">{errText(daily.error)}</div>}
             {daily.data && <QuizPanel questions={daily.data.questions} label="Daily practice" onGraded={() => void progress.reload()} />}</div>
         )}
+        {view.kind === "glossary" && <Glossary glossary={glossary.data ?? {}} lang={lang} onTerm={(id) => { setTermId(id); setShowSide(true); }} />}
         {view.kind === "playground" && <Playground workspace={workspace} />}
         {view.kind === "lab" && <Learn workspace={workspace} canIngest={canIngest} />}
         {view.kind === "projects" && <Projects onChanged={() => void progress.reload()} />}
