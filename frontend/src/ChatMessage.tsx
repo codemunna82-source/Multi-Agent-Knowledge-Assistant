@@ -118,7 +118,7 @@ export const ChatMessage = memo(function ChatMessage({ turn: t, question, worksp
     <div className="msg assistant">
       <div className="avatar" aria-hidden="true">AI</div>
       <div className="bubble">
-        {t.resp && finished && (
+        {t.resp && finished && t.resp.route !== "chat" && (   // small talk (greeting, thanks) has no confidence or sources to show
           <div className="row small badges">
             {t.resp.confidence && <Badge kind={t.resp.confidence}>confidence: {t.resp.confidence}</Badge>}
             {t.resp.route && <Badge>{t.resp.route}</Badge>}

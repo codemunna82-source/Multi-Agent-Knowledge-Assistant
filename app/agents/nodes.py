@@ -24,6 +24,7 @@ from .common import NOT_VERIFIED, best_sentences, confidence_from, evidence_cita
 from ..rag import progress
 from ..rag.selfrag import grade_passages, should_retrieve
 from ..rag.selfrag import refine as self_refine
+from . import smalltalk
 from .routing import CROSS_DOC, URL, llm_route, rules_route, split_intents
 from .state import AgentState, RunCtx
 from .tools import ToolError
@@ -119,6 +120,8 @@ class Agents:
 
             term, quoted = extract_term(state["question"]) if c.req.force_route in ("exact", "document_search") else (None, False)
             plan = {"route": c.req.force_route, "why": "requested by client", "term": term, "quoted": quoted}
+        elif (kind := smalltalk.detect(state["question"])):  # a greeting / thanks / 'what can you do': no retrieval, no verification
+            plan = {"route": "chat", "why": f"small talk ({kind})", "kind": kind}
         elif s.supervisor_mode == "llm" and self.k.llm.available:
             plan = llm_route(self.k.llm, state["question"], metas, s.web_enabled)
         method = "llm" if plan else "rules"
@@ -132,9 +135,21 @@ class Agents:
                 branches = [{"route": sp["route"], "question": p, "term": sp.get("term"), "quoted": sp.get("quoted", False), "sub": sp.get("sub")} for p, sp in zip(parts, subs)]
                 return {"route": "parallel", "plan": {"method": method, "why": f"compound question ({len(parts)} parts)", "branches": branches, "question_flags": flags},
                         "trace": [f"supervisor: parallel fan-out to {', '.join(b['route'] for b in branches)}"]}
+        if plan["route"] == "chat":
+            return {"route": "chat", "plan": {"method": "rules", "why": why, "kind": plan["kind"], "question_flags": flags}, "trace": [f"supervisor: route=chat ({why})"]}
         return {"route": plan["route"], "term": plan.get("term"), "quoted": plan.get("quoted", False),
                 "plan": {"method": method, "why": why, "sub": plan.get("sub"), "question_flags": flags, "auto": bool(c.opts.auto)},
                 "trace": [f"supervisor: route={plan['route']}{'/' + plan['sub'] if plan.get('sub') else ''} via {method} ({why})"]}
+
+    # ================================================================== Small talk
+    def chat(self, state: AgentState) -> dict:
+        """Greetings and thanks: a fixed, honest reply. Ends the graph directly (no retrieval, verification, citations or follow-up search)."""
+        c = self.ctx(state)
+        r = smalltalk.reply(state["plan"]["kind"], state["question"], len(c.sources(self.k)))
+        d = result("chat", r["answer"], confidence="none", verified=True)
+        d.update(language=r["language"], followups=[])
+        d["details"] = {"plan": state.get("plan", {}), "trace": state.get("trace", []) + ["chat: small talk, no documents searched"]}
+        return {"result": d, "trace": ["chat: replied without searching documents"]}
 
     # ================================================================== shared helpers
     def _stale(self, metas: list[dict], with_warnings: bool = True) -> list[str]:

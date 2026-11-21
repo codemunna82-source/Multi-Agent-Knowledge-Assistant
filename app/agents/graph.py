@@ -1,5 +1,6 @@
 """LangGraph StateGraph wiring.
 
+    START -> supervisor --(small talk)--> chat -> END
     START -> supervisor --(route)--> exact | data ------------------------------------------> final
                           \\-------> semantic | document_search | web | summarize | compare -> verify --pass/fail--> final
                                           ^                                           |
@@ -34,6 +35,7 @@ def build_graph(agents: Agents, checkpointer=None):
     g.add_node("merge", m(agents.merge))
     g.add_node("verify", m(agents.verify))
     g.add_node("final", m(agents.final))
+    g.add_node("chat", m(agents.chat))  # greetings and thanks: answered without searching
     g.set_entry_point("supervisor")
     def after_supervisor(st: AgentState):
         if st["route"] == "parallel":  # compound question: fan out, one branch per sub-question, executed concurrently
@@ -42,7 +44,8 @@ def build_graph(agents: Agents, checkpointer=None):
             return "strategy"
         return st["route"]
 
-    g.add_conditional_edges("supervisor", after_supervisor, {**{r: r for r in DETERMINISTIC + GENERATIVE}, "branch": "branch", "strategy": "strategy"})
+    g.add_conditional_edges("supervisor", after_supervisor, {**{r: r for r in DETERMINISTIC + GENERATIVE}, "branch": "branch", "strategy": "strategy", "chat": "chat"})
+    g.add_edge("chat", END)
     g.add_conditional_edges("strategy", lambda st: st["route"], {r: r for r in AUTO_ROUTES})
     g.add_edge("branch", "merge")
     g.add_edge("merge", "final")
