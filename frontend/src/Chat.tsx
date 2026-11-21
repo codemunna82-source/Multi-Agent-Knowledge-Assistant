@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, askStream } from "./api";
+import { ConversationList } from "./ConversationList";
 import { ChatMessage, type Turn } from "./ChatMessage";
 import { Preview } from "./Preview";
 import { StopGeneratingButton } from "./StopGeneratingButton";
@@ -187,17 +188,8 @@ export function Chat({ workspace, prefill, onPrefillUsed }: { workspace: string;
   return (
     <div className={`gpt ${showOpts ? "with-opts" : ""}`}>
       <aside className="gpt-side" aria-label="Conversations">
-        <button className="new" onClick={() => { setActive(null); setTurns([]); }}>+ New conversation</button>
-        <h3>History</h3>
-        <div className="convs">
-          {(convs.data?.items ?? []).map((c) => (
-            <div key={c.id} className="conv-row">
-              <button className={c.id === active ? "on" : ""} onClick={() => void open(c.id)} title={c.title}>{c.title || "Untitled"}</button>
-              <button className="small danger x" aria-label={`Delete conversation ${c.title}`} onClick={async () => { await api.deleteConversation(workspace, c.id); if (c.id === active) { setActive(null); setTurns([]); } void convs.reload(); }}>×</button>
-            </div>
-          ))}
-          {!convs.data?.items.length && <span className="muted small">No conversations yet.</span>}
-        </div>
+        <ConversationList items={convs.data?.items ?? []} active={active} onOpen={(id) => void open(id)} onNew={() => { setActive(null); setTurns([]); }}
+          onDelete={async (c) => { await api.deleteConversation(workspace, c.id); if (c.id === active) { setActive(null); setTurns([]); } void convs.reload(); }} />
       </aside>
 
       <section className="gpt-main">

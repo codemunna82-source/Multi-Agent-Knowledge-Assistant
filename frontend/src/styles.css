@@ -75,10 +75,24 @@ figure.chart { margin:8px 0; } figure.chart svg { max-width:720px; background:va
 .gpt { display:grid; grid-template-columns:240px minmax(0,1fr); gap:0; height:calc(100vh - 120px); min-height:480px; border:1px solid var(--line); border-radius:14px; overflow:hidden; background:var(--card); }
 .gpt.with-opts { grid-template-columns:240px minmax(0,1fr) 300px; }
 .gpt-side { padding:12px; border-right:1px solid var(--line); background:var(--bg); overflow:auto; display:flex; flex-direction:column; gap:6px; }
-.gpt-side .new { text-align:left; border-radius:10px; font-weight:600; }
-.gpt-side .conv-row { display:flex; gap:4px; } .gpt-side .conv-row button:first-child { flex:1; text-align:left; border:0; background:transparent; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border-radius:8px; }
-.gpt-side .conv-row button:first-child:hover, .gpt-side .conv-row button.on { background:var(--soft); }
-.gpt-side .x { border:0; background:transparent; opacity:.5; } .gpt-side .conv-row:hover .x { opacity:1; }
+.gpt-side .new { text-align:left; border-radius:10px; font-weight:600; background:var(--accent); color:var(--accent-fg); border-color:var(--accent); padding:9px 12px; }
+.gpt-side .new:hover { filter:brightness(1.08); }
+.gpt-side .conv-search { width:100%; box-sizing:border-box; padding:8px 10px; border-radius:10px; font-size:13px; background:var(--card); color:var(--fg); border:1px solid var(--line); color-scheme:inherit; }
+.gpt-side .conv-search::placeholder { color:var(--muted); }
+.gpt-side .convs button { width:auto; margin:0; display:inline-block; }   /* the older .convs button rule (width:100%, block) is meant for the dashboard list */
+.gpt-side .convs { display:flex; flex-direction:column; gap:2px; margin-top:4px; }
+.gpt-side .convs h3 { margin:12px 8px 4px; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+.gpt-side .conv-row { position:relative; display:flex; align-items:center; gap:2px; border-radius:10px; }
+.gpt-side .conv-row:hover, .gpt-side .conv-row:focus-within { background:var(--soft); }
+.gpt-side .conv-row.on { background:var(--soft); box-shadow:inset 3px 0 0 var(--accent); }
+.gpt-side .conv-title { flex:1 1 0; width:0; min-width:0; text-align:left; border:0; background:transparent; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border-radius:10px; padding:8px 10px; font-size:14px; }
+.gpt-side .conv-row.on .conv-title { font-weight:600; }
+.gpt-side .x { border:0; background:transparent; opacity:0; padding:4px 8px; border-radius:8px; }
+.gpt-side .conv-row:hover .x, .gpt-side .conv-row:focus-within .x, .gpt-side .x:focus-visible { opacity:1; }
+@media (hover:none) { .gpt-side .x { opacity:.6; } }
+.gpt-side .conv-confirm { display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:6px 8px; font-size:13px; width:100%; }
+.gpt-side .conv-confirm span { flex:1 1 100%; color:var(--muted); } .gpt-side .conv-confirm button { flex:1; }
+.gpt-side .conv-empty { display:flex; flex-direction:column; gap:4px; padding:18px 10px; text-align:center; border:1px dashed var(--line); border-radius:12px; margin-top:8px; }
 .gpt-main { display:flex; flex-direction:column; min-width:0; min-height:0; }
 .gpt-main .log { flex:1; overflow:auto; padding:20px 16px; max-height:none; gap:18px; align-items:center; }
 .gpt-main .log > * { width:100%; max-width:760px; }
